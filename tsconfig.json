@@ -1,0 +1,6 @@
+{
+  "extends": "@project-manager/config/tsconfig.base.json",
+  "compilerOptions": {
+    "strictNullChecks": true
+  }
+}
