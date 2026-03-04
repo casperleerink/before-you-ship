@@ -102,7 +102,8 @@ export default defineSchema({
 		createdAt: v.number(),
 	})
 		.index("by_projectId", ["projectId"])
-		.index("by_projectId_createdAt", ["projectId", "createdAt"]),
+		.index("by_projectId_createdAt", ["projectId", "createdAt"])
+		.index("by_threadId", ["threadId"]),
 
 	tasks: defineTable({
 		projectId: v.id("projects"),

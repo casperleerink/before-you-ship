@@ -77,7 +77,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Conversation detail: full-page chat interface with back button
 - [x] Start conversation from scratch (blank slate)
 - [x] Start conversation from triage item (context pre-loaded)
-- [ ] Convex agent thread creation with persistent message history
+- [x] Convex agent thread creation with persistent message history
 - [ ] System prompt injection: project description + available tools
 - [ ] AI behavior: ask clarifying questions (1-2 at a time), surface technical insights in plain language
 - [ ] "Analyzing codebase..." indicator when AI reads files (hide raw file contents from user)
@@ -85,7 +85,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Plan approve flow: user approves → tasks created, card locks showing what was created
 - [ ] Plan reject/revise flow: user requests changes via chat → AI produces new plan card
 - [x] Conversation status management: active, completed, abandoned
-- [ ] AI-generated conversation title after first few messages
+- [x] AI-generated conversation title after first few messages
 
 ### AI Agent
 - [ ] Agent loop: reason → call tools → verify → respond
