@@ -491,6 +491,8 @@ function CreateProjectForm({
 	onCancel: () => void;
 }) {
 	const [name, setName] = useState("");
+	const [description, setDescription] = useState("");
+	const [repoUrl, setRepoUrl] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createProject = useMutation(api.projects.create);
 
@@ -502,7 +504,12 @@ function CreateProjectForm({
 
 		setIsSubmitting(true);
 		try {
-			await createProject({ name: name.trim(), orgId });
+			await createProject({
+				name: name.trim(),
+				description: description.trim() || undefined,
+				repoUrl: repoUrl.trim() || undefined,
+				orgId,
+			});
 			toast.success("Project created");
 			onCreated();
 		} catch {
@@ -526,6 +533,31 @@ function CreateProjectForm({
 						onChange={(e) => setName(e.target.value)}
 						placeholder="My Project"
 						value={name}
+					/>
+				</div>
+				<div className="space-y-2">
+					<Label htmlFor="project-description">
+						Description{" "}
+						<span className="text-muted-foreground">(optional)</span>
+					</Label>
+					<textarea
+						className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+						id="project-description"
+						onChange={(e) => setDescription(e.target.value)}
+						placeholder="Brief description of the project"
+						value={description}
+					/>
+				</div>
+				<div className="space-y-2">
+					<Label htmlFor="project-repo-url">
+						Repository URL{" "}
+						<span className="text-muted-foreground">(optional)</span>
+					</Label>
+					<Input
+						id="project-repo-url"
+						onChange={(e) => setRepoUrl(e.target.value)}
+						placeholder="https://github.com/org/repo"
+						value={repoUrl}
 					/>
 				</div>
 				<div className="flex gap-2">

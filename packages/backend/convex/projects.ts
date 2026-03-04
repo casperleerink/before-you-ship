@@ -55,6 +55,8 @@ export const getById = query({
 export const create = mutation({
 	args: {
 		name: v.string(),
+		description: v.optional(v.string()),
+		repoUrl: v.optional(v.string()),
 		orgId: v.id("organizations"),
 	},
 	handler: async (ctx, args) => {
@@ -70,6 +72,8 @@ export const create = mutation({
 
 		return ctx.db.insert("projects", {
 			name: args.name,
+			description: args.description,
+			repoUrl: args.repoUrl,
 			organizationId: args.orgId,
 			createdBy: appUser._id,
 			createdAt: Date.now(),

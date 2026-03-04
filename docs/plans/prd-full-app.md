@@ -47,7 +47,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 
 ### Projects
 - [x] Projects list screen: grid/list of projects in current org
-- [ ] Create project flow: name, optional repo connection
+- [x] Create project flow: name, optional repo connection
 - [x] Project view layout: sidebar (project name, nav, quick-add triage) + main content area
 - [ ] Project settings: edit name/description, connect/disconnect Git repo, sandbox status
 - [ ] Auto-generate project description on first repo connect (AI reads README + file tree)
