@@ -1,8 +1,8 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
-import { Inbox, Plus } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery } from "convex/react";
+import { Inbox, MessageSquare, Plus } from "lucide-react";
 import { useState } from "react";
 
 import EmptyState from "@/components/empty-state";
@@ -18,9 +18,13 @@ export const Route = createFileRoute(
 });
 
 function TriagePage() {
-	const { projectId: projectIdParam } = Route.useParams();
+	const { orgId: orgIdParam, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 	const items = useQuery(api.triageItems.list, { projectId });
+	const createFromTriageItem = useMutation(
+		api.conversations.createFromTriageItem
+	);
+	const navigate = useNavigate();
 	const [showCreateForm, setShowCreateForm] = useState(false);
 
 	if (items === undefined) {
@@ -30,6 +34,22 @@ function TriagePage() {
 			</div>
 		);
 	}
+
+	const navigateToConversation = (conversationId: Id<"conversations">) => {
+		navigate({
+			to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
+			params: {
+				orgId: orgIdParam,
+				projectId: projectIdParam,
+				conversationId,
+			},
+		});
+	};
+
+	const handlePendingClick = async (triageItemId: Id<"triageItems">) => {
+		const conversationId = await createFromTriageItem({ triageItemId });
+		navigateToConversation(conversationId);
+	};
 
 	return (
 		<div className="p-6">
@@ -59,17 +79,33 @@ function TriagePage() {
 			) : (
 				<div className="space-y-2">
 					{items.map((item) => (
-						<div
-							className="flex items-start justify-between gap-4 rounded-lg border p-4"
+						<button
+							className="flex w-full items-start justify-between gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-accent/50"
 							key={item._id}
+							onClick={() => {
+								if (item.status === "converted" && item.conversationId) {
+									navigateToConversation(item.conversationId);
+								} else if (item.status === "pending") {
+									handlePendingClick(item._id);
+								}
+							}}
+							type="button"
 						>
-							<p className="flex-1 text-sm">{item.content}</p>
+							<div className="min-w-0 flex-1">
+								<p className="text-sm">{item.content}</p>
+								{item.status === "converted" && (
+									<p className="mt-1 flex items-center gap-1 text-muted-foreground text-xs">
+										<MessageSquare className="h-3 w-3" />
+										View conversation
+									</p>
+								)}
+							</div>
 							<Badge
 								variant={item.status === "pending" ? "outline" : "secondary"}
 							>
 								{item.status}
 							</Badge>
-						</div>
+						</button>
 					))}
 				</div>
 			)}

@@ -6,3 +6,4 @@ Project view layout: sidebar nav (triage/conversations/tasks/docs/settings) + ma
 Triage: schema table with compound index, list/create backend functions with parallel auth checks, triage inbox UI with status badges, shared TriageQuickAddForm component used in both sidebar and triage page
 Conversations: schema table with status validator (active/completed/abandoned), list/create backend functions, conversations list UI with status badges and create button
 Conversation detail: full-page chat with back button, streaming messages via useUIMessages, thread creation on conversation create, shared MessageContent component
+Triage click interactions: pending items create conversation via createFromTriageItem mutation (creates thread, patches triage status to converted, links conversationId), converted items navigate to linked conversation

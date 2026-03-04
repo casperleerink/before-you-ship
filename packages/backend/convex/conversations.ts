@@ -104,3 +104,55 @@ export const create = mutation({
 		});
 	},
 });
+
+export const createFromTriageItem = mutation({
+	args: {
+		triageItemId: v.id("triageItems"),
+	},
+	handler: async (ctx, args) => {
+		const [appUser, triageItem] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.triageItemId),
+		]);
+		if (!appUser) {
+			throw new Error("Not authenticated");
+		}
+		if (!triageItem) {
+			throw new Error("Triage item not found");
+		}
+		if (triageItem.status === "converted") {
+			throw new Error("Triage item already converted");
+		}
+
+		const project = await ctx.db.get(triageItem.projectId);
+		if (!project) {
+			throw new Error("Project not found");
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			throw new Error("Not a member of this organization");
+		}
+
+		const threadId = await createThread(ctx, components.agent, {});
+
+		const conversationId = await ctx.db.insert("conversations", {
+			projectId: triageItem.projectId,
+			threadId,
+			status: "active",
+			createdBy: appUser._id,
+			createdAt: Date.now(),
+		});
+
+		await ctx.db.patch(triageItem._id, {
+			status: "converted",
+			conversationId,
+		});
+
+		return conversationId;
+	},
+});
