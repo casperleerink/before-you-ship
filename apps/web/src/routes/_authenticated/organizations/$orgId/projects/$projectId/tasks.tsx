@@ -3,13 +3,22 @@ import type {
 	Doc,
 	Id,
 } from "@project-manager/backend/convex/_generated/dataModel";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ListTodo } from "lucide-react";
+import { ArrowRight, ListTodo } from "lucide-react";
+import { useState } from "react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Sheet,
+	SheetBody,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 import {
 	Table,
 	TableBody,
@@ -64,10 +73,130 @@ function levelVariant(level: Doc<"tasks">["risk"]) {
 	}
 }
 
+function FieldLabel({ children }: { children: React.ReactNode }) {
+	return (
+		<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+			{children}
+		</span>
+	);
+}
+
+function BadgeField({
+	label,
+	value,
+	variant,
+}: {
+	label: string;
+	value: string;
+	variant: BadgeVariant;
+}) {
+	return (
+		<div className="flex flex-col gap-1">
+			<FieldLabel>{label}</FieldLabel>
+			<Badge variant={variant}>{value}</Badge>
+		</div>
+	);
+}
+
+function TaskDetailSheet({
+	task,
+	onClose,
+}: {
+	task: Doc<"tasks">;
+	onClose: () => void;
+}) {
+	const { orgId, projectId } = Route.useParams();
+	const navigate = useNavigate();
+
+	return (
+		<SheetContent>
+			<SheetHeader>
+				<SheetTitle>{task.title}</SheetTitle>
+			</SheetHeader>
+			<SheetBody>
+				<div className="flex flex-col gap-6">
+					<div className="grid grid-cols-3 gap-4">
+						<BadgeField
+							label="Status"
+							value={statusLabel(task.status)}
+							variant={statusVariant(task.status)}
+						/>
+						<BadgeField
+							label="Risk"
+							value={task.risk}
+							variant={levelVariant(task.risk)}
+						/>
+						<BadgeField
+							label="Complexity"
+							value={task.complexity}
+							variant={levelVariant(task.complexity)}
+						/>
+					</div>
+
+					<div className="grid grid-cols-3 gap-4">
+						<BadgeField
+							label="Effort"
+							value={task.effort}
+							variant={levelVariant(task.effort)}
+						/>
+					</div>
+
+					{task.affectedAreas.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<FieldLabel>Affected Areas</FieldLabel>
+							<div className="flex flex-wrap gap-1.5">
+								{task.affectedAreas.map((area) => (
+									<Badge key={area} variant="secondary">
+										{area}
+									</Badge>
+								))}
+							</div>
+						</div>
+					)}
+
+					{task.brief && (
+						<div className="flex flex-col gap-2">
+							<FieldLabel>Brief</FieldLabel>
+							<div className="prose prose-sm max-w-none whitespace-pre-wrap rounded-md border bg-muted/50 p-4 text-sm">
+								{task.brief}
+							</div>
+						</div>
+					)}
+
+					<div className="flex flex-col gap-2">
+						<FieldLabel>Origin Conversation</FieldLabel>
+						<Button
+							className="w-fit"
+							onClick={() => {
+								onClose();
+								navigate({
+									to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
+									params: {
+										orgId,
+										projectId,
+										conversationId: task.conversationId,
+									},
+								});
+							}}
+							variant="outline"
+						>
+							View Conversation
+							<ArrowRight className="ml-1 size-4" />
+						</Button>
+					</div>
+				</div>
+			</SheetBody>
+		</SheetContent>
+	);
+}
+
 function TasksPage() {
 	const { projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 	const tasks = useQuery(api.tasks.list, { projectId });
+	const [selectedTaskId, setSelectedTaskId] = useState<Id<"tasks"> | null>(
+		null
+	);
 
 	if (tasks === undefined) {
 		return (
@@ -76,6 +205,10 @@ function TasksPage() {
 			</div>
 		);
 	}
+
+	const selectedTask = selectedTaskId
+		? tasks.find((t) => t._id === selectedTaskId)
+		: null;
 
 	return (
 		<div className="p-6">
@@ -103,7 +236,11 @@ function TasksPage() {
 						</TableHeader>
 						<TableBody>
 							{tasks.map((task) => (
-								<TableRow key={task._id}>
+								<TableRow
+									className="cursor-pointer"
+									key={task._id}
+									onClick={() => setSelectedTaskId(task._id)}
+								>
 									<TableCell className="font-medium">{task.title}</TableCell>
 									<TableCell>
 										<Badge variant={statusVariant(task.status)}>
@@ -129,6 +266,22 @@ function TasksPage() {
 					</Table>
 				</div>
 			)}
+
+			<Sheet
+				onOpenChange={(open) => {
+					if (!open) {
+						setSelectedTaskId(null);
+					}
+				}}
+				open={selectedTaskId !== null}
+			>
+				{selectedTask && (
+					<TaskDetailSheet
+						onClose={() => setSelectedTaskId(null)}
+						task={selectedTask}
+					/>
+				)}
+			</Sheet>
 		</div>
 	);
 }

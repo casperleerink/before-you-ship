@@ -105,12 +105,12 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### Tasks
 - [x] Tasks list screen: table with title, status, risk, complexity, effort, assignee columns
 - [ ] Filter by status, assignee, risk, complexity, effort
-- [ ] Task detail: sheet slide-over from right showing all fields
+- [x] Task detail: sheet slide-over from right showing all fields
 - [ ] Editable fields in detail: assignee, status
 - [ ] Markdown-rendered brief in detail view
-- [ ] Link back to origin conversation from task detail
-- [ ] Risk/complexity/effort badges (low/medium/high)
-- [ ] Affected areas display (codebase paths)
+- [x] Link back to origin conversation from task detail
+- [x] Risk/complexity/effort badges (low/medium/high)
+- [x] Affected areas display (codebase paths)
 
 ### Docs
 - [ ] Docs list screen within project
