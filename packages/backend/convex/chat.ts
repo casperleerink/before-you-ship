@@ -67,25 +67,61 @@ export const sendMessage = mutation({
 	},
 });
 
+function buildSystemPrompt(project: {
+	name: string;
+	description?: string;
+	repoUrl?: string;
+}): string {
+	const parts = [
+		"You are a technical advisor AI helping non-technical team members (PMs, designers, clients) refine ideas into developer-ready tasks.",
+		"",
+		"## Project Context",
+		`**Project:** ${project.name}`,
+	];
+
+	if (project.description) {
+		parts.push(`**Description:** ${project.description}`);
+	}
+
+	if (project.repoUrl) {
+		parts.push(`**Repository:** ${project.repoUrl}`);
+	}
+
+	parts.push(
+		"",
+		"## Your Behavior",
+		"- Ask 1-2 clarifying questions at a time to understand the user's intent. Do not overwhelm with many questions.",
+		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
+		"- When you have enough context, bias toward proposing a structured plan with concrete tasks.",
+		"- Each proposed task should include a title, brief description, complexity/risk/effort assessment, and affected areas of the codebase.",
+		"- Be honest about feasibility and complexity. If something is difficult or risky, say so clearly.",
+		"- Keep responses concise and focused. Avoid unnecessary filler."
+	);
+
+	return parts.join("\n");
+}
+
 export const generateResponseAsync = internalAction({
 	args: {
 		threadId: v.string(),
 		promptMessageId: v.string(),
 	},
 	handler: async (ctx, { threadId, promptMessageId }) => {
+		const { conversation, project } = await ctx.runQuery(
+			internal.chat.getConversationWithProject,
+			{ threadId }
+		);
+
+		const systemPrompt = project ? buildSystemPrompt(project) : undefined;
+
 		await chatAgent.streamText(
 			ctx,
 			{ threadId },
-			{ promptMessageId },
+			{ promptMessageId, system: systemPrompt },
 			{ saveStreamDeltas: true }
 		);
 
 		// Schedule title generation if the conversation doesn't have one yet
-		const conversation = await ctx.runQuery(
-			internal.chat.getConversationByThreadId,
-			{ threadId }
-		);
-
 		if (conversation && !conversation.title) {
 			await ctx.scheduler.runAfter(0, internal.chat.generateTitleAsync, {
 				threadId,
@@ -104,6 +140,23 @@ export const getConversationByThreadId = internalQuery({
 			.query("conversations")
 			.withIndex("by_threadId", (q) => q.eq("threadId", threadId))
 			.unique();
+	},
+});
+
+export const getConversationWithProject = internalQuery({
+	args: {
+		threadId: v.string(),
+	},
+	handler: async (ctx, { threadId }) => {
+		const conversation = await ctx.db
+			.query("conversations")
+			.withIndex("by_threadId", (q) => q.eq("threadId", threadId))
+			.unique();
+		if (!conversation) {
+			return { conversation: null, project: null };
+		}
+		const project = await ctx.db.get(conversation.projectId);
+		return { conversation, project };
 	},
 });
 

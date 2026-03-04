@@ -20,3 +20,4 @@ Conversation status management: updateStatus mutation, clickable status dropdown
 Create project flow: added description and repoUrl optional fields to create mutation and UI form
 Project settings: update mutation, editable name/description form on settings page, repo URL display (read-only)
 AI-generated conversation title: generateTitleAsync action triggered after first AI response, by_threadId index, getConversationByThreadId internal query
+System prompt injection: dynamic system prompt with project name/description/repoUrl + behavioral instructions, getConversationWithProject internal query, passed via system field to streamText

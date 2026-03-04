@@ -78,7 +78,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Start conversation from scratch (blank slate)
 - [x] Start conversation from triage item (context pre-loaded)
 - [x] Convex agent thread creation with persistent message history
-- [ ] System prompt injection: project description + available tools
+- [x] System prompt injection: project description + available tools
 - [ ] AI behavior: ask clarifying questions (1-2 at a time), surface technical insights in plain language
 - [ ] "Analyzing codebase..." indicator when AI reads files (hide raw file contents from user)
 - [ ] Plan proposal: structured card in chat (proposed tasks with title/brief, complexity/feasibility signal, affected areas, approve button)
