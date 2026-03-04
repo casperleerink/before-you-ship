@@ -13,10 +13,14 @@ import {
 	Inbox,
 	ListTodo,
 	MessageSquare,
+	Plus,
 	Settings,
 } from "lucide-react";
+import { useState } from "react";
 
 import Loader from "@/components/loader";
+import TriageQuickAddForm from "@/components/triage-quick-add-form";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute(
@@ -93,11 +97,41 @@ function ProjectLayout() {
 						);
 					})}
 				</nav>
+
+				<div className="border-t p-3">
+					<SidebarQuickAdd projectId={projectId} />
+				</div>
 			</aside>
 
 			<main className="flex-1 overflow-auto">
 				<Outlet />
 			</main>
 		</div>
+	);
+}
+
+function SidebarQuickAdd({ projectId }: { projectId: Id<"projects"> }) {
+	const [isOpen, setIsOpen] = useState(false);
+
+	if (!isOpen) {
+		return (
+			<Button
+				className="w-full"
+				onClick={() => setIsOpen(true)}
+				size="sm"
+				variant="outline"
+			>
+				<Plus className="mr-1 h-4 w-4" />
+				Quick Add Triage
+			</Button>
+		);
+	}
+
+	return (
+		<TriageQuickAddForm
+			layout="stacked"
+			onSuccess={() => setIsOpen(false)}
+			projectId={projectId}
+		/>
 	);
 }

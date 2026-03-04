@@ -7,6 +7,11 @@ export const orgRoleValidator = v.union(
 	v.literal("member")
 );
 
+export const triageStatusValidator = v.union(
+	v.literal("pending"),
+	v.literal("converted")
+);
+
 export const projectRepoProviderValidator = v.union(
 	v.literal("github"),
 	v.literal("gitlab"),
@@ -50,4 +55,15 @@ export default defineSchema({
 		createdBy: v.id("users"),
 		createdAt: v.number(),
 	}).index("by_organizationId", ["organizationId"]),
+
+	triageItems: defineTable({
+		projectId: v.id("projects"),
+		content: v.string(),
+		status: triageStatusValidator,
+		conversationId: v.optional(v.id("conversations")),
+		createdBy: v.id("users"),
+		createdAt: v.number(),
+	})
+		.index("by_projectId", ["projectId"])
+		.index("by_projectId_createdAt", ["projectId", "createdAt"]),
 });

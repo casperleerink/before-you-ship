@@ -66,8 +66,8 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Tools run as Convex actions (external HTTP calls to Daytona SDK)
 
 ### Triage
-- [ ] Triage inbox screen: list items newest-first, status indicator (pending/converted)
-- [ ] Quick-add triage: text input + submit, accessible from sidebar in any project section
+- [x] Triage inbox screen: list items newest-first, status indicator (pending/converted)
+- [x] Quick-add triage: text input + submit, accessible from sidebar in any project section
 - [ ] Click pending item → option to start conversation from it
 - [ ] Click converted item → navigate to linked conversation
 - [ ] Mark triage item as `converted` when conversation starts from it

@@ -3,3 +3,4 @@ Session management: added /sign-in route, _authenticated layout guard, moved das
 Organizations: schema tables, list/getById/create functions, org selector page with auto-skip, org detail page, redirects updated to /organizations
 Projects: schema table, list/getById/create functions with org membership checks, projects list UI on org page with create form, extracted getAppUser and getOrgMembership helpers
 Project view layout: sidebar nav (triage/conversations/tasks/docs/settings) + main content area, nested routes under $orgId/$projectId, EmptyState component, project cards link to project view
+Triage: schema table with compound index, list/create backend functions with parallel auth checks, triage inbox UI with status badges, shared TriageQuickAddForm component used in both sidebar and triage page
