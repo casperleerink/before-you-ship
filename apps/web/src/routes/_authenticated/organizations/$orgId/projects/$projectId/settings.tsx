@@ -76,6 +76,7 @@ function SettingsPage() {
 					projectId={projectId}
 					repoProvider={project.repoProvider}
 					repoUrl={project.repoUrl}
+					sandboxId={project.sandboxId}
 				/>
 			</div>
 		</div>
@@ -86,10 +87,12 @@ function RepositorySection({
 	projectId,
 	repoUrl,
 	repoProvider,
+	sandboxId,
 }: {
 	projectId: Id<"projects">;
 	repoUrl?: string;
 	repoProvider?: string;
+	sandboxId?: string;
 }) {
 	const githubConnection = useQuery(
 		api.gitConnections.getByProvider,
@@ -114,6 +117,7 @@ function RepositorySection({
 					}}
 					repoProvider={repoProvider}
 					repoUrl={repoUrl}
+					sandboxId={sandboxId}
 				/>
 			) : (
 				<div className="space-y-4">
@@ -130,42 +134,51 @@ function RepositorySection({
 function ConnectedRepo({
 	repoUrl,
 	repoProvider,
+	sandboxId,
 	onDisconnect,
 }: {
 	repoUrl: string;
 	repoProvider?: string;
+	sandboxId?: string;
 	onDisconnect: () => Promise<void>;
 }) {
 	const [disconnecting, setDisconnecting] = useState(false);
 
 	return (
-		<div className="flex items-center justify-between rounded-lg border p-4">
-			<div className="flex items-center gap-3">
-				{repoProvider === "github" && <GitHubIcon />}
-				<div>
-					<p className="font-medium text-sm">{repoUrl}</p>
-					{repoProvider && (
-						<Badge className="mt-1" variant="secondary">
-							{repoProvider}
-						</Badge>
-					)}
+		<div className="space-y-3">
+			<div className="flex items-center justify-between rounded-lg border p-4">
+				<div className="flex items-center gap-3">
+					{repoProvider === "github" && <GitHubIcon />}
+					<div>
+						<p className="font-medium text-sm">{repoUrl}</p>
+						<div className="mt-1 flex items-center gap-2">
+							{repoProvider && (
+								<Badge variant="secondary">{repoProvider}</Badge>
+							)}
+							{sandboxId ? (
+								<Badge variant="secondary">Sandbox ready</Badge>
+							) : (
+								<Badge variant="outline">Setting up sandbox...</Badge>
+							)}
+						</div>
+					</div>
 				</div>
+				<Button
+					disabled={disconnecting}
+					onClick={async () => {
+						setDisconnecting(true);
+						try {
+							await onDisconnect();
+						} finally {
+							setDisconnecting(false);
+						}
+					}}
+					size="sm"
+					variant="outline"
+				>
+					{disconnecting ? "Disconnecting..." : "Disconnect"}
+				</Button>
 			</div>
-			<Button
-				disabled={disconnecting}
-				onClick={async () => {
-					setDisconnecting(true);
-					try {
-						await onDisconnect();
-					} finally {
-						setDisconnecting(false);
-					}
-				}}
-				size="sm"
-				variant="outline"
-			>
-				{disconnecting ? "Disconnecting..." : "Disconnect"}
-			</Button>
 		</div>
 	);
 }

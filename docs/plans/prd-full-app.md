@@ -59,7 +59,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Token management: pass OAuth tokens to Daytona for private repo access
 
 ### Daytona Sandbox Integration
-- [ ] Create sandbox on repo connect (clone repo)
+- [x] Create sandbox on repo connect (clone repo)
 - [ ] Webhook handler: pull latest changes on push events
 - [ ] Cache file tree in Convex after first load
 - [ ] Implement agent tools: `list_files(path)`, `read_file(path)`, `search_code(query)`

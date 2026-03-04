@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { projectRepoProviderValidator } from "./schema";
@@ -147,6 +148,11 @@ export const connectRepo = mutation({
 			repoUrl: args.repoUrl,
 			repoProvider: args.repoProvider,
 		});
+
+		await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
+			projectId: args.projectId,
+			repoUrl: args.repoUrl,
+		});
 	},
 });
 
@@ -173,6 +179,12 @@ export const disconnectRepo = mutation({
 		);
 		if (!membership) {
 			throw new Error("Not a member of this organization");
+		}
+
+		if (project.sandboxId) {
+			await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+				sandboxId: project.sandboxId,
+			});
 		}
 
 		await ctx.db.patch(args.projectId, {
