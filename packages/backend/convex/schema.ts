@@ -118,7 +118,8 @@ export default defineSchema({
 		createdAt: v.number(),
 	})
 		.index("by_projectId", ["projectId"])
-		.index("by_projectId_createdAt", ["projectId", "createdAt"]),
+		.index("by_projectId_createdAt", ["projectId", "createdAt"])
+		.index("by_assigneeId", ["assigneeId"]),
 
 	triageItems: defineTable({
 		projectId: v.id("projects"),

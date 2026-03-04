@@ -17,6 +17,7 @@ import { Route as AuthenticatedAiRouteImport } from './routes/_authenticated/ai'
 import { Route as AuthenticatedOrganizationsIndexRouteImport } from './routes/_authenticated/organizations/index'
 import { Route as AuthenticatedOrganizationsOrgIdRouteImport } from './routes/_authenticated/organizations/$orgId'
 import { Route as AuthenticatedOrganizationsOrgIdIndexRouteImport } from './routes/_authenticated/organizations/$orgId/index'
+import { Route as AuthenticatedOrganizationsOrgIdMyTasksRouteImport } from './routes/_authenticated/organizations/$orgId/my-tasks'
 import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId'
 import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/index'
 import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/triage'
@@ -66,6 +67,12 @@ const AuthenticatedOrganizationsOrgIdIndexRoute =
   AuthenticatedOrganizationsOrgIdIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => AuthenticatedOrganizationsOrgIdRoute,
+  } as any)
+const AuthenticatedOrganizationsOrgIdMyTasksRoute =
+  AuthenticatedOrganizationsOrgIdMyTasksRouteImport.update({
+    id: '/my-tasks',
+    path: '/my-tasks',
     getParentRoute: () => AuthenticatedOrganizationsOrgIdRoute,
   } as any)
 const AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute =
@@ -130,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/organizations/$orgId': typeof AuthenticatedOrganizationsOrgIdRouteWithChildren
   '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
+  '/organizations/$orgId/my-tasks': typeof AuthenticatedOrganizationsOrgIdMyTasksRoute
   '/organizations/$orgId/': typeof AuthenticatedOrganizationsOrgIdIndexRoute
   '/organizations/$orgId/projects/$projectId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren
   '/organizations/$orgId/projects/$projectId/docs': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
@@ -146,6 +154,7 @@ export interface FileRoutesByTo {
   '/ai': typeof AuthenticatedAiRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute
+  '/organizations/$orgId/my-tasks': typeof AuthenticatedOrganizationsOrgIdMyTasksRoute
   '/organizations/$orgId': typeof AuthenticatedOrganizationsOrgIdIndexRoute
   '/organizations/$orgId/projects/$projectId/docs': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
   '/organizations/$orgId/projects/$projectId/settings': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute
@@ -164,6 +173,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/organizations/$orgId': typeof AuthenticatedOrganizationsOrgIdRouteWithChildren
   '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
+  '/_authenticated/organizations/$orgId/my-tasks': typeof AuthenticatedOrganizationsOrgIdMyTasksRoute
   '/_authenticated/organizations/$orgId/': typeof AuthenticatedOrganizationsOrgIdIndexRoute
   '/_authenticated/organizations/$orgId/projects/$projectId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren
   '/_authenticated/organizations/$orgId/projects/$projectId/docs': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/organizations/$orgId'
     | '/organizations/'
+    | '/organizations/$orgId/my-tasks'
     | '/organizations/$orgId/'
     | '/organizations/$orgId/projects/$projectId'
     | '/organizations/$orgId/projects/$projectId/docs'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/ai'
     | '/dashboard'
     | '/organizations'
+    | '/organizations/$orgId/my-tasks'
     | '/organizations/$orgId'
     | '/organizations/$orgId/projects/$projectId/docs'
     | '/organizations/$orgId/projects/$projectId/settings'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/organizations/$orgId'
     | '/_authenticated/organizations/'
+    | '/_authenticated/organizations/$orgId/my-tasks'
     | '/_authenticated/organizations/$orgId/'
     | '/_authenticated/organizations/$orgId/projects/$projectId'
     | '/_authenticated/organizations/$orgId/projects/$projectId/docs'
@@ -289,6 +302,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/organizations/$orgId/'
       preLoaderRoute: typeof AuthenticatedOrganizationsOrgIdIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrgIdRoute
+    }
+    '/_authenticated/organizations/$orgId/my-tasks': {
+      id: '/_authenticated/organizations/$orgId/my-tasks'
+      path: '/my-tasks'
+      fullPath: '/organizations/$orgId/my-tasks'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrgIdMyTasksRouteImport
       parentRoute: typeof AuthenticatedOrganizationsOrgIdRoute
     }
     '/_authenticated/organizations/$orgId/projects/$projectId': {
@@ -384,12 +404,15 @@ const AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren =
   )
 
 interface AuthenticatedOrganizationsOrgIdRouteChildren {
+  AuthenticatedOrganizationsOrgIdMyTasksRoute: typeof AuthenticatedOrganizationsOrgIdMyTasksRoute
   AuthenticatedOrganizationsOrgIdIndexRoute: typeof AuthenticatedOrganizationsOrgIdIndexRoute
   AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren
 }
 
 const AuthenticatedOrganizationsOrgIdRouteChildren: AuthenticatedOrganizationsOrgIdRouteChildren =
   {
+    AuthenticatedOrganizationsOrgIdMyTasksRoute:
+      AuthenticatedOrganizationsOrgIdMyTasksRoute,
     AuthenticatedOrganizationsOrgIdIndexRoute:
       AuthenticatedOrganizationsOrgIdIndexRoute,
     AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute:

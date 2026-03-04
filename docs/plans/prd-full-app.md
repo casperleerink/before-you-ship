@@ -119,10 +119,10 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Docs stored with embedding for vector search
 
 ### My Tasks (Cross-Project)
-- [ ] Top-level nav item (outside project view)
-- [ ] List all tasks assigned to current user across all projects in the current org
-- [ ] Group or filter by project
-- [ ] Same task detail sheet as within a project
+- [x] Top-level nav item (outside project view)
+- [x] List all tasks assigned to current user across all projects in the current org
+- [x] Group or filter by project
+- [x] Same task detail sheet as within a project
 
 ### Real-Time
 - [ ] Convex reactive queries for instant UI updates

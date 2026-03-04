@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import {
 	FolderGit2,
+	ListTodo,
 	MoreHorizontal,
 	Plus,
 	Shield,
@@ -80,12 +81,23 @@ function OrgDashboardPage() {
 					</Link>
 					<h1 className="font-bold text-2xl">{org.name}</h1>
 				</div>
-				{activeTab === "projects" && (
-					<Button onClick={() => setShowCreateForm(true)}>
-						<Plus className="mr-2 h-4 w-4" />
-						New Project
-					</Button>
-				)}
+				<div className="flex items-center gap-2">
+					<Link
+						params={{ orgId: orgIdParam }}
+						to="/organizations/$orgId/my-tasks"
+					>
+						<Button variant="outline">
+							<ListTodo className="mr-2 h-4 w-4" />
+							My Tasks
+						</Button>
+					</Link>
+					{activeTab === "projects" && (
+						<Button onClick={() => setShowCreateForm(true)}>
+							<Plus className="mr-2 h-4 w-4" />
+							New Project
+						</Button>
+					)}
+				</div>
 			</div>
 
 			<div className="mb-6 flex gap-1 border-b">

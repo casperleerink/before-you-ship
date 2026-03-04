@@ -35,6 +35,46 @@ export const list = query({
 	},
 });
 
+export const listByAssignee = query({
+	args: {
+		orgId: v.id("organizations"),
+	},
+	handler: async (ctx, args) => {
+		const appUser = await getAppUser(ctx);
+		if (!appUser) {
+			return [];
+		}
+
+		const membership = await getOrgMembership(ctx, args.orgId, appUser._id);
+		if (!membership) {
+			return [];
+		}
+
+		const tasks = await ctx.db
+			.query("tasks")
+			.withIndex("by_assigneeId", (q) => q.eq("assigneeId", appUser._id))
+			.order("desc")
+			.collect();
+
+		// Filter to only tasks belonging to projects in this org and collect names
+		const projectIds = [...new Set(tasks.map((t) => t.projectId))];
+		const projects = await Promise.all(projectIds.map((id) => ctx.db.get(id)));
+		const projectMap = new Map<(typeof tasks)[number]["projectId"], string>();
+		for (const p of projects) {
+			if (p && p.organizationId === args.orgId) {
+				projectMap.set(p._id, p.name);
+			}
+		}
+
+		const orgTasks = tasks.filter((t) => projectMap.has(t.projectId));
+
+		return orgTasks.map((task) => ({
+			...task,
+			projectName: projectMap.get(task.projectId) ?? "Unknown",
+		}));
+	},
+});
+
 export const getById = query({
 	args: {
 		taskId: v.id("tasks"),
