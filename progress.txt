@@ -18,3 +18,4 @@ Member management: organizationInvites schema table, invite/accept/cancel mutati
 My Tasks: cross-project task view with by_assigneeId index, listByAssignee query, project filtering, shared task utilities extracted to lib/task-utils.ts and components/task-fields.tsx
 Conversation status management: updateStatus mutation, clickable status dropdown in conversation detail header, shared conversation-utils.ts
 Create project flow: added description and repoUrl optional fields to create mutation and UI form
+Project settings: update mutation, editable name/description form on settings page, repo URL display (read-only)

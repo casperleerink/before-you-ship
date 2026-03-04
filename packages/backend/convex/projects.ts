@@ -52,6 +52,40 @@ export const getById = query({
 	},
 });
 
+export const update = mutation({
+	args: {
+		projectId: v.id("projects"),
+		name: v.string(),
+		description: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const [appUser, project] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.projectId),
+		]);
+		if (!appUser) {
+			throw new Error("Not authenticated");
+		}
+		if (!project) {
+			throw new Error("Project not found");
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			throw new Error("Not a member of this organization");
+		}
+
+		await ctx.db.patch(args.projectId, {
+			name: args.name,
+			description: args.description,
+		});
+	},
+});
+
 export const create = mutation({
 	args: {
 		name: v.string(),
