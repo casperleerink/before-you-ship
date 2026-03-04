@@ -8,3 +8,4 @@ Conversations: schema table with status validator (active/completed/abandoned), 
 Conversation detail: full-page chat with back button, streaming messages via useUIMessages, thread creation on conversation create, shared MessageContent component
 Triage click interactions: pending items create conversation via createFromTriageItem mutation (creates thread, patches triage status to converted, links conversationId), converted items navigate to linked conversation
 Conversation start: blank conversations work via create button, triage-to-conversation pre-loads triage content as first message and triggers AI response, extracted shared sendMessageToThread helper in chat.ts
+Tasks: schema table with validators (status/risk/complexity/effort), list/getById backend queries with auth, tasks list page with table UI and badge indicators

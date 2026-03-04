@@ -18,6 +18,18 @@ export const conversationStatusValidator = v.union(
 	v.literal("abandoned")
 );
 
+export const taskStatusValidator = v.union(
+	v.literal("ready"),
+	v.literal("in_progress"),
+	v.literal("done")
+);
+
+export const taskLevelValidator = v.union(
+	v.literal("low"),
+	v.literal("medium"),
+	v.literal("high")
+);
+
 export const projectRepoProviderValidator = v.union(
 	v.literal("github"),
 	v.literal("gitlab"),
@@ -68,6 +80,22 @@ export default defineSchema({
 		title: v.optional(v.string()),
 		status: conversationStatusValidator,
 		createdBy: v.id("users"),
+		createdAt: v.number(),
+	})
+		.index("by_projectId", ["projectId"])
+		.index("by_projectId_createdAt", ["projectId", "createdAt"]),
+
+	tasks: defineTable({
+		projectId: v.id("projects"),
+		conversationId: v.id("conversations"),
+		title: v.string(),
+		brief: v.string(),
+		affectedAreas: v.array(v.string()),
+		risk: taskLevelValidator,
+		complexity: taskLevelValidator,
+		effort: taskLevelValidator,
+		status: taskStatusValidator,
+		assigneeId: v.optional(v.id("users")),
 		createdAt: v.number(),
 	})
 		.index("by_projectId", ["projectId"])

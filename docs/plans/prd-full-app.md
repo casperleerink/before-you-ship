@@ -103,7 +103,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Embedding generation on task/doc create and update
 
 ### Tasks
-- [ ] Tasks list screen: table with title, status, risk, complexity, effort, assignee columns
+- [x] Tasks list screen: table with title, status, risk, complexity, effort, assignee columns
 - [ ] Filter by status, assignee, risk, complexity, effort
 - [ ] Task detail: sheet slide-over from right showing all fields
 - [ ] Editable fields in detail: assignee, status

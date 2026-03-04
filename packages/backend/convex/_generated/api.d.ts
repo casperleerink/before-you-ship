@@ -19,6 +19,7 @@ import type * as http from "../http.js";
 import type * as organizations from "../organizations.js";
 import type * as privateData from "../privateData.js";
 import type * as projects from "../projects.js";
+import type * as tasks from "../tasks.js";
 import type * as triageItems from "../triageItems.js";
 
 import type {
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   organizations: typeof organizations;
   privateData: typeof privateData;
   projects: typeof projects;
+  tasks: typeof tasks;
   triageItems: typeof triageItems;
 }>;
 
