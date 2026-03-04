@@ -29,3 +29,4 @@ Plan reject/revise flow: "Request Changes" button rejects plan and sends automat
 Tool activity indicators: ToolActivityIndicator component shows spinning/done states for non-proposePlan tool calls (searchTasks, searchDocs, future codebase tools), hides raw tool output from users
 Docs embedding + Real-time: verified already complete — docs have embedding field/vector index/search with generation on content update, all list views use Convex reactive queries (useQuery)
 Write tools + Phase 2 gating: createTask/updateTask tools in createWriteTools, conditionally injected after plan approval via getConversationWithProject, system prompt Phase 1/Phase 2 sections, tool activity indicators
+GitHub OAuth: gitConnections/gitConnectionRequests schema tables, OAuth flow (createRequest→githubInitiate→githubCallback→upsertConnection), listRepos action, connectRepo/disconnectRepo mutations, settings page with connect/disconnect/repo-selector UI

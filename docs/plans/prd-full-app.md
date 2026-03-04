@@ -53,7 +53,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Auto-generate project description on first repo connect (AI reads README + file tree)
 
 ### Git Provider Integration
-- [ ] OAuth flow for GitHub, GitLab, Azure DevOps, Bitbucket
+- [x] OAuth flow for GitHub, GitLab, Azure DevOps, Bitbucket
 - [ ] Self-hosted Git URL support
 - [ ] Webhook registration for push events (keep sandbox in sync)
 - [ ] Token management: pass OAuth tokens to Daytona for private repo access
@@ -88,7 +88,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] AI-generated conversation title after first few messages
 
 ### AI Agent
-- [ ] Agent loop: reason → call tools → verify → respond
+- [x] Agent loop: reason → call tools → verify → respond
 - [ ] Read tools (always available): `list_files`, `read_file`, `search_code`, `search_docs`, `search_tasks`
 - [x] Write tools (only after plan approval): `create_task`, `update_task`
 - [x] Planning tool: `propose_plan` — renders structured plan card in chat

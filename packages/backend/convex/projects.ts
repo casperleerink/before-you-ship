@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
+import { projectRepoProviderValidator } from "./schema";
 
 export const list = query({
 	args: {
@@ -111,6 +112,73 @@ export const create = mutation({
 			organizationId: args.orgId,
 			createdBy: appUser._id,
 			createdAt: Date.now(),
+		});
+	},
+});
+
+export const connectRepo = mutation({
+	args: {
+		projectId: v.id("projects"),
+		repoUrl: v.string(),
+		repoProvider: projectRepoProviderValidator,
+	},
+	handler: async (ctx, args) => {
+		const [appUser, project] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.projectId),
+		]);
+		if (!appUser) {
+			throw new Error("Not authenticated");
+		}
+		if (!project) {
+			throw new Error("Project not found");
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			throw new Error("Not a member of this organization");
+		}
+
+		await ctx.db.patch(args.projectId, {
+			repoUrl: args.repoUrl,
+			repoProvider: args.repoProvider,
+		});
+	},
+});
+
+export const disconnectRepo = mutation({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		const [appUser, project] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.projectId),
+		]);
+		if (!appUser) {
+			throw new Error("Not authenticated");
+		}
+		if (!project) {
+			throw new Error("Project not found");
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			throw new Error("Not a member of this organization");
+		}
+
+		await ctx.db.patch(args.projectId, {
+			repoUrl: undefined,
+			repoProvider: undefined,
+			sandboxId: undefined,
 		});
 	},
 });

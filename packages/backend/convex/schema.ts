@@ -163,6 +163,28 @@ export default defineSchema({
 		createdAt: v.number(),
 	}).index("by_conversationId", ["conversationId"]),
 
+	gitConnections: defineTable({
+		userId: v.id("users"),
+		provider: projectRepoProviderValidator,
+		providerAccountId: v.string(),
+		accessToken: v.string(),
+		displayName: v.string(),
+		avatarUrl: v.optional(v.string()),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_userId", ["userId"])
+		.index("by_userId_provider", ["userId", "provider"]),
+
+	gitConnectionRequests: defineTable({
+		userId: v.id("users"),
+		provider: projectRepoProviderValidator,
+		state: v.string(),
+		returnUrl: v.string(),
+		createdAt: v.number(),
+		expiresAt: v.number(),
+	}).index("by_state", ["state"]),
+
 	docs: defineTable({
 		projectId: v.id("projects"),
 		title: v.string(),
