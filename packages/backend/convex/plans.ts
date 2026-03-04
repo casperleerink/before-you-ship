@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import {
@@ -115,7 +116,33 @@ export const approve = mutation({
 	},
 	handler: async (ctx, args) => {
 		const plan = await getProposedPlanWithAuth(ctx, args.planId);
-		await ctx.db.patch(args.planId, { status: "approved" });
+
+		const taskIds: Id<"tasks">[] = [];
+		for (const task of plan.tasks) {
+			const taskId = await ctx.db.insert("tasks", {
+				projectId: plan.projectId,
+				conversationId: plan.conversationId,
+				title: task.title,
+				brief: task.brief,
+				affectedAreas: task.affectedAreas,
+				risk: task.risk,
+				complexity: task.complexity,
+				effort: task.effort,
+				status: "ready",
+				createdAt: Date.now(),
+			});
+			taskIds.push(taskId);
+			await ctx.scheduler.runAfter(
+				0,
+				internal.embeddings.generateTaskEmbedding,
+				{ taskId }
+			);
+		}
+
+		await ctx.db.patch(args.planId, {
+			status: "approved",
+			createdTaskIds: taskIds,
+		});
 		return plan._id;
 	},
 });

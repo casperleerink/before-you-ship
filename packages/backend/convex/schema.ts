@@ -159,6 +159,7 @@ export default defineSchema({
 				effort: taskLevelValidator,
 			})
 		),
+		createdTaskIds: v.optional(v.array(v.id("tasks"))),
 		createdAt: v.number(),
 	}).index("by_conversationId", ["conversationId"]),
 

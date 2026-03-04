@@ -193,7 +193,9 @@ function ConversationDetailPage() {
 									return (
 										<div className="mt-2 mr-8" key={toolPart.toolCallId}>
 											<PlanCard
+												orgId={orgIdParam}
 												planId={toolPart.output.planId as Id<"plans">}
+												projectId={projectIdParam}
 											/>
 										</div>
 									);
