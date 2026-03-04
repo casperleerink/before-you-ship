@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import Loader from "@/components/loader";
 import MessageContent from "@/components/message-content";
 import { PlanCard } from "@/components/plan-card";
+import { ToolActivityIndicator } from "@/components/tool-activity-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -178,6 +179,31 @@ function ConversationDetailPage() {
 									/>
 								</div>
 							)}
+							{message.parts
+								?.filter((part) => {
+									if (!("state" in part)) {
+										return false;
+									}
+									const type = part.type as string;
+									return (
+										type.startsWith("tool-") && type !== "tool-proposePlan"
+									);
+								})
+								.map((part) => {
+									const toolPart = part as unknown as {
+										toolCallId: string;
+										state: string;
+									};
+									const toolName = (part.type as string).replace("tool-", "");
+									return (
+										<div className="mr-8" key={toolPart.toolCallId}>
+											<ToolActivityIndicator
+												state={toolPart.state}
+												toolName={toolName}
+											/>
+										</div>
+									);
+								})}
 							{message.parts
 								?.filter(
 									(part) =>

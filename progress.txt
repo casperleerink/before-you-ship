@@ -26,3 +26,4 @@ AI search tools: search_tasks and search_docs tools via createTool, vector searc
 Plan proposal: plans schema table, proposePlan tool via createTool, PlanCard component with approve/reject buttons, plan cards rendered from message tool parts in conversation detail
 Plan approve flow: approve mutation creates tasks from plan, stores createdTaskIds, schedules embeddings, PlanCard locks and shows task count + links when approved
 Plan reject/revise flow: "Request Changes" button rejects plan and sends automated message to thread prompting AI to ask for feedback, system prompt updated with revision instructions
+Tool activity indicators: ToolActivityIndicator component shows spinning/done states for non-proposePlan tool calls (searchTasks, searchDocs, future codebase tools), hides raw tool output from users
