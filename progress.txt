@@ -4,3 +4,4 @@ Organizations: schema tables, list/getById/create functions, org selector page w
 Projects: schema table, list/getById/create functions with org membership checks, projects list UI on org page with create form, extracted getAppUser and getOrgMembership helpers
 Project view layout: sidebar nav (triage/conversations/tasks/docs/settings) + main content area, nested routes under $orgId/$projectId, EmptyState component, project cards link to project view
 Triage: schema table with compound index, list/create backend functions with parallel auth checks, triage inbox UI with status badges, shared TriageQuickAddForm component used in both sidebar and triage page
+Conversations: schema table with status validator (active/completed/abandoned), list/create backend functions, conversations list UI with status badges and create button

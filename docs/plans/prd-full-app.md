@@ -73,7 +73,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Mark triage item as `converted` when conversation starts from it
 
 ### Conversations
-- [ ] Conversations list screen: AI-generated title, status, date
+- [x] Conversations list screen: AI-generated title, status, date
 - [ ] Conversation detail: full-page chat interface with back button
 - [ ] Start conversation from scratch (blank slate)
 - [ ] Start conversation from triage item (context pre-loaded)
