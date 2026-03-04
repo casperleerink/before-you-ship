@@ -104,7 +104,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 
 ### Tasks
 - [x] Tasks list screen: table with title, status, risk, complexity, effort, assignee columns
-- [ ] Filter by status, assignee, risk, complexity, effort
+- [x] Filter by status, risk, complexity, effort (client-side with dropdown menus)
 - [x] Task detail: sheet slide-over from right showing all fields
 - [ ] Editable fields in detail: assignee, status
 - [x] Markdown-rendered brief in detail view

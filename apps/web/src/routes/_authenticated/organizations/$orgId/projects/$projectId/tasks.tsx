@@ -5,14 +5,21 @@ import type {
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ArrowRight, ListTodo } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Filter, ListTodo, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Sheet,
 	SheetBody,
@@ -35,7 +42,22 @@ export const Route = createFileRoute(
 	component: TasksPage,
 });
 
-function statusVariant(status: Doc<"tasks">["status"]) {
+type TaskStatus = Doc<"tasks">["status"];
+type TaskLevel = Doc<"tasks">["risk"];
+
+const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
+	{ value: "ready", label: "Ready" },
+	{ value: "in_progress", label: "In Progress" },
+	{ value: "done", label: "Done" },
+];
+
+const LEVEL_OPTIONS: { value: TaskLevel; label: string }[] = [
+	{ value: "low", label: "Low" },
+	{ value: "medium", label: "Medium" },
+	{ value: "high", label: "High" },
+];
+
+function statusVariant(status: TaskStatus) {
 	switch (status) {
 		case "ready":
 			return "outline";
@@ -48,20 +70,11 @@ function statusVariant(status: Doc<"tasks">["status"]) {
 	}
 }
 
-function statusLabel(status: Doc<"tasks">["status"]) {
-	switch (status) {
-		case "ready":
-			return "Ready";
-		case "in_progress":
-			return "In Progress";
-		case "done":
-			return "Done";
-		default:
-			return status;
-	}
+function statusLabel(status: TaskStatus) {
+	return STATUS_OPTIONS.find((opt) => opt.value === status)?.label ?? status;
 }
 
-function levelVariant(level: Doc<"tasks">["risk"]) {
+function levelVariant(level: TaskLevel) {
 	switch (level) {
 		case "low":
 			return "secondary";
@@ -97,6 +110,68 @@ function BadgeField({
 			<Badge variant={variant}>{value}</Badge>
 		</div>
 	);
+}
+
+function FilterDropdown<T extends string>({
+	label,
+	options,
+	selected,
+	onToggle,
+}: {
+	label: string;
+	options: { value: T; label: string }[];
+	selected: Set<T>;
+	onToggle: (value: T) => void;
+}) {
+	const hasSelection = selected.size > 0;
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button size="sm" variant={hasSelection ? "default" : "outline"}>
+						{label}
+						{hasSelection && (
+							<span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 font-mono text-xs">
+								{selected.size}
+							</span>
+						)}
+					</Button>
+				}
+			/>
+			<DropdownMenuContent>
+				<DropdownMenuLabel>{label}</DropdownMenuLabel>
+				{options.map((option) => (
+					<DropdownMenuCheckboxItem
+						checked={selected.has(option.value)}
+						key={option.value}
+						onSelect={(e) => {
+							e.preventDefault();
+							onToggle(option.value);
+						}}
+					>
+						{option.label}
+					</DropdownMenuCheckboxItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function useSetToggle<T>() {
+	const [set, setSet] = useState<Set<T>>(new Set());
+	const toggle = (value: T) => {
+		setSet((prev) => {
+			const next = new Set(prev);
+			if (next.has(value)) {
+				next.delete(value);
+			} else {
+				next.add(value);
+			}
+			return next;
+		});
+	};
+	const clear = () => setSet(new Set());
+	return [set, toggle, clear] as const;
 }
 
 function TaskDetailSheet({
@@ -199,6 +274,46 @@ function TasksPage() {
 		null
 	);
 
+	const [statusFilter, toggleStatus, clearStatus] = useSetToggle<TaskStatus>();
+	const [riskFilter, toggleRisk, clearRisk] = useSetToggle<TaskLevel>();
+	const [complexityFilter, toggleComplexity, clearComplexity] =
+		useSetToggle<TaskLevel>();
+	const [effortFilter, toggleEffort, clearEffort] = useSetToggle<TaskLevel>();
+
+	const activeFilterCount =
+		statusFilter.size +
+		riskFilter.size +
+		complexityFilter.size +
+		effortFilter.size;
+
+	const filteredTasks = useMemo(() => {
+		if (!tasks) {
+			return [];
+		}
+		return tasks.filter((task) => {
+			if (statusFilter.size > 0 && !statusFilter.has(task.status)) {
+				return false;
+			}
+			if (riskFilter.size > 0 && !riskFilter.has(task.risk)) {
+				return false;
+			}
+			if (complexityFilter.size > 0 && !complexityFilter.has(task.complexity)) {
+				return false;
+			}
+			if (effortFilter.size > 0 && !effortFilter.has(task.effort)) {
+				return false;
+			}
+			return true;
+		});
+	}, [tasks, statusFilter, riskFilter, complexityFilter, effortFilter]);
+
+	const clearAllFilters = () => {
+		clearStatus();
+		clearRisk();
+		clearComplexity();
+		clearEffort();
+	};
+
 	if (tasks === undefined) {
 		return (
 			<div className="p-6">
@@ -208,7 +323,7 @@ function TasksPage() {
 	}
 
 	const selectedTask = selectedTaskId
-		? tasks.find((t) => t._id === selectedTaskId)
+		? (tasks.find((t) => t._id === selectedTaskId) ?? null)
 		: null;
 
 	return (
@@ -224,48 +339,99 @@ function TasksPage() {
 					title="No tasks yet"
 				/>
 			) : (
-				<div className="rounded-md border">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Title</TableHead>
-								<TableHead className="w-[100px]">Status</TableHead>
-								<TableHead className="w-[80px]">Risk</TableHead>
-								<TableHead className="w-[100px]">Complexity</TableHead>
-								<TableHead className="w-[80px]">Effort</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{tasks.map((task) => (
-								<TableRow
-									className="cursor-pointer"
-									key={task._id}
-									onClick={() => setSelectedTaskId(task._id)}
-								>
-									<TableCell className="font-medium">{task.title}</TableCell>
-									<TableCell>
-										<Badge variant={statusVariant(task.status)}>
-											{statusLabel(task.status)}
-										</Badge>
-									</TableCell>
-									<TableCell>
-										<Badge variant={levelVariant(task.risk)}>{task.risk}</Badge>
-									</TableCell>
-									<TableCell>
-										<Badge variant={levelVariant(task.complexity)}>
-											{task.complexity}
-										</Badge>
-									</TableCell>
-									<TableCell>
-										<Badge variant={levelVariant(task.effort)}>
-											{task.effort}
-										</Badge>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
+				<>
+					<div className="mb-4 flex items-center gap-2">
+						<Filter className="size-4 text-muted-foreground" />
+						<FilterDropdown
+							label="Status"
+							onToggle={toggleStatus}
+							options={STATUS_OPTIONS}
+							selected={statusFilter}
+						/>
+						<FilterDropdown
+							label="Risk"
+							onToggle={toggleRisk}
+							options={LEVEL_OPTIONS}
+							selected={riskFilter}
+						/>
+						<FilterDropdown
+							label="Complexity"
+							onToggle={toggleComplexity}
+							options={LEVEL_OPTIONS}
+							selected={complexityFilter}
+						/>
+						<FilterDropdown
+							label="Effort"
+							onToggle={toggleEffort}
+							options={LEVEL_OPTIONS}
+							selected={effortFilter}
+						/>
+						{activeFilterCount > 0 && (
+							<Button
+								className="ml-1"
+								onClick={clearAllFilters}
+								size="sm"
+								variant="ghost"
+							>
+								<X className="mr-1 size-3" />
+								Clear
+							</Button>
+						)}
+					</div>
+
+					{filteredTasks.length === 0 ? (
+						<div className="py-8 text-center text-muted-foreground text-sm">
+							No tasks match the current filters.
+						</div>
+					) : (
+						<div className="rounded-md border">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Title</TableHead>
+										<TableHead className="w-[100px]">Status</TableHead>
+										<TableHead className="w-[80px]">Risk</TableHead>
+										<TableHead className="w-[100px]">Complexity</TableHead>
+										<TableHead className="w-[80px]">Effort</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{filteredTasks.map((task) => (
+										<TableRow
+											className="cursor-pointer"
+											key={task._id}
+											onClick={() => setSelectedTaskId(task._id)}
+										>
+											<TableCell className="font-medium">
+												{task.title}
+											</TableCell>
+											<TableCell>
+												<Badge variant={statusVariant(task.status)}>
+													{statusLabel(task.status)}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												<Badge variant={levelVariant(task.risk)}>
+													{task.risk}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												<Badge variant={levelVariant(task.complexity)}>
+													{task.complexity}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												<Badge variant={levelVariant(task.effort)}>
+													{task.effort}
+												</Badge>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
+					)}
+				</>
 			)}
 
 			<Sheet

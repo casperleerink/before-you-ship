@@ -11,3 +11,4 @@ Conversation start: blank conversations work via create button, triage-to-conver
 Tasks: schema table with validators (status/risk/complexity/effort), list/getById backend queries with auth, tasks list page with table UI and badge indicators
 Task detail: sheet slide-over with all fields (status/risk/complexity/effort badges, affected areas, brief, conversation link), reusable Sheet UI component using @base-ui/react Dialog
 Markdown brief: task detail brief field now rendered as markdown using Streamdown (consistent with chat message rendering)
+Task filtering: client-side filter dropdowns (status/risk/complexity/effort) with multi-select checkboxes, active filter count badges, clear all button
