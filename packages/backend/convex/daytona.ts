@@ -2,7 +2,11 @@ import { generateText } from "ai";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation } from "./_generated/server";
+import {
+	internalAction,
+	internalMutation,
+	internalQuery,
+} from "./_generated/server";
 import { languageModel } from "./agent";
 
 const DEFAULT_API_URL = "https://app.daytona.io/api";
@@ -115,6 +119,12 @@ export const createSandbox = internalAction({
 			}
 
 			await ctx.runMutation(internal.daytona.setSandboxId, {
+				projectId: args.projectId,
+				sandboxId,
+			});
+
+			// Cache root file tree for faster agent lookups
+			await ctx.scheduler.runAfter(0, internal.daytona.buildFileTreeCache, {
 				projectId: args.projectId,
 				sandboxId,
 			});
@@ -319,5 +329,90 @@ export const setProjectDescription = internalMutation({
 				description: args.description,
 			});
 		}
+	},
+});
+
+// File tree cache
+
+export const getFileTreeCache = internalQuery({
+	args: {
+		projectId: v.id("projects"),
+		path: v.string(),
+	},
+	handler: (ctx, args) => {
+		return ctx.db
+			.query("fileTreeCache")
+			.withIndex("by_projectId_path", (q) =>
+				q.eq("projectId", args.projectId).eq("path", args.path)
+			)
+			.first();
+	},
+});
+
+export const setFileTreeCache = internalMutation({
+	args: {
+		projectId: v.id("projects"),
+		path: v.string(),
+		entries: v.array(
+			v.object({
+				name: v.string(),
+				isDir: v.boolean(),
+				size: v.number(),
+			})
+		),
+	},
+	handler: async (ctx, args) => {
+		const existing = await ctx.db
+			.query("fileTreeCache")
+			.withIndex("by_projectId_path", (q) =>
+				q.eq("projectId", args.projectId).eq("path", args.path)
+			)
+			.first();
+
+		if (existing) {
+			await ctx.db.patch(existing._id, {
+				entries: args.entries,
+				cachedAt: Date.now(),
+			});
+		} else {
+			await ctx.db.insert("fileTreeCache", {
+				projectId: args.projectId,
+				path: args.path,
+				entries: args.entries,
+				cachedAt: Date.now(),
+			});
+		}
+	},
+});
+
+export const clearFileTreeCache = internalMutation({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		const entries = await ctx.db
+			.query("fileTreeCache")
+			.withIndex("by_projectId_path", (q) => q.eq("projectId", args.projectId))
+			.collect();
+		await Promise.all(entries.map((entry) => ctx.db.delete(entry._id)));
+	},
+});
+
+export const buildFileTreeCache = internalAction({
+	args: {
+		projectId: v.id("projects"),
+		sandboxId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const files = await ctx.runAction(internal.daytona.listFiles, {
+			sandboxId: args.sandboxId,
+			path: REPO_ROOT,
+		});
+
+		await ctx.runMutation(internal.daytona.setFileTreeCache, {
+			projectId: args.projectId,
+			path: REPO_ROOT,
+			entries: files,
+		});
 	},
 });

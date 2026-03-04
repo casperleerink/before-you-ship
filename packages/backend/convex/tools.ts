@@ -23,7 +23,10 @@ const proposedTaskSchema = z.object({
 const MAX_FILE_SIZE = 50_000; // characters
 const MAX_SEARCH_RESULTS = 50;
 
-export function createCodebaseTools(sandboxId: string) {
+export function createCodebaseTools(
+	sandboxId: string,
+	projectId: Id<"projects">
+) {
 	const listFiles = createTool({
 		description:
 			"List files and directories in the repository. Use this to explore the project structure and find relevant files.",
@@ -37,10 +40,30 @@ export function createCodebaseTools(sandboxId: string) {
 		}),
 		handler: async (ctx, args) => {
 			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
+
+			// Check cache first (expire after 24 hours)
+			const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+			const cached = await ctx.runQuery(internal.daytona.getFileTreeCache, {
+				projectId,
+				path: fullPath,
+			});
+			if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+				return cached.entries;
+			}
+
+			// Fall back to Daytona API
 			const files = await ctx.runAction(internal.daytona.listFiles, {
 				sandboxId,
 				path: fullPath,
 			});
+
+			// Store in cache for future calls
+			await ctx.runMutation(internal.daytona.setFileTreeCache, {
+				projectId,
+				path: fullPath,
+				entries: files,
+			});
+
 			return files;
 		},
 	});

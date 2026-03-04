@@ -61,7 +61,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### Daytona Sandbox Integration
 - [x] Create sandbox on repo connect (clone repo)
 - [ ] Webhook handler: pull latest changes on push events
-- [ ] Cache file tree in Convex after first load
+- [x] Cache file tree in Convex after first load
 - [x] Implement agent tools: `list_files(path)`, `read_file(path)`, `search_code(query)`
 - [x] Tools run as Convex actions (external HTTP calls to Daytona SDK)
 

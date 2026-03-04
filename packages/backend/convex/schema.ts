@@ -185,6 +185,19 @@ export default defineSchema({
 		expiresAt: v.number(),
 	}).index("by_state", ["state"]),
 
+	fileTreeCache: defineTable({
+		projectId: v.id("projects"),
+		path: v.string(),
+		entries: v.array(
+			v.object({
+				name: v.string(),
+				isDir: v.boolean(),
+				size: v.number(),
+			})
+		),
+		cachedAt: v.number(),
+	}).index("by_projectId_path", ["projectId", "path"]),
+
 	docs: defineTable({
 		projectId: v.id("projects"),
 		title: v.string(),

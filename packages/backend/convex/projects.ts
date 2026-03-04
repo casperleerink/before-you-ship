@@ -197,6 +197,11 @@ export const disconnectRepo = mutation({
 			});
 		}
 
+		// Clear cached file tree
+		await ctx.runMutation(internal.daytona.clearFileTreeCache, {
+			projectId: args.projectId,
+		});
+
 		await ctx.db.patch(args.projectId, {
 			repoUrl: undefined,
 			repoProvider: undefined,

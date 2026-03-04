@@ -193,7 +193,9 @@ export const generateResponseAsync = internalAction({
 		const tools = conversation
 			? {
 					...createSearchTools(conversation.projectId),
-					...(project?.sandboxId ? createCodebaseTools(project.sandboxId) : {}),
+					...(project?.sandboxId
+						? createCodebaseTools(project.sandboxId, conversation.projectId)
+						: {}),
 					...createPlanTools(conversation.projectId, conversation._id),
 					...(hasApprovedPlan
 						? createWriteTools(conversation.projectId, conversation._id)
