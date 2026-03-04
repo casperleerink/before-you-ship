@@ -1,18 +1,6 @@
 import { v } from "convex/values";
-import type { QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { authComponent } from "./auth";
-
-async function getAppUser(ctx: QueryCtx) {
-	const authUser = await authComponent.safeGetAuthUser(ctx);
-	if (!authUser) {
-		return null;
-	}
-	return ctx.db
-		.query("users")
-		.withIndex("by_betterAuthId", (q) => q.eq("betterAuthId", authUser._id))
-		.first();
-}
+import { getAppUser, getOrgMembership } from "./helpers";
 
 export const list = query({
 	args: {},
@@ -48,13 +36,7 @@ export const getById = query({
 			return null;
 		}
 
-		const membership = await ctx.db
-			.query("organizationMembers")
-			.withIndex("by_org_and_user", (q) =>
-				q.eq("organizationId", args.orgId).eq("userId", appUser._id)
-			)
-			.first();
-
+		const membership = await getOrgMembership(ctx, args.orgId, appUser._id);
 		if (!membership) {
 			return null;
 		}

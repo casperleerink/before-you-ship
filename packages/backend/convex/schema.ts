@@ -7,6 +7,14 @@ export const orgRoleValidator = v.union(
 	v.literal("member")
 );
 
+export const projectRepoProviderValidator = v.union(
+	v.literal("github"),
+	v.literal("gitlab"),
+	v.literal("azure_devops"),
+	v.literal("bitbucket"),
+	v.literal("self_hosted")
+);
+
 export default defineSchema({
 	users: defineTable({
 		betterAuthId: v.string(),
@@ -31,4 +39,15 @@ export default defineSchema({
 		.index("by_organizationId", ["organizationId"])
 		.index("by_userId", ["userId"])
 		.index("by_org_and_user", ["organizationId", "userId"]),
+
+	projects: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		organizationId: v.id("organizations"),
+		repoUrl: v.optional(v.string()),
+		repoProvider: v.optional(projectRepoProviderValidator),
+		sandboxId: v.optional(v.string()),
+		createdBy: v.id("users"),
+		createdAt: v.number(),
+	}).index("by_organizationId", ["organizationId"]),
 });

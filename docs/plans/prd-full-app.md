@@ -36,7 +36,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### Auth & Users
 - [x] Better Auth integration with sign-in/sign-up forms
 - [x] User sync hook: on sign-up, create app-level user record in Convex from Better Auth user
-- [ ] Auth redirect: after sign-in → org selector (or skip if single org)
+- [x] Auth redirect: after sign-in → org selector (or skip if single org)
 - [x] Session management and protected routes
 
 ### Organizations
@@ -46,7 +46,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Role-based access: owner=full control, admin=manage projects/members, member=use app
 
 ### Projects
-- [ ] Projects list screen: grid/list of projects in current org
+- [x] Projects list screen: grid/list of projects in current org
 - [ ] Create project flow: name, optional repo connection
 - [ ] Project view layout: sidebar (project name, nav, quick-add triage) + main content area
 - [ ] Project settings: edit name/description, connect/disconnect Git repo, sandbox status

@@ -13,9 +13,11 @@ import type * as auth from "../auth.js";
 import type * as authTriggers from "../authTriggers.js";
 import type * as chat from "../chat.js";
 import type * as healthCheck from "../healthCheck.js";
+import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as organizations from "../organizations.js";
 import type * as privateData from "../privateData.js";
+import type * as projects from "../projects.js";
 
 import type {
   ApiFromModules,
@@ -29,9 +31,11 @@ declare const fullApi: ApiFromModules<{
   authTriggers: typeof authTriggers;
   chat: typeof chat;
   healthCheck: typeof healthCheck;
+  helpers: typeof helpers;
   http: typeof http;
   organizations: typeof organizations;
   privateData: typeof privateData;
+  projects: typeof projects;
 }>;
 
 /**
