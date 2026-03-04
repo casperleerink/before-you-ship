@@ -34,10 +34,10 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ## List of Tasks
 
 ### Auth & Users
-- [ ] Better Auth integration with sign-in/sign-up forms
+- [x] Better Auth integration with sign-in/sign-up forms
 - [x] User sync hook: on sign-up, create app-level user record in Convex from Better Auth user
 - [ ] Auth redirect: after sign-in → org selector (or skip if single org)
-- [ ] Session management and protected routes
+- [x] Session management and protected routes
 
 ### Organizations
 - [ ] Create organization flow (name, creator becomes owner)
