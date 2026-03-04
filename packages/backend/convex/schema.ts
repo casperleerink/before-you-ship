@@ -64,6 +64,7 @@ export default defineSchema({
 
 	conversations: defineTable({
 		projectId: v.id("projects"),
+		threadId: v.string(),
 		title: v.optional(v.string()),
 		status: conversationStatusValidator,
 		createdBy: v.id("users"),

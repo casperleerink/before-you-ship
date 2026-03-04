@@ -1,26 +1,55 @@
 import { type UIMessage, useUIMessages } from "@convex-dev/agent/react";
 import { api } from "@project-manager/backend/convex/_generated/api";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
-import { Loader2, Send } from "lucide-react";
+import type {
+	Doc,
+	Id,
+} from "@project-manager/backend/convex/_generated/dataModel";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery } from "convex/react";
+import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import Loader from "@/components/loader";
 import MessageContent from "@/components/message-content";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/_authenticated/ai")({
-	component: RouteComponent,
+export const Route = createFileRoute(
+	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId"
+)({
+	component: ConversationDetailPage,
 });
 
-function RouteComponent() {
+function statusVariant(status: Doc<"conversations">["status"]) {
+	switch (status) {
+		case "active":
+			return "default" as const;
+		case "completed":
+			return "secondary" as const;
+		default:
+			return "outline" as const;
+	}
+}
+
+function ConversationDetailPage() {
+	const {
+		orgId: orgIdParam,
+		projectId: projectIdParam,
+		conversationId: conversationIdParam,
+	} = Route.useParams();
+	const conversationId = conversationIdParam as Id<"conversations">;
+
+	const conversation = useQuery(api.conversations.getById, {
+		conversationId,
+	});
+	const sendMessage = useMutation(api.chat.sendMessage);
+
 	const [input, setInput] = useState("");
-	const [threadId, setThreadId] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
-	const createThread = useMutation(api.chat.createNewThread);
-	const sendMessage = useMutation(api.chat.sendMessage);
+	const threadId = conversation?.threadId ?? null;
 
 	const { results: messages } = useUIMessages(
 		api.chat.listMessages,
@@ -37,11 +66,28 @@ function RouteComponent() {
 	const hasStreamingMessage = messages?.some(
 		(m: UIMessage) => m.status === "streaming"
 	);
+	const isBusy = isLoading || !!hasStreamingMessage;
+
+	if (conversation === undefined) {
+		return (
+			<div className="p-6">
+				<Loader />
+			</div>
+		);
+	}
+
+	if (!conversation) {
+		return (
+			<div className="p-6">
+				<h1 className="font-bold text-2xl">Conversation not found</h1>
+			</div>
+		);
+	}
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		const text = input.trim();
-		if (!text || isLoading) {
+		if (!text || isBusy || !threadId) {
 			return;
 		}
 
@@ -49,26 +95,37 @@ function RouteComponent() {
 		setInput("");
 
 		try {
-			let currentThreadId = threadId;
-			if (!currentThreadId) {
-				currentThreadId = await createThread();
-				setThreadId(currentThreadId);
-			}
-
-			await sendMessage({ threadId: currentThreadId, prompt: text });
-		} catch (error) {
-			console.error("Failed to send message:", error);
+			await sendMessage({ threadId, prompt: text });
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
 	return (
-		<div className="mx-auto grid w-full grid-rows-[1fr_auto] overflow-hidden p-4">
-			<div className="space-y-4 overflow-y-auto pb-4">
+		<div className="flex h-full flex-col">
+			<header className="flex items-center gap-3 border-b px-6 py-3">
+				<Link
+					className="text-muted-foreground hover:text-foreground"
+					params={{
+						orgId: orgIdParam,
+						projectId: projectIdParam,
+					}}
+					to="/organizations/$orgId/projects/$projectId/conversations"
+				>
+					<ArrowLeft className="h-4 w-4" />
+				</Link>
+				<h1 className="min-w-0 flex-1 truncate font-semibold text-lg">
+					{conversation.title ?? "Untitled conversation"}
+				</h1>
+				<Badge variant={statusVariant(conversation.status)}>
+					{conversation.status}
+				</Badge>
+			</header>
+
+			<div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
 				{!messages || messages.length === 0 ? (
 					<div className="mt-8 text-center text-muted-foreground">
-						Ask me anything to get started!
+						Start the conversation by sending a message.
 					</div>
 				) : (
 					messages.map((message: UIMessage) => (
@@ -103,21 +160,21 @@ function RouteComponent() {
 			</div>
 
 			<form
-				className="flex w-full items-center space-x-2 border-t pt-2"
+				className="flex items-center gap-2 border-t px-6 py-3"
 				onSubmit={handleSubmit}
 			>
 				<Input
 					autoComplete="off"
 					autoFocus
 					className="flex-1"
-					disabled={isLoading}
+					disabled={isBusy}
 					name="prompt"
 					onChange={(e) => setInput(e.target.value)}
 					placeholder="Type your message..."
 					value={input}
 				/>
-				<Button disabled={isLoading || !input.trim()} size="icon" type="submit">
-					{isLoading ? (
+				<Button disabled={isBusy || !input.trim()} size="icon" type="submit">
+					{isBusy ? (
 						<Loader2 className="h-4 w-4 animate-spin" />
 					) : (
 						<Send size={18} />

@@ -1,4 +1,7 @@
+import { createThread } from "@convex-dev/agent";
 import { v } from "convex/values";
+
+import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 
@@ -34,6 +37,37 @@ export const list = query({
 	},
 });
 
+export const getById = query({
+	args: {
+		conversationId: v.id("conversations"),
+	},
+	handler: async (ctx, args) => {
+		const [appUser, conversation] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.conversationId),
+		]);
+		if (!(appUser && conversation)) {
+			return null;
+		}
+
+		const project = await ctx.db.get(conversation.projectId);
+		if (!project) {
+			return null;
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			return null;
+		}
+
+		return conversation;
+	},
+});
+
 export const create = mutation({
 	args: {
 		projectId: v.id("projects"),
@@ -59,8 +93,11 @@ export const create = mutation({
 			throw new Error("Not a member of this organization");
 		}
 
+		const threadId = await createThread(ctx, components.agent, {});
+
 		return ctx.db.insert("conversations", {
 			projectId: args.projectId,
+			threadId,
 			status: "active",
 			createdBy: appUser._id,
 			createdAt: Date.now(),

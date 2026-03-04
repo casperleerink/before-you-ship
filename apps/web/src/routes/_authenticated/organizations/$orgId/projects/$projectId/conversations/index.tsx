@@ -3,7 +3,7 @@ import type {
 	Doc,
 	Id,
 } from "@project-manager/backend/convex/_generated/dataModel";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
 
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/conversations"
+	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/"
 )({
 	component: ConversationsPage,
 });
@@ -40,10 +40,11 @@ function formatDate(timestamp: number) {
 }
 
 function ConversationsPage() {
-	const { projectId: projectIdParam } = Route.useParams();
+	const { orgId: orgIdParam, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 	const conversations = useQuery(api.conversations.list, { projectId });
 	const createConversation = useMutation(api.conversations.create);
+	const navigate = useNavigate();
 
 	if (conversations === undefined) {
 		return (
@@ -54,7 +55,15 @@ function ConversationsPage() {
 	}
 
 	const handleCreate = async () => {
-		await createConversation({ projectId });
+		const conversationId = await createConversation({ projectId });
+		navigate({
+			to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
+			params: {
+				orgId: orgIdParam,
+				projectId: projectIdParam,
+				conversationId,
+			},
+		});
 	};
 
 	return (
@@ -76,9 +85,20 @@ function ConversationsPage() {
 			) : (
 				<div className="space-y-2">
 					{conversations.map((conversation) => (
-						<div
-							className="flex items-center justify-between gap-4 rounded-lg border p-4"
+						<button
+							className="flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-accent/50"
 							key={conversation._id}
+							onClick={() =>
+								navigate({
+									to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
+									params: {
+										orgId: orgIdParam,
+										projectId: projectIdParam,
+										conversationId: conversation._id,
+									},
+								})
+							}
+							type="button"
 						>
 							<div className="min-w-0 flex-1">
 								<p className="truncate font-medium text-sm">
@@ -91,7 +111,7 @@ function ConversationsPage() {
 							<Badge variant={statusVariant(conversation.status)}>
 								{conversation.status}
 							</Badge>
-						</div>
+						</button>
 					))}
 				</div>
 			)}

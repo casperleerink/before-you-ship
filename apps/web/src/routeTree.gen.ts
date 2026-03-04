@@ -23,7 +23,8 @@ import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRouteImp
 import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdTasksRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/tasks'
 import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/settings'
 import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/docs'
-import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/conversations'
+import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/conversations/index'
+import { Route as AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRouteImport } from './routes/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
@@ -103,11 +104,20 @@ const AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute =
     path: '/docs',
     getParentRoute: () => AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute,
   } as any)
-const AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute =
-  AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRouteImport.update(
+const AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute =
+  AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRouteImport.update(
     {
-      id: '/conversations',
-      path: '/conversations',
+      id: '/conversations/',
+      path: '/conversations/',
+      getParentRoute: () =>
+        AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute,
+    } as any,
+  )
+const AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute =
+  AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRouteImport.update(
+    {
+      id: '/conversations/$conversationId',
+      path: '/conversations/$conversationId',
       getParentRoute: () =>
         AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute,
     } as any,
@@ -122,12 +132,13 @@ export interface FileRoutesByFullPath {
   '/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/organizations/$orgId/': typeof AuthenticatedOrganizationsOrgIdIndexRoute
   '/organizations/$orgId/projects/$projectId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren
-  '/organizations/$orgId/projects/$projectId/conversations': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute
   '/organizations/$orgId/projects/$projectId/docs': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
   '/organizations/$orgId/projects/$projectId/settings': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute
   '/organizations/$orgId/projects/$projectId/tasks': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTasksRoute
   '/organizations/$orgId/projects/$projectId/triage': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRoute
   '/organizations/$orgId/projects/$projectId/': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute
+  '/organizations/$orgId/projects/$projectId/conversations/$conversationId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute
+  '/organizations/$orgId/projects/$projectId/conversations/': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -136,12 +147,13 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/organizations': typeof AuthenticatedOrganizationsIndexRoute
   '/organizations/$orgId': typeof AuthenticatedOrganizationsOrgIdIndexRoute
-  '/organizations/$orgId/projects/$projectId/conversations': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute
   '/organizations/$orgId/projects/$projectId/docs': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
   '/organizations/$orgId/projects/$projectId/settings': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute
   '/organizations/$orgId/projects/$projectId/tasks': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTasksRoute
   '/organizations/$orgId/projects/$projectId/triage': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRoute
   '/organizations/$orgId/projects/$projectId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute
+  '/organizations/$orgId/projects/$projectId/conversations/$conversationId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute
+  '/organizations/$orgId/projects/$projectId/conversations': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -154,12 +166,13 @@ export interface FileRoutesById {
   '/_authenticated/organizations/': typeof AuthenticatedOrganizationsIndexRoute
   '/_authenticated/organizations/$orgId/': typeof AuthenticatedOrganizationsOrgIdIndexRoute
   '/_authenticated/organizations/$orgId/projects/$projectId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren
-  '/_authenticated/organizations/$orgId/projects/$projectId/conversations': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute
   '/_authenticated/organizations/$orgId/projects/$projectId/docs': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
   '/_authenticated/organizations/$orgId/projects/$projectId/settings': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute
   '/_authenticated/organizations/$orgId/projects/$projectId/tasks': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTasksRoute
   '/_authenticated/organizations/$orgId/projects/$projectId/triage': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRoute
   '/_authenticated/organizations/$orgId/projects/$projectId/': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute
+  '/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute
+  '/_authenticated/organizations/$orgId/projects/$projectId/conversations/': typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,12 +185,13 @@ export interface FileRouteTypes {
     | '/organizations/'
     | '/organizations/$orgId/'
     | '/organizations/$orgId/projects/$projectId'
-    | '/organizations/$orgId/projects/$projectId/conversations'
     | '/organizations/$orgId/projects/$projectId/docs'
     | '/organizations/$orgId/projects/$projectId/settings'
     | '/organizations/$orgId/projects/$projectId/tasks'
     | '/organizations/$orgId/projects/$projectId/triage'
     | '/organizations/$orgId/projects/$projectId/'
+    | '/organizations/$orgId/projects/$projectId/conversations/$conversationId'
+    | '/organizations/$orgId/projects/$projectId/conversations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -186,12 +200,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/organizations'
     | '/organizations/$orgId'
-    | '/organizations/$orgId/projects/$projectId/conversations'
     | '/organizations/$orgId/projects/$projectId/docs'
     | '/organizations/$orgId/projects/$projectId/settings'
     | '/organizations/$orgId/projects/$projectId/tasks'
     | '/organizations/$orgId/projects/$projectId/triage'
     | '/organizations/$orgId/projects/$projectId'
+    | '/organizations/$orgId/projects/$projectId/conversations/$conversationId'
+    | '/organizations/$orgId/projects/$projectId/conversations'
   id:
     | '__root__'
     | '/'
@@ -203,12 +218,13 @@ export interface FileRouteTypes {
     | '/_authenticated/organizations/'
     | '/_authenticated/organizations/$orgId/'
     | '/_authenticated/organizations/$orgId/projects/$projectId'
-    | '/_authenticated/organizations/$orgId/projects/$projectId/conversations'
     | '/_authenticated/organizations/$orgId/projects/$projectId/docs'
     | '/_authenticated/organizations/$orgId/projects/$projectId/settings'
     | '/_authenticated/organizations/$orgId/projects/$projectId/tasks'
     | '/_authenticated/organizations/$orgId/projects/$projectId/triage'
     | '/_authenticated/organizations/$orgId/projects/$projectId/'
+    | '/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId'
+    | '/_authenticated/organizations/$orgId/projects/$projectId/conversations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -317,29 +333,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRouteImport
       parentRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute
     }
-    '/_authenticated/organizations/$orgId/projects/$projectId/conversations': {
-      id: '/_authenticated/organizations/$orgId/projects/$projectId/conversations'
+    '/_authenticated/organizations/$orgId/projects/$projectId/conversations/': {
+      id: '/_authenticated/organizations/$orgId/projects/$projectId/conversations/'
       path: '/conversations'
-      fullPath: '/organizations/$orgId/projects/$projectId/conversations'
-      preLoaderRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRouteImport
+      fullPath: '/organizations/$orgId/projects/$projectId/conversations/'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRouteImport
+      parentRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute
+    }
+    '/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId': {
+      id: '/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId'
+      path: '/conversations/$conversationId'
+      fullPath: '/organizations/$orgId/projects/$projectId/conversations/$conversationId'
+      preLoaderRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRouteImport
       parentRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdRoute
     }
   }
 }
 
 interface AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteChildren {
-  AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute
   AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute
   AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute
   AuthenticatedOrganizationsOrgIdProjectsProjectIdTasksRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTasksRoute
   AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRoute
   AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute
+  AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute
+  AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute: typeof AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute
 }
 
 const AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteChildren: AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteChildren =
   {
-    AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute:
-      AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsRoute,
     AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute:
       AuthenticatedOrganizationsOrgIdProjectsProjectIdDocsRoute,
     AuthenticatedOrganizationsOrgIdProjectsProjectIdSettingsRoute:
@@ -350,6 +372,10 @@ const AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteChildren: Authenticat
       AuthenticatedOrganizationsOrgIdProjectsProjectIdTriageRoute,
     AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute:
       AuthenticatedOrganizationsOrgIdProjectsProjectIdIndexRoute,
+    AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute:
+      AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsConversationIdRoute,
+    AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute:
+      AuthenticatedOrganizationsOrgIdProjectsProjectIdConversationsIndexRoute,
   }
 
 const AuthenticatedOrganizationsOrgIdProjectsProjectIdRouteWithChildren =
