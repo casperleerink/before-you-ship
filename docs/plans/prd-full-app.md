@@ -98,8 +98,8 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### Vector Search
 - [x] Convex vector search index on tasks (embedding field)
 - [x] Convex vector search index on docs (embedding field)
-- [ ] `search_docs(query)` tool: semantic search over project docs
-- [ ] `search_tasks(query)` tool: find related/duplicate tasks
+- [x] `search_docs(query)` tool: semantic search over project docs
+- [x] `search_tasks(query)` tool: find related/duplicate tasks
 - [x] Embedding generation on task/doc create and update
 
 ### Tasks

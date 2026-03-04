@@ -19,6 +19,7 @@ import {
 	query,
 } from "./_generated/server";
 import { chatAgent, languageModel } from "./agent";
+import { createSearchTools } from "./tools";
 
 export async function sendMessageToThread(
 	ctx: MutationCtx,
@@ -89,8 +90,13 @@ function buildSystemPrompt(project: {
 
 	parts.push(
 		"",
+		"## Available Tools",
+		"- **searchTasks**: Search existing tasks in this project by semantic similarity. Use this to check for duplicates or related work before proposing new tasks.",
+		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications.",
+		"",
 		"## Your Behavior",
 		"- Ask 1-2 clarifying questions at a time to understand the user's intent. Do not overwhelm with many questions.",
+		"- Use the search tools to check for existing tasks and relevant documentation when discussing features or bugs.",
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
 		"- When you have enough context, bias toward proposing a structured plan with concrete tasks.",
 		"- Each proposed task should include a title, brief description, complexity/risk/effort assessment, and affected areas of the codebase.",
@@ -113,11 +119,14 @@ export const generateResponseAsync = internalAction({
 		);
 
 		const systemPrompt = project ? buildSystemPrompt(project) : undefined;
+		const tools = conversation
+			? createSearchTools(conversation.projectId)
+			: undefined;
 
 		await chatAgent.streamText(
 			ctx,
 			{ threadId },
-			{ promptMessageId, system: systemPrompt },
+			{ promptMessageId, system: systemPrompt, tools },
 			{ saveStreamDeltas: true }
 		);
 

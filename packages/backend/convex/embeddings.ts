@@ -3,6 +3,7 @@ import { embed } from "ai";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
 	internalAction,
 	internalMutation,
@@ -90,5 +91,99 @@ export const patchDocEmbedding = internalMutation({
 	},
 	handler: async (ctx, { docId, embedding }) => {
 		await ctx.db.patch(docId, { embedding });
+	},
+});
+
+export const vectorSearchTasks = internalAction({
+	args: {
+		projectId: v.id("projects"),
+		text: v.string(),
+		limit: v.optional(v.number()),
+	},
+	handler: async (
+		ctx,
+		{ projectId, text, limit }
+	): Promise<
+		{
+			id: Id<"tasks">;
+			title: string;
+			brief: string;
+			status: string;
+			risk: string;
+			complexity: string;
+			effort: string;
+			affectedAreas: string[];
+			score: number;
+		}[]
+	> => {
+		const embedding = await generateEmbedding(text);
+		const results = await ctx.vectorSearch("tasks", "by_embedding", {
+			vector: embedding,
+			limit: limit ?? 10,
+			filter: (q) => q.eq("projectId", projectId),
+		});
+		const tasks = await Promise.all(
+			results.map(async (r) => {
+				const task = await ctx.runQuery(internal.embeddings.getTask, {
+					taskId: r._id,
+				});
+				return task
+					? {
+							id: r._id,
+							title: task.title,
+							brief: task.brief,
+							status: task.status,
+							risk: task.risk,
+							complexity: task.complexity,
+							effort: task.effort,
+							affectedAreas: task.affectedAreas,
+							score: r._score,
+						}
+					: null;
+			})
+		);
+		return tasks.filter((t): t is NonNullable<typeof t> => t !== null);
+	},
+});
+
+export const vectorSearchDocs = internalAction({
+	args: {
+		projectId: v.id("projects"),
+		text: v.string(),
+		limit: v.optional(v.number()),
+	},
+	handler: async (
+		ctx,
+		{ projectId, text, limit }
+	): Promise<
+		{
+			id: Id<"docs">;
+			title: string;
+			content: string;
+			score: number;
+		}[]
+	> => {
+		const embedding = await generateEmbedding(text);
+		const results = await ctx.vectorSearch("docs", "by_embedding", {
+			vector: embedding,
+			limit: limit ?? 10,
+			filter: (q) => q.eq("projectId", projectId),
+		});
+		const docs = await Promise.all(
+			results.map(async (r) => {
+				const doc = await ctx.runQuery(internal.embeddings.getDoc, {
+					docId: r._id,
+				});
+				return doc
+					? {
+							id: r._id,
+							title: doc.title,
+							content: doc.content,
+							score: r._score,
+						}
+					: null;
+			})
+		);
+		return docs.filter((d): d is NonNullable<typeof d> => d !== null);
 	},
 });
