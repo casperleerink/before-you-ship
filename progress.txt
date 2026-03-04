@@ -35,3 +35,4 @@ Codebase agent tools: listFiles/readFile/searchCode tools via Daytona toolbox AP
 Auto-generate project description: generateProjectDescription action scheduled after sandbox creation, reads README + file tree, generates description via AI, setProjectDescription mutation with idempotent guard
 Token management: connectRepo looks up user's gitConnection, passes gitConnectionId to createSandbox, which fetches OAuth token and sends username/password to Daytona git clone for private repo access
 File tree cache: fileTreeCache schema table, cache-aside in listFiles tool with 24h TTL, root cache built on sandbox creation, cleared on repo disconnect
+Self-hosted Git URL support: connectSelfHostedRepo mutation with optional access token, SelfHostedRepoForm UI in settings page with URL + token fields, GenericGitIcon for non-GitHub repos

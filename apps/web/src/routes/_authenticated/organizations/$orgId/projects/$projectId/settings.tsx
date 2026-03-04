@@ -120,11 +120,22 @@ function RepositorySection({
 					sandboxId={sandboxId}
 				/>
 			) : (
-				<div className="space-y-4">
+				<div className="space-y-6">
 					<GitHubConnectionStatus
 						connection={githubConnection}
 						projectId={projectId}
 					/>
+					<div className="relative">
+						<div className="absolute inset-0 flex items-center">
+							<span className="w-full border-t" />
+						</div>
+						<div className="relative flex justify-center text-xs uppercase">
+							<span className="bg-background px-2 text-muted-foreground">
+								or
+							</span>
+						</div>
+					</div>
+					<SelfHostedRepoForm projectId={projectId} />
 				</div>
 			)}
 		</div>
@@ -148,7 +159,7 @@ function ConnectedRepo({
 		<div className="space-y-3">
 			<div className="flex items-center justify-between rounded-lg border p-4">
 				<div className="flex items-center gap-3">
-					{repoProvider === "github" && <GitHubIcon />}
+					{repoProvider === "github" ? <GitHubIcon /> : <GitIcon />}
 					<div>
 						<p className="font-medium text-sm">{repoUrl}</p>
 						<div className="mt-1 flex items-center gap-2">
@@ -364,6 +375,111 @@ function RepoSelector({
 	);
 }
 
+function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
+	const connectSelfHosted = useMutation(api.projects.connectSelfHostedRepo);
+	const [submitting, setSubmitting] = useState(false);
+	const form = useForm({
+		defaultValues: {
+			repoUrl: "",
+			accessToken: "",
+		},
+		onSubmit: async ({ value }) => {
+			setSubmitting(true);
+			try {
+				await connectSelfHosted({
+					projectId,
+					repoUrl: value.repoUrl,
+					accessToken: value.accessToken || undefined,
+				});
+				toast.success("Repository connected");
+			} catch {
+				toast.error("Failed to connect repository");
+			} finally {
+				setSubmitting(false);
+			}
+		},
+		validators: {
+			onSubmit: z.object({
+				repoUrl: z
+					.string()
+					.min(1, "Repository URL is required")
+					.url("Must be a valid URL"),
+				accessToken: z.string(),
+			}),
+		},
+	});
+
+	return (
+		<div className="rounded-lg border border-dashed p-6">
+			<p className="mb-1 font-medium text-sm">Connect by URL</p>
+			<p className="mb-4 text-muted-foreground text-xs">
+				Enter a Git repository URL directly. Supports any Git host.
+			</p>
+			<form
+				className="space-y-3"
+				onSubmit={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					form.handleSubmit();
+				}}
+			>
+				<form.Field name="repoUrl">
+					{(field) => (
+						<div className="space-y-1">
+							<Label className="text-xs" htmlFor={field.name}>
+								Repository URL
+							</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+								placeholder="https://gitlab.example.com/org/repo.git"
+								value={field.state.value}
+							/>
+							{field.state.meta.errors.map((error) => (
+								<p className="text-red-500 text-xs" key={error?.message}>
+									{error?.message}
+								</p>
+							))}
+						</div>
+					)}
+				</form.Field>
+				<form.Field name="accessToken">
+					{(field) => (
+						<div className="space-y-1">
+							<Label className="text-xs" htmlFor={field.name}>
+								Access Token{" "}
+								<span className="text-muted-foreground">(optional)</span>
+							</Label>
+							<Input
+								id={field.name}
+								name={field.name}
+								onBlur={field.handleBlur}
+								onChange={(e) => field.handleChange(e.target.value)}
+								placeholder="For private repositories"
+								type="password"
+								value={field.state.value}
+							/>
+						</div>
+					)}
+				</form.Field>
+				<form.Subscribe>
+					{(state) => (
+						<Button
+							disabled={!state.canSubmit || submitting}
+							size="sm"
+							type="submit"
+						>
+							{submitting ? "Connecting..." : "Connect Repository"}
+						</Button>
+					)}
+				</form.Subscribe>
+			</form>
+		</div>
+	);
+}
+
 function GitHubIcon({ className = "size-5" }: { className?: string }) {
 	return (
 		<svg
@@ -375,6 +491,21 @@ function GitHubIcon({ className = "size-5" }: { className?: string }) {
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+		</svg>
+	);
+}
+
+function GitIcon({ className = "size-5" }: { className?: string }) {
+	return (
+		<svg
+			aria-label="Git"
+			className={className}
+			fill="currentColor"
+			role="img"
+			viewBox="0 0 24 24"
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			<path d="M23.546 10.93L13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.66 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.53a1.838 1.838 0 1 1-1.514-.07V8.78a1.838 1.838 0 0 1-.998-2.41L7.629 3.64.452 10.818a1.55 1.55 0 0 0 0 2.187l10.48 10.48a1.55 1.55 0 0 0 2.186 0l10.428-10.43a1.55 1.55 0 0 0 0-2.125z" />
 		</svg>
 	);
 }

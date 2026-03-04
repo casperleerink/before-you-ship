@@ -166,6 +166,77 @@ export const connectRepo = mutation({
 	},
 });
 
+export const connectSelfHostedRepo = mutation({
+	args: {
+		projectId: v.id("projects"),
+		repoUrl: v.string(),
+		accessToken: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const [appUser, project] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.projectId),
+		]);
+		if (!appUser) {
+			throw new Error("Not authenticated");
+		}
+		if (!project) {
+			throw new Error("Project not found");
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			throw new Error("Not a member of this organization");
+		}
+
+		await ctx.db.patch(args.projectId, {
+			repoUrl: args.repoUrl,
+			repoProvider: "self_hosted" as const,
+		});
+
+		// Store credentials as a gitConnection if access token provided
+		const existingConnection = await ctx.db
+			.query("gitConnections")
+			.withIndex("by_userId_provider", (q) =>
+				q.eq("userId", appUser._id).eq("provider", "self_hosted")
+			)
+			.first();
+
+		let gitConnectionId = existingConnection?._id;
+
+		if (args.accessToken) {
+			const now = Date.now();
+			if (existingConnection) {
+				await ctx.db.patch(existingConnection._id, {
+					accessToken: args.accessToken,
+					updatedAt: now,
+				});
+				gitConnectionId = existingConnection._id;
+			} else {
+				gitConnectionId = await ctx.db.insert("gitConnections", {
+					userId: appUser._id,
+					provider: "self_hosted",
+					providerAccountId: "self_hosted",
+					accessToken: args.accessToken,
+					displayName: "Self-hosted Git",
+					createdAt: now,
+					updatedAt: now,
+				});
+			}
+		}
+
+		await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
+			projectId: args.projectId,
+			repoUrl: args.repoUrl,
+			gitConnectionId,
+		});
+	},
+});
+
 export const disconnectRepo = mutation({
 	args: {
 		projectId: v.id("projects"),
