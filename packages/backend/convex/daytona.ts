@@ -51,10 +51,26 @@ export const createSandbox = internalAction({
 	args: {
 		projectId: v.id("projects"),
 		repoUrl: v.string(),
+		gitConnectionId: v.optional(v.id("gitConnections")),
 	},
 	handler: async (ctx, args) => {
 		const { apiKey, apiUrl, target } = getDaytonaConfig();
 		const headers = daytonaHeaders(apiKey);
+
+		// Look up OAuth token for private repo access
+		let gitCredentials: { username: string; password: string } | undefined;
+		if (args.gitConnectionId) {
+			const connection = await ctx.runQuery(
+				internal.gitConnections.getConnectionById,
+				{ connectionId: args.gitConnectionId }
+			);
+			if (connection?.accessToken) {
+				gitCredentials = {
+					username: "x-access-token",
+					password: connection.accessToken,
+				};
+			}
+		}
 
 		try {
 			// Create sandbox
@@ -77,15 +93,20 @@ export const createSandbox = internalAction({
 			const sandbox = await createRes.json();
 			const sandboxId: string = sandbox.id;
 
-			// Clone repo into sandbox
+			// Clone repo into sandbox (with optional auth for private repos)
 			const cloneUrl = `${apiUrl}/sandbox/${sandboxId}/toolbox/git/clone`;
+			const cloneBody: Record<string, string> = {
+				url: args.repoUrl,
+				path: REPO_ROOT,
+			};
+			if (gitCredentials) {
+				cloneBody.username = gitCredentials.username;
+				cloneBody.password = gitCredentials.password;
+			}
 			const cloneRes = await fetch(cloneUrl, {
 				method: "POST",
 				headers,
-				body: JSON.stringify({
-					url: args.repoUrl,
-					path: REPO_ROOT,
-				}),
+				body: JSON.stringify(cloneBody),
 			});
 
 			if (!cloneRes.ok) {

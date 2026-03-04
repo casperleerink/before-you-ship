@@ -150,9 +150,18 @@ export const connectRepo = mutation({
 			repoProvider: args.repoProvider,
 		});
 
+		// Look up user's git connection for this provider to pass OAuth token
+		const gitConnection = await ctx.db
+			.query("gitConnections")
+			.withIndex("by_userId_provider", (q) =>
+				q.eq("userId", appUser._id).eq("provider", args.repoProvider)
+			)
+			.first();
+
 		await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
 			projectId: args.projectId,
 			repoUrl: args.repoUrl,
+			gitConnectionId: gitConnection?._id,
 		});
 	},
 });

@@ -33,3 +33,4 @@ GitHub OAuth: gitConnections/gitConnectionRequests schema tables, OAuth flow (cr
 Daytona sandbox: REST API integration (create/delete sandbox, clone repo), scheduler triggers on connectRepo/disconnectRepo, sandbox status badge in settings UI
 Codebase agent tools: listFiles/readFile/searchCode tools via Daytona toolbox API, conditional injection when sandbox exists, system prompt codebase sections, tool activity indicators
 Auto-generate project description: generateProjectDescription action scheduled after sandbox creation, reads README + file tree, generates description via AI, setProjectDescription mutation with idempotent guard
+Token management: connectRepo looks up user's gitConnection, passes gitConnectionId to createSandbox, which fetches OAuth token and sends username/password to Daytona git clone for private repo access
