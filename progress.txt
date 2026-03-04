@@ -2,3 +2,4 @@ User sync hook: added users table, authTriggers.ts with create/update mutations,
 Session management: added /sign-in route, _authenticated layout guard, moved dashboard+ai under protected routes, auth-aware header
 Organizations: schema tables, list/getById/create functions, org selector page with auto-skip, org detail page, redirects updated to /organizations
 Projects: schema table, list/getById/create functions with org membership checks, projects list UI on org page with create form, extracted getAppUser and getOrgMembership helpers
+Project view layout: sidebar nav (triage/conversations/tasks/docs/settings) + main content area, nested routes under $orgId/$projectId, EmptyState component, project cards link to project view
