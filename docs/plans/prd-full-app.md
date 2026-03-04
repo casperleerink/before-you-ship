@@ -107,7 +107,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Filter by status, assignee, risk, complexity, effort
 - [x] Task detail: sheet slide-over from right showing all fields
 - [ ] Editable fields in detail: assignee, status
-- [ ] Markdown-rendered brief in detail view
+- [x] Markdown-rendered brief in detail view
 - [x] Link back to origin conversation from task detail
 - [x] Risk/complexity/effort badges (low/medium/high)
 - [x] Affected areas display (codebase paths)

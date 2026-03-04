@@ -10,3 +10,4 @@ Triage click interactions: pending items create conversation via createFromTriag
 Conversation start: blank conversations work via create button, triage-to-conversation pre-loads triage content as first message and triggers AI response, extracted shared sendMessageToThread helper in chat.ts
 Tasks: schema table with validators (status/risk/complexity/effort), list/getById backend queries with auth, tasks list page with table UI and badge indicators
 Task detail: sheet slide-over with all fields (status/risk/complexity/effort badges, affected areas, brief, conversation link), reusable Sheet UI component using @base-ui/react Dialog
+Markdown brief: task detail brief field now rendered as markdown using Streamdown (consistent with chat message rendering)

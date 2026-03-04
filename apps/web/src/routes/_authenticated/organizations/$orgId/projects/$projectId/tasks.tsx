@@ -7,6 +7,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { ArrowRight, ListTodo } from "lucide-react";
 import { useState } from "react";
+import { Streamdown } from "streamdown";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
@@ -157,8 +158,8 @@ function TaskDetailSheet({
 					{task.brief && (
 						<div className="flex flex-col gap-2">
 							<FieldLabel>Brief</FieldLabel>
-							<div className="prose prose-sm max-w-none whitespace-pre-wrap rounded-md border bg-muted/50 p-4 text-sm">
-								{task.brief}
+							<div className="prose prose-sm max-w-none rounded-md border bg-muted/50 p-4 text-sm">
+								<Streamdown>{task.brief}</Streamdown>
 							</div>
 						</div>
 					)}
