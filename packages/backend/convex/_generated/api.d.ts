@@ -10,6 +10,7 @@
 
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as authTriggers from "../authTriggers.js";
 import type * as chat from "../chat.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
@@ -24,6 +25,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
+  authTriggers: typeof authTriggers;
   chat: typeof chat;
   healthCheck: typeof healthCheck;
   http: typeof http;

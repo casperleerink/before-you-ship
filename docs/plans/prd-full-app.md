@@ -17,6 +17,8 @@
 - Desktop-only (no mobile layout)
 - Deployment: Convex cloud for backend, frontend hosting TBD
 
+IMPORTANT: When your task involves using external packages. Please confirm your thoughts with a quick research on how this package actually works before implementing it.
+
 ---
 
 ## Goals
@@ -33,7 +35,7 @@
 
 ### Auth & Users
 - [ ] Better Auth integration with sign-in/sign-up forms
-- [ ] User sync hook: on sign-up, create app-level user record in Convex from Better Auth user
+- [x] User sync hook: on sign-up, create app-level user record in Convex from Better Auth user
 - [ ] Auth redirect: after sign-in → org selector (or skip if single org)
 - [ ] Session management and protected routes
 
