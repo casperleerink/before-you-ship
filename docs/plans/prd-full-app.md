@@ -50,7 +50,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Create project flow: name, optional repo connection
 - [x] Project view layout: sidebar (project name, nav, quick-add triage) + main content area
 - [x] Project settings: edit name/description, connect/disconnect Git repo, sandbox status
-- [ ] Auto-generate project description on first repo connect (AI reads README + file tree)
+- [x] Auto-generate project description on first repo connect (AI reads README + file tree)
 
 ### Git Provider Integration
 - [x] OAuth flow for GitHub, GitLab, Azure DevOps, Bitbucket

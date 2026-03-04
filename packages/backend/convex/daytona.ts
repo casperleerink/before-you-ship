@@ -1,6 +1,9 @@
+import { generateText } from "ai";
 import { v } from "convex/values";
+
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation } from "./_generated/server";
+import { languageModel } from "./agent";
 
 const DEFAULT_API_URL = "https://app.daytona.io/api";
 
@@ -94,6 +97,16 @@ export const createSandbox = internalAction({
 				projectId: args.projectId,
 				sandboxId,
 			});
+
+			// Auto-generate project description from repo contents
+			await ctx.scheduler.runAfter(
+				0,
+				internal.daytona.generateProjectDescription,
+				{
+					projectId: args.projectId,
+					sandboxId,
+				}
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			console.error(
@@ -192,5 +205,98 @@ export const setSandboxId = internalMutation({
 		await ctx.db.patch(args.projectId, {
 			sandboxId: args.sandboxId,
 		});
+	},
+});
+
+export const generateProjectDescription = internalAction({
+	args: {
+		projectId: v.id("projects"),
+		sandboxId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		try {
+			// Read the file tree (top-level only)
+			const files = await ctx.runAction(internal.daytona.listFiles, {
+				sandboxId: args.sandboxId,
+				path: REPO_ROOT,
+			});
+
+			const fileTree = files
+				.map((f) => `${f.isDir ? "📁" : "📄"} ${f.name}`)
+				.join("\n");
+
+			// Try to read README
+			let readme = "";
+			const readmeFile = files.find((f) =>
+				f.name.toLowerCase().startsWith("readme")
+			);
+			if (readmeFile) {
+				try {
+					readme = await ctx.runAction(internal.daytona.readFile, {
+						sandboxId: args.sandboxId,
+						path: `${REPO_ROOT}/${readmeFile.name}`,
+					});
+					// Truncate if too long
+					if (readme.length > 5000) {
+						readme = `${readme.slice(0, 5000)}\n... (truncated)`;
+					}
+				} catch (error) {
+					console.warn(
+						`Failed to read README for project ${args.projectId}:`,
+						error instanceof Error ? error.message : error
+					);
+				}
+			}
+
+			const prompt = [
+				"Generate a concise project description (2-4 sentences) based on this repository.",
+				"Focus on: what the project does, what technologies it uses, and its main purpose.",
+				"Return ONLY the description text, no headers or formatting.",
+				"",
+				"## File Tree (root level)",
+				fileTree,
+			];
+
+			if (readme) {
+				prompt.push("", "## README", readme);
+			}
+
+			const { text: description } = await generateText({
+				model: languageModel,
+				system:
+					"You generate concise project descriptions from repository contents. Be factual and specific.",
+				prompt: prompt.join("\n"),
+			});
+
+			await ctx.runMutation(internal.daytona.setProjectDescription, {
+				projectId: args.projectId,
+				description: description.trim(),
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			console.error(
+				`Failed to generate description for project ${args.projectId}: ${message}`
+			);
+			// Non-critical — fail silently
+		}
+	},
+});
+
+export const setProjectDescription = internalMutation({
+	args: {
+		projectId: v.id("projects"),
+		description: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const project = await ctx.db.get(args.projectId);
+		if (!project) {
+			throw new Error(`Project ${args.projectId} not found`);
+		}
+		// Only set if no description exists (don't overwrite user edits)
+		if (!project.description) {
+			await ctx.db.patch(args.projectId, {
+				description: args.description,
+			});
+		}
 	},
 });

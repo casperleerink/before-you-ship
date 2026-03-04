@@ -32,3 +32,4 @@ Write tools + Phase 2 gating: createTask/updateTask tools in createWriteTools, c
 GitHub OAuth: gitConnections/gitConnectionRequests schema tables, OAuth flow (createRequest→githubInitiate→githubCallback→upsertConnection), listRepos action, connectRepo/disconnectRepo mutations, settings page with connect/disconnect/repo-selector UI
 Daytona sandbox: REST API integration (create/delete sandbox, clone repo), scheduler triggers on connectRepo/disconnectRepo, sandbox status badge in settings UI
 Codebase agent tools: listFiles/readFile/searchCode tools via Daytona toolbox API, conditional injection when sandbox exists, system prompt codebase sections, tool activity indicators
+Auto-generate project description: generateProjectDescription action scheduled after sandbox creation, reads README + file tree, generates description via AI, setProjectDescription mutation with idempotent guard
