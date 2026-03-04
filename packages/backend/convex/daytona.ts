@@ -227,6 +227,27 @@ export const searchCode = internalAction({
 	},
 });
 
+export const gitPull = internalAction({
+	args: {
+		sandboxId: v.string(),
+	},
+	handler: async (_ctx, args) => {
+		const { apiKey, apiUrl } = getDaytonaConfig();
+		const res = await fetch(
+			`${apiUrl}/sandbox/${args.sandboxId}/toolbox/git/pull`,
+			{
+				method: "POST",
+				headers: daytonaHeaders(apiKey),
+				body: JSON.stringify({ path: REPO_ROOT }),
+			}
+		);
+		if (!res.ok) {
+			const text = await res.text();
+			throw new Error(`Git pull failed (${res.status}): ${text}`);
+		}
+	},
+});
+
 export const setSandboxId = internalMutation({
 	args: {
 		projectId: v.id("projects"),

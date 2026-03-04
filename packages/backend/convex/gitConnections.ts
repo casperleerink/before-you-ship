@@ -10,10 +10,10 @@ import {
 } from "./_generated/server";
 import { getAppUser } from "./helpers";
 import { projectRepoProviderValidator } from "./schema";
+import { GITHUB_API_URL, generateRandomHex, getConvexSiteUrl } from "./shared";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_API_URL = "https://api.github.com";
 const GITHUB_SCOPES = "repo read:user";
 const REQUEST_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -36,21 +36,6 @@ function getSiteUrl() {
 	return siteUrl;
 }
 
-function getConvexSiteUrl() {
-	const url = process.env.CONVEX_SITE_URL;
-	if (!url) {
-		throw new Error("CONVEX_SITE_URL must be set");
-	}
-	return url;
-}
-
-// Generate a random state string for OAuth CSRF protection
-function generateState(): string {
-	const array = new Uint8Array(32);
-	crypto.getRandomValues(array);
-	return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 // --- Mutations & Queries ---
 
 export const createRequest = mutation({
@@ -64,7 +49,7 @@ export const createRequest = mutation({
 			throw new Error("Not authenticated");
 		}
 
-		const state = generateState();
+		const state = generateRandomHex();
 		const now = Date.now();
 
 		await ctx.db.insert("gitConnectionRequests", {

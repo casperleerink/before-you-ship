@@ -185,6 +185,14 @@ export default defineSchema({
 		expiresAt: v.number(),
 	}).index("by_state", ["state"]),
 
+	webhooks: defineTable({
+		projectId: v.id("projects"),
+		provider: projectRepoProviderValidator,
+		providerWebhookId: v.string(),
+		secret: v.string(),
+		createdAt: v.number(),
+	}).index("by_projectId", ["projectId"]),
+
 	fileTreeCache: defineTable({
 		projectId: v.id("projects"),
 		path: v.string(),

@@ -163,6 +163,15 @@ export const connectRepo = mutation({
 			repoUrl: args.repoUrl,
 			gitConnectionId: gitConnection?._id,
 		});
+
+		// Register webhook for push events (GitHub only, requires OAuth connection)
+		if (args.repoProvider === "github" && gitConnection) {
+			await ctx.scheduler.runAfter(0, internal.webhooks.registerGithub, {
+				projectId: args.projectId,
+				repoUrl: args.repoUrl,
+				gitConnectionId: gitConnection._id,
+			});
+		}
 	},
 });
 
@@ -260,6 +269,24 @@ export const disconnectRepo = mutation({
 		);
 		if (!membership) {
 			throw new Error("Not a member of this organization");
+		}
+
+		// Unregister webhook before deleting sandbox (GitHub only)
+		if (project.repoProvider === "github" && project.repoUrl) {
+			const gitConnection = await ctx.db
+				.query("gitConnections")
+				.withIndex("by_userId_provider", (q) =>
+					q.eq("userId", appUser._id).eq("provider", "github")
+				)
+				.first();
+
+			if (gitConnection) {
+				await ctx.scheduler.runAfter(0, internal.webhooks.unregisterGithub, {
+					projectId: args.projectId,
+					repoUrl: project.repoUrl,
+					gitConnectionId: gitConnection._id,
+				});
+			}
 		}
 
 		if (project.sandboxId) {

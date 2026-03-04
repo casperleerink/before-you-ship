@@ -25,9 +25,11 @@ import type * as organizations from "../organizations.js";
 import type * as plans from "../plans.js";
 import type * as privateData from "../privateData.js";
 import type * as projects from "../projects.js";
+import type * as shared from "../shared.js";
 import type * as tasks from "../tasks.js";
 import type * as tools from "../tools.js";
 import type * as triageItems from "../triageItems.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -53,9 +55,11 @@ declare const fullApi: ApiFromModules<{
   plans: typeof plans;
   privateData: typeof privateData;
   projects: typeof projects;
+  shared: typeof shared;
   tasks: typeof tasks;
   tools: typeof tools;
   triageItems: typeof triageItems;
+  webhooks: typeof webhooks;
 }>;
 
 /**

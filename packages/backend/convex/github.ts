@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
-
-const GITHUB_API_URL = "https://api.github.com";
+import { GITHUB_API_URL } from "./shared";
 
 export const listRepos = action({
 	args: {

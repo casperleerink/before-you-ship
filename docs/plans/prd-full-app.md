@@ -54,13 +54,13 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 
 ### Git Provider Integration
 - [x] OAuth flow for GitHub, GitLab, Azure DevOps, Bitbucket
-- [ ] Self-hosted Git URL support
-- [ ] Webhook registration for push events (keep sandbox in sync)
+- [x] Self-hosted Git URL support
+- [x] Webhook registration for push events (keep sandbox in sync)
 - [x] Token management: pass OAuth tokens to Daytona for private repo access
 
 ### Daytona Sandbox Integration
 - [x] Create sandbox on repo connect (clone repo)
-- [ ] Webhook handler: pull latest changes on push events
+- [x] Webhook handler: pull latest changes on push events
 - [x] Cache file tree in Convex after first load
 - [x] Implement agent tools: `list_files(path)`, `read_file(path)`, `search_code(query)`
 - [x] Tools run as Convex actions (external HTTP calls to Daytona SDK)
