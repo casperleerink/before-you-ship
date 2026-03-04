@@ -113,9 +113,9 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Affected areas display (codebase paths)
 
 ### Docs
-- [ ] Docs list screen within project
-- [ ] Create new doc button
-- [ ] Inline markdown editor for doc content
+- [x] Docs list screen within project
+- [x] Create new doc button
+- [x] Inline markdown editor for doc content
 - [ ] Docs stored with embedding for vector search
 
 ### My Tasks (Cross-Project)

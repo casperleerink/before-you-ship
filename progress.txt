@@ -13,3 +13,4 @@ Task detail: sheet slide-over with all fields (status/risk/complexity/effort bad
 Markdown brief: task detail brief field now rendered as markdown using Streamdown (consistent with chat message rendering)
 Task filtering: client-side filter dropdowns (status/risk/complexity/effort) with multi-select checkboxes, active filter count badges, clear all button
 Editable task fields: inline status dropdown and assignee dropdown in task detail sheet, update mutation with combined clear/set assignee, listMembers query
+Docs: schema table, list/getById/create/update/remove backend functions, docs list page with create form, sheet-based editor with markdown edit/preview toggle and debounced auto-save

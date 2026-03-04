@@ -111,4 +111,15 @@ export default defineSchema({
 	})
 		.index("by_projectId", ["projectId"])
 		.index("by_projectId_createdAt", ["projectId", "createdAt"]),
+
+	docs: defineTable({
+		projectId: v.id("projects"),
+		title: v.string(),
+		content: v.string(),
+		createdBy: v.id("users"),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_projectId", ["projectId"])
+		.index("by_projectId_updatedAt", ["projectId", "updatedAt"]),
 });
