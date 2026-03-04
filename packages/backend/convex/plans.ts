@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import {
@@ -10,6 +9,7 @@ import {
 } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { taskLevelValidator } from "./schema";
+import { insertTask } from "./tasks";
 
 const proposedTaskValidator = v.object({
 	title: v.string(),
@@ -119,24 +119,12 @@ export const approve = mutation({
 
 		const taskIds: Id<"tasks">[] = [];
 		for (const task of plan.tasks) {
-			const taskId = await ctx.db.insert("tasks", {
+			const taskId = await insertTask(ctx, {
 				projectId: plan.projectId,
 				conversationId: plan.conversationId,
-				title: task.title,
-				brief: task.brief,
-				affectedAreas: task.affectedAreas,
-				risk: task.risk,
-				complexity: task.complexity,
-				effort: task.effort,
-				status: "ready",
-				createdAt: Date.now(),
+				...task,
 			});
 			taskIds.push(taskId);
-			await ctx.scheduler.runAfter(
-				0,
-				internal.embeddings.generateTaskEmbedding,
-				{ taskId }
-			);
 		}
 
 		await ctx.db.patch(args.planId, {

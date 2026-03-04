@@ -28,3 +28,4 @@ Plan approve flow: approve mutation creates tasks from plan, stores createdTaskI
 Plan reject/revise flow: "Request Changes" button rejects plan and sends automated message to thread prompting AI to ask for feedback, system prompt updated with revision instructions
 Tool activity indicators: ToolActivityIndicator component shows spinning/done states for non-proposePlan tool calls (searchTasks, searchDocs, future codebase tools), hides raw tool output from users
 Docs embedding + Real-time: verified already complete — docs have embedding field/vector index/search with generation on content update, all list views use Convex reactive queries (useQuery)
+Write tools + Phase 2 gating: createTask/updateTask tools in createWriteTools, conditionally injected after plan approval via getConversationWithProject, system prompt Phase 1/Phase 2 sections, tool activity indicators

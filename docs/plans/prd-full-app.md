@@ -90,10 +90,10 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### AI Agent
 - [ ] Agent loop: reason → call tools → verify → respond
 - [ ] Read tools (always available): `list_files`, `read_file`, `search_code`, `search_docs`, `search_tasks`
-- [ ] Write tools (only after plan approval): `create_task`, `update_task`
+- [x] Write tools (only after plan approval): `create_task`, `update_task`
 - [x] Planning tool: `propose_plan` — renders structured plan card in chat
-- [ ] Phase 1 (Research & Discuss): all read tools, discussion, optional plan proposal
-- [ ] Phase 2 (Execute): only after user approves plan card, creates/updates tasks
+- [x] Phase 1 (Research & Discuss): all read tools, discussion, optional plan proposal
+- [x] Phase 2 (Execute): only after user approves plan card, creates/updates tasks
 
 ### Vector Search
 - [x] Convex vector search index on tasks (embedding field)

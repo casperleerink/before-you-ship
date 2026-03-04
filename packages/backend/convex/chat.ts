@@ -19,7 +19,7 @@ import {
 	query,
 } from "./_generated/server";
 import { chatAgent, languageModel } from "./agent";
-import { createPlanTools, createSearchTools } from "./tools";
+import { createPlanTools, createSearchTools, createWriteTools } from "./tools";
 
 export async function sendMessageToThread(
 	ctx: MutationCtx,
@@ -68,11 +68,14 @@ export const sendMessage = mutation({
 	},
 });
 
-function buildSystemPrompt(project: {
-	name: string;
-	description?: string;
-	repoUrl?: string;
-}): string {
+function buildSystemPrompt(
+	project: {
+		name: string;
+		description?: string;
+		repoUrl?: string;
+	},
+	hasApprovedPlan: boolean
+): string {
 	const parts = [
 		"You are a technical advisor AI helping non-technical team members (PMs, designers, clients) refine ideas into developer-ready tasks.",
 		"",
@@ -91,11 +94,29 @@ function buildSystemPrompt(project: {
 	parts.push(
 		"",
 		"## Available Tools",
+		"",
+		"### Read Tools (always available)",
 		"- **searchTasks**: Search existing tasks in this project by semantic similarity. Use this to check for duplicates or related work before proposing new tasks.",
 		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications.",
-		"- **proposePlan**: Propose a structured plan with concrete tasks for the user to review. The plan renders as a card in the chat with an approve button.",
 		"",
-		"## Your Behavior",
+		"### Planning Tool",
+		"- **proposePlan**: Propose a structured plan with concrete tasks for the user to review. The plan renders as a card in the chat with an approve button."
+	);
+
+	if (hasApprovedPlan) {
+		parts.push(
+			"",
+			"### Write Tools (unlocked — plan approved)",
+			"- **createTask**: Create a new task in the project. Use for additional tasks that come up during post-approval discussion.",
+			"- **updateTask**: Update an existing task's fields (status, brief, affected areas, risk, complexity, effort). Use to refine tasks based on feedback."
+		);
+	}
+
+	parts.push(
+		"",
+		"## Conversation Phases",
+		"",
+		"### Phase 1: Research & Discuss",
 		"- Ask 1-2 clarifying questions at a time to understand the user's intent. Do not overwhelm with many questions.",
 		"- Use the search tools to check for existing tasks and relevant documentation when discussing features or bugs.",
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
@@ -108,6 +129,18 @@ function buildSystemPrompt(project: {
 		"- You can propose multiple revised plans in a single conversation. Each new plan replaces the previous rejected one."
 	);
 
+	if (hasApprovedPlan) {
+		parts.push(
+			"",
+			"### Phase 2: Execute (ACTIVE)",
+			"The user has approved a plan. You now have access to write tools (`createTask`, `updateTask`).",
+			"- Use `createTask` only if the user requests additional tasks beyond the approved plan.",
+			"- Use `updateTask` to refine existing tasks if the user provides feedback or corrections.",
+			"- Do NOT create tasks that were already created by the plan approval — those are handled automatically.",
+			"- Summarize any changes you make so the user knows what was created or updated."
+		);
+	}
+
 	return parts.join("\n");
 }
 
@@ -117,16 +150,21 @@ export const generateResponseAsync = internalAction({
 		promptMessageId: v.string(),
 	},
 	handler: async (ctx, { threadId, promptMessageId }) => {
-		const { conversation, project } = await ctx.runQuery(
+		const { conversation, project, hasApprovedPlan } = await ctx.runQuery(
 			internal.chat.getConversationWithProject,
 			{ threadId }
 		);
 
-		const systemPrompt = project ? buildSystemPrompt(project) : undefined;
+		const systemPrompt = project
+			? buildSystemPrompt(project, hasApprovedPlan)
+			: undefined;
 		const tools = conversation
 			? {
 					...createSearchTools(conversation.projectId),
 					...createPlanTools(conversation.projectId, conversation._id),
+					...(hasApprovedPlan
+						? createWriteTools(conversation.projectId, conversation._id)
+						: {}),
 				}
 			: undefined;
 
@@ -169,10 +207,19 @@ export const getConversationWithProject = internalQuery({
 			.withIndex("by_threadId", (q) => q.eq("threadId", threadId))
 			.unique();
 		if (!conversation) {
-			return { conversation: null, project: null };
+			return { conversation: null, project: null, hasApprovedPlan: false };
 		}
-		const project = await ctx.db.get(conversation.projectId);
-		return { conversation, project };
+		const [project, approvedPlan] = await Promise.all([
+			ctx.db.get(conversation.projectId),
+			ctx.db
+				.query("plans")
+				.withIndex("by_conversationId", (q) =>
+					q.eq("conversationId", conversation._id)
+				)
+				.filter((q) => q.eq(q.field("status"), "approved"))
+				.first(),
+		]);
+		return { conversation, project, hasApprovedPlan: approvedPlan !== null };
 	},
 });
 

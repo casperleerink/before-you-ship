@@ -21,6 +21,14 @@ const TOOL_LABELS: Record<string, { active: string; done: string }> = {
 		active: "Analyzing codebase...",
 		done: "Searched codebase",
 	},
+	createTask: {
+		active: "Creating task...",
+		done: "Created task",
+	},
+	updateTask: {
+		active: "Updating task...",
+		done: "Updated task",
+	},
 };
 
 const DEFAULT_LABEL = { active: "Processing...", done: "Done" } as const;

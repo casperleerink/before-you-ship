@@ -86,3 +86,55 @@ export function createPlanTools(
 
 	return { proposePlan };
 }
+
+export function createWriteTools(
+	projectId: Id<"projects">,
+	conversationId: Id<"conversations">
+) {
+	const createTask = createTool({
+		description:
+			"Create a new task in the project. Only use this after the user has approved a plan. Use this for additional tasks that come up during post-approval discussion.",
+		args: proposedTaskSchema,
+		handler: async (ctx, args) => {
+			const taskId = await ctx.runMutation(internal.tasks.createFromAgent, {
+				projectId,
+				conversationId,
+				...args,
+			});
+			return { taskId, title: args.title };
+		},
+	});
+
+	const updateTask = createTool({
+		description:
+			"Update an existing task's fields. Only use this after the user has approved a plan. Use this to refine tasks based on post-approval feedback.",
+		args: z.object({
+			taskId: z.string().describe("The ID of the task to update"),
+			status: z
+				.enum(["ready", "in_progress", "done"])
+				.optional()
+				.describe("New status for the task"),
+			brief: z.string().optional().describe("Updated markdown description"),
+			affectedAreas: z
+				.array(z.string())
+				.optional()
+				.describe("Updated codebase paths or areas"),
+			risk: taskLevelSchema.optional().describe("Updated risk level"),
+			complexity: taskLevelSchema
+				.optional()
+				.describe("Updated complexity level"),
+			effort: taskLevelSchema.optional().describe("Updated effort level"),
+		}),
+		handler: async (ctx, args) => {
+			const { taskId: rawTaskId, ...updates } = args;
+			const taskId = await ctx.runMutation(internal.tasks.updateFromAgent, {
+				taskId: rawTaskId as Id<"tasks">,
+				projectId,
+				...updates,
+			});
+			return { taskId, updated: true };
+		},
+	});
+
+	return { createTask, updateTask };
+}
