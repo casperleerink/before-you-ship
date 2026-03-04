@@ -19,7 +19,12 @@ import {
 	query,
 } from "./_generated/server";
 import { chatAgent, languageModel } from "./agent";
-import { createPlanTools, createSearchTools, createWriteTools } from "./tools";
+import {
+	createCodebaseTools,
+	createPlanTools,
+	createSearchTools,
+	createWriteTools,
+} from "./tools";
 
 export async function sendMessageToThread(
 	ctx: MutationCtx,
@@ -73,9 +78,11 @@ function buildSystemPrompt(
 		name: string;
 		description?: string;
 		repoUrl?: string;
+		sandboxId?: string;
 	},
 	hasApprovedPlan: boolean
 ): string {
+	const hasCodebase = Boolean(project.sandboxId);
 	const parts = [
 		"You are a technical advisor AI helping non-technical team members (PMs, designers, clients) refine ideas into developer-ready tasks.",
 		"",
@@ -97,7 +104,22 @@ function buildSystemPrompt(
 		"",
 		"### Read Tools (always available)",
 		"- **searchTasks**: Search existing tasks in this project by semantic similarity. Use this to check for duplicates or related work before proposing new tasks.",
-		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications.",
+		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications."
+	);
+
+	if (hasCodebase) {
+		parts.push(
+			"",
+			"### Codebase Tools (repository connected)",
+			"- **listFiles**: List files and directories in the repository. Use this to explore the project structure.",
+			"- **readFile**: Read the contents of a specific file. Use this to understand implementation details or verify feasibility.",
+			"- **searchCode**: Search for a text pattern across the codebase (grep). Use this to find where things are defined or used.",
+			"",
+			"When using codebase tools, do NOT show raw file contents to the user. Instead, summarize what you found in plain language. Show only small, relevant code snippets when they help explain a point."
+		);
+	}
+
+	parts.push(
 		"",
 		"### Planning Tool",
 		"- **proposePlan**: Propose a structured plan with concrete tasks for the user to review. The plan renders as a card in the chat with an approve button."
@@ -118,7 +140,17 @@ function buildSystemPrompt(
 		"",
 		"### Phase 1: Research & Discuss",
 		"- Ask 1-2 clarifying questions at a time to understand the user's intent. Do not overwhelm with many questions.",
-		"- Use the search tools to check for existing tasks and relevant documentation when discussing features or bugs.",
+		"- Use the search tools to check for existing tasks and relevant documentation when discussing features or bugs."
+	);
+
+	if (hasCodebase) {
+		parts.push(
+			"- Use `listFiles`, `readFile`, and `searchCode` to explore the codebase and provide accurate technical assessments.",
+			"- When analyzing code, start with `listFiles` to understand structure, then `readFile` or `searchCode` for specifics."
+		);
+	}
+
+	parts.push(
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
 		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
 		"- Each proposed task should include a title, brief description, complexity/risk/effort assessment, and affected areas of the codebase.",
@@ -161,6 +193,7 @@ export const generateResponseAsync = internalAction({
 		const tools = conversation
 			? {
 					...createSearchTools(conversation.projectId),
+					...(project?.sandboxId ? createCodebaseTools(project.sandboxId) : {}),
 					...createPlanTools(conversation.projectId, conversation._id),
 					...(hasApprovedPlan
 						? createWriteTools(conversation.projectId, conversation._id)

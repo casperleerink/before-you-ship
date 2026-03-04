@@ -9,15 +9,15 @@ const TOOL_LABELS: Record<string, { active: string; done: string }> = {
 		active: "Searching documentation...",
 		done: "Searched documentation",
 	},
-	list_files: {
+	listFiles: {
 		active: "Analyzing codebase...",
 		done: "Analyzed file tree",
 	},
-	read_file: {
+	readFile: {
 		active: "Analyzing codebase...",
 		done: "Read file",
 	},
-	search_code: {
+	searchCode: {
 		active: "Analyzing codebase...",
 		done: "Searched codebase",
 	},

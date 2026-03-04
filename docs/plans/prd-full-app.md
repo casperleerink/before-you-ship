@@ -62,7 +62,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Create sandbox on repo connect (clone repo)
 - [ ] Webhook handler: pull latest changes on push events
 - [ ] Cache file tree in Convex after first load
-- [ ] Implement agent tools: `list_files(path)`, `read_file(path)`, `search_code(query)`
+- [x] Implement agent tools: `list_files(path)`, `read_file(path)`, `search_code(query)`
 - [ ] Tools run as Convex actions (external HTTP calls to Daytona SDK)
 
 ### Triage
@@ -89,7 +89,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 
 ### AI Agent
 - [x] Agent loop: reason → call tools → verify → respond
-- [ ] Read tools (always available): `list_files`, `read_file`, `search_code`, `search_docs`, `search_tasks`
+- [x] Read tools (always available): `list_files`, `read_file`, `search_code`, `search_docs`, `search_tasks`
 - [x] Write tools (only after plan approval): `create_task`, `update_task`
 - [x] Planning tool: `propose_plan` — renders structured plan card in chat
 - [x] Phase 1 (Research & Discuss): all read tools, discussion, optional plan proposal

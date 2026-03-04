@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { REPO_ROOT } from "./daytona";
 
 const taskLevelSchema = z.enum(["low", "medium", "high"]);
 
@@ -18,6 +19,86 @@ const proposedTaskSchema = z.object({
 	),
 	effort: taskLevelSchema.describe("Effort level: low, medium, or high"),
 });
+
+const MAX_FILE_SIZE = 50_000; // characters
+const MAX_SEARCH_RESULTS = 50;
+
+export function createCodebaseTools(sandboxId: string) {
+	const listFiles = createTool({
+		description:
+			"List files and directories in the repository. Use this to explore the project structure and find relevant files.",
+		args: z.object({
+			path: z
+				.string()
+				.default("")
+				.describe(
+					"Relative path within the repo to list (empty string for root)"
+				),
+		}),
+		handler: async (ctx, args) => {
+			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
+			const files = await ctx.runAction(internal.daytona.listFiles, {
+				sandboxId,
+				path: fullPath,
+			});
+			return files;
+		},
+	});
+
+	const readFile = createTool({
+		description:
+			"Read the contents of a specific file in the repository. Use this to understand implementation details, check for patterns, or verify feasibility.",
+		args: z.object({
+			path: z.string().describe("Relative path to the file within the repo"),
+		}),
+		handler: async (ctx, args) => {
+			const fullPath = `${REPO_ROOT}/${args.path}`;
+			const content = await ctx.runAction(internal.daytona.readFile, {
+				sandboxId,
+				path: fullPath,
+			});
+			if (content.length > MAX_FILE_SIZE) {
+				return `${content.slice(0, MAX_FILE_SIZE)}\n\n... [truncated, file too large]`;
+			}
+			return content;
+		},
+	});
+
+	const searchCode = createTool({
+		description:
+			"Search for a text pattern across the codebase using grep. Returns matching file paths, line numbers, and content. Use this to find where things are defined or used.",
+		args: z.object({
+			query: z
+				.string()
+				.describe(
+					"Text pattern to search for across the codebase (supports regex)"
+				),
+			path: z
+				.string()
+				.default("")
+				.describe(
+					"Relative path to search within (empty string for entire repo)"
+				),
+		}),
+		handler: async (ctx, args) => {
+			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
+			const matches = await ctx.runAction(internal.daytona.searchCode, {
+				sandboxId,
+				path: fullPath,
+				pattern: args.query,
+			});
+			if (matches.length === 0) {
+				return "No matches found.";
+			}
+			if (matches.length > MAX_SEARCH_RESULTS) {
+				return matches.slice(0, MAX_SEARCH_RESULTS);
+			}
+			return matches;
+		},
+	});
+
+	return { listFiles, readFile, searchCode };
+}
 
 export function createSearchTools(projectId: Id<"projects">) {
 	const searchTasks = createTool({

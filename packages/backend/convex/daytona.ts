@@ -18,11 +18,30 @@ function getDaytonaConfig() {
 	return { apiKey, apiUrl, target };
 }
 
+export const REPO_ROOT = "/home/daytona/repo";
+
 function daytonaHeaders(apiKey: string): Record<string, string> {
 	return {
 		Authorization: `Bearer ${apiKey}`,
 		"Content-Type": "application/json",
 	};
+}
+
+async function fetchToolbox(
+	sandboxId: string,
+	path: string,
+	params?: URLSearchParams
+): Promise<Response> {
+	const { apiKey, apiUrl } = getDaytonaConfig();
+	const url = params
+		? `${apiUrl}/sandbox/${sandboxId}/toolbox/${path}?${params}`
+		: `${apiUrl}/sandbox/${sandboxId}/toolbox/${path}`;
+	const res = await fetch(url, { headers: daytonaHeaders(apiKey) });
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(`Daytona ${path} failed (${res.status}): ${text}`);
+	}
+	return res;
 }
 
 export const createSandbox = internalAction({
@@ -62,7 +81,7 @@ export const createSandbox = internalAction({
 				headers,
 				body: JSON.stringify({
 					url: args.repoUrl,
-					path: "/home/daytona/repo",
+					path: REPO_ROOT,
 				}),
 			});
 
@@ -107,6 +126,60 @@ export const deleteSandbox = internalAction({
 			const message = error instanceof Error ? error.message : "Unknown error";
 			console.error(`Failed to delete sandbox ${args.sandboxId}: ${message}`);
 		}
+	},
+});
+
+export const listFiles = internalAction({
+	args: {
+		sandboxId: v.string(),
+		path: v.string(),
+	},
+	handler: async (_ctx, args) => {
+		const res = await fetchToolbox(
+			args.sandboxId,
+			"files",
+			new URLSearchParams({ path: args.path })
+		);
+		return (await res.json()) as Array<{
+			name: string;
+			isDir: boolean;
+			size: number;
+		}>;
+	},
+});
+
+export const readFile = internalAction({
+	args: {
+		sandboxId: v.string(),
+		path: v.string(),
+	},
+	handler: async (_ctx, args) => {
+		const res = await fetchToolbox(
+			args.sandboxId,
+			"files/download",
+			new URLSearchParams({ path: args.path })
+		);
+		return await res.text();
+	},
+});
+
+export const searchCode = internalAction({
+	args: {
+		sandboxId: v.string(),
+		path: v.string(),
+		pattern: v.string(),
+	},
+	handler: async (_ctx, args) => {
+		const res = await fetchToolbox(
+			args.sandboxId,
+			"files/find",
+			new URLSearchParams({ path: args.path, pattern: args.pattern })
+		);
+		return (await res.json()) as Array<{
+			file: string;
+			line: number;
+			content: string;
+		}>;
 	},
 });
 
