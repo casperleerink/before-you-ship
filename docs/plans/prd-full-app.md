@@ -75,8 +75,8 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### Conversations
 - [x] Conversations list screen: AI-generated title, status, date
 - [x] Conversation detail: full-page chat interface with back button
-- [ ] Start conversation from scratch (blank slate)
-- [ ] Start conversation from triage item (context pre-loaded)
+- [x] Start conversation from scratch (blank slate)
+- [x] Start conversation from triage item (context pre-loaded)
 - [ ] Convex agent thread creation with persistent message history
 - [ ] System prompt injection: project description + available tools
 - [ ] AI behavior: ask clarifying questions (1-2 at a time), surface technical insights in plain language

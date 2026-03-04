@@ -9,8 +9,25 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
 import { components, internal } from "./_generated/api";
+import type { MutationCtx } from "./_generated/server";
 import { internalAction, mutation, query } from "./_generated/server";
 import { chatAgent } from "./agent";
+
+export async function sendMessageToThread(
+	ctx: MutationCtx,
+	threadId: string,
+	prompt: string
+) {
+	const { messageId } = await saveMessage(ctx, components.agent, {
+		threadId,
+		prompt,
+	});
+	await ctx.scheduler.runAfter(0, internal.chat.generateResponseAsync, {
+		threadId,
+		promptMessageId: messageId,
+	});
+	return messageId;
+}
 
 export const createNewThread = mutation({
 	args: {},
@@ -39,15 +56,7 @@ export const sendMessage = mutation({
 		prompt: v.string(),
 	},
 	handler: async (ctx, { threadId, prompt }) => {
-		const { messageId } = await saveMessage(ctx, components.agent, {
-			threadId,
-			prompt,
-		});
-		await ctx.scheduler.runAfter(0, internal.chat.generateResponseAsync, {
-			threadId,
-			promptMessageId: messageId,
-		});
-		return messageId;
+		return await sendMessageToThread(ctx, threadId, prompt);
 	},
 });
 

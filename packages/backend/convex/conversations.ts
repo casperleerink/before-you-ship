@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { sendMessageToThread } from "./chat";
 import { getAppUser, getOrgMembership } from "./helpers";
 
 export const list = query({
@@ -152,6 +153,8 @@ export const createFromTriageItem = mutation({
 			status: "converted",
 			conversationId,
 		});
+
+		await sendMessageToThread(ctx, threadId, triageItem.content);
 
 		return conversationId;
 	},
