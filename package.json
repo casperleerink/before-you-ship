@@ -36,6 +36,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.0",
     "@project-manager/config": "workspace:*",
+    "@types/node": "^25.3.3",
     "turbo": "^2.8.12",
     "typescript": "catalog:",
     "ultracite": "7.2.4"

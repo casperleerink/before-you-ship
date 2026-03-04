@@ -45,9 +45,11 @@ function RouteComponent() {
 		{ initialNumItems: 50, stream: true }
 	);
 
+	const messageCount = messages?.length ?? 0;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll when message count changes
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages]);
+	}, [messageCount]);
 
 	const hasStreamingMessage = messages?.some(
 		(m: UIMessage) => m.status === "streaming"
