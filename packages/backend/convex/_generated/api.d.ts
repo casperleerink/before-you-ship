@@ -14,6 +14,7 @@ import type * as authTriggers from "../authTriggers.js";
 import type * as chat from "../chat.js";
 import type * as conversations from "../conversations.js";
 import type * as docs from "../docs.js";
+import type * as embeddings from "../embeddings.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   conversations: typeof conversations;
   docs: typeof docs;
+  embeddings: typeof embeddings;
   healthCheck: typeof healthCheck;
   helpers: typeof helpers;
   http: typeof http;

@@ -79,7 +79,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Start conversation from triage item (context pre-loaded)
 - [x] Convex agent thread creation with persistent message history
 - [x] System prompt injection: project description + available tools
-- [ ] AI behavior: ask clarifying questions (1-2 at a time), surface technical insights in plain language
+- [x] AI behavior: ask clarifying questions (1-2 at a time), surface technical insights in plain language
 - [ ] "Analyzing codebase..." indicator when AI reads files (hide raw file contents from user)
 - [ ] Plan proposal: structured card in chat (proposed tasks with title/brief, complexity/feasibility signal, affected areas, approve button)
 - [ ] Plan approve flow: user approves → tasks created, card locks showing what was created
@@ -96,11 +96,11 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Phase 2 (Execute): only after user approves plan card, creates/updates tasks
 
 ### Vector Search
-- [ ] Convex vector search index on tasks (embedding field)
-- [ ] Convex vector search index on docs (embedding field)
+- [x] Convex vector search index on tasks (embedding field)
+- [x] Convex vector search index on docs (embedding field)
 - [ ] `search_docs(query)` tool: semantic search over project docs
 - [ ] `search_tasks(query)` tool: find related/duplicate tasks
-- [ ] Embedding generation on task/doc create and update
+- [x] Embedding generation on task/doc create and update
 
 ### Tasks
 - [x] Tasks list screen: table with title, status, risk, complexity, effort, assignee columns

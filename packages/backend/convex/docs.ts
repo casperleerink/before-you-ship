@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 
@@ -92,7 +94,7 @@ export const create = mutation({
 		}
 
 		const now = Date.now();
-		return ctx.db.insert("docs", {
+		const docId = await ctx.db.insert("docs", {
 			projectId: args.projectId,
 			title: args.title,
 			content: "",
@@ -100,6 +102,8 @@ export const create = mutation({
 			createdAt: now,
 			updatedAt: now,
 		});
+
+		return docId;
 	},
 });
 
@@ -146,6 +150,17 @@ export const update = mutation({
 		}
 
 		await ctx.db.patch(args.docId, updates);
+
+		const contentChanged =
+			(args.title !== undefined && args.title !== doc.title) ||
+			(args.content !== undefined && args.content !== doc.content);
+		if (contentChanged) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.embeddings.generateDocEmbedding,
+				{ docId: args.docId }
+			);
+		}
 	},
 });
 

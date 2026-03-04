@@ -116,11 +116,17 @@ export default defineSchema({
 		effort: taskLevelValidator,
 		status: taskStatusValidator,
 		assigneeId: v.optional(v.id("users")),
+		embedding: v.optional(v.array(v.float64())),
 		createdAt: v.number(),
 	})
 		.index("by_projectId", ["projectId"])
 		.index("by_projectId_createdAt", ["projectId", "createdAt"])
-		.index("by_assigneeId", ["assigneeId"]),
+		.index("by_assigneeId", ["assigneeId"])
+		.vectorIndex("by_embedding", {
+			vectorField: "embedding",
+			dimensions: 768,
+			filterFields: ["projectId"],
+		}),
 
 	triageItems: defineTable({
 		projectId: v.id("projects"),
@@ -137,10 +143,16 @@ export default defineSchema({
 		projectId: v.id("projects"),
 		title: v.string(),
 		content: v.string(),
+		embedding: v.optional(v.array(v.float64())),
 		createdBy: v.id("users"),
 		createdAt: v.number(),
 		updatedAt: v.number(),
 	})
 		.index("by_projectId", ["projectId"])
-		.index("by_projectId_updatedAt", ["projectId", "updatedAt"]),
+		.index("by_projectId_updatedAt", ["projectId", "updatedAt"])
+		.vectorIndex("by_embedding", {
+			vectorField: "embedding",
+			dimensions: 768,
+			filterFields: ["projectId"],
+		}),
 });
