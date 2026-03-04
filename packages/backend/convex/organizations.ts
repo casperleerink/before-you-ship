@@ -50,6 +50,46 @@ export const getById = query({
 	},
 });
 
+export const listMembers = query({
+	args: {
+		orgId: v.id("organizations"),
+	},
+	handler: async (ctx, args) => {
+		const appUser = await getAppUser(ctx);
+		if (!appUser) {
+			return [];
+		}
+
+		const membership = await getOrgMembership(ctx, args.orgId, appUser._id);
+		if (!membership) {
+			return [];
+		}
+
+		const memberships = await ctx.db
+			.query("organizationMembers")
+			.withIndex("by_organizationId", (q) => q.eq("organizationId", args.orgId))
+			.collect();
+
+		const members = await Promise.all(
+			memberships.map(async (m) => {
+				const user = await ctx.db.get(m.userId);
+				if (!user) {
+					return null;
+				}
+				return {
+					_id: user._id,
+					name: user.name,
+					email: user.email,
+					avatarUrl: user.avatarUrl,
+					role: m.role,
+				};
+			})
+		);
+
+		return members.filter((m): m is NonNullable<typeof m> => m !== null);
+	},
+});
+
 export const create = mutation({
 	args: {
 		name: v.string(),

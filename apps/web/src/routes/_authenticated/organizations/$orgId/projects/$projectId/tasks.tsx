@@ -4,8 +4,8 @@ import type {
 	Id,
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
-import { ArrowRight, Filter, ListTodo, X } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { ArrowRight, Filter, ListTodo, User, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
@@ -17,7 +17,11 @@ import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuItem,
 	DropdownMenuLabel,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -174,15 +178,136 @@ function useSetToggle<T>() {
 	return [set, toggle, clear] as const;
 }
 
+function StatusDropdown({
+	status,
+	onStatusChange,
+}: {
+	status: TaskStatus;
+	onStatusChange: (status: TaskStatus) => void;
+}) {
+	return (
+		<div className="flex flex-col gap-1">
+			<FieldLabel>Status</FieldLabel>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<button className="w-fit cursor-pointer" type="button">
+							<Badge variant={statusVariant(status)}>
+								{statusLabel(status)}
+							</Badge>
+						</button>
+					}
+				/>
+				<DropdownMenuContent>
+					<DropdownMenuLabel>Status</DropdownMenuLabel>
+					<DropdownMenuRadioGroup
+						onValueChange={(value) => {
+							const option = STATUS_OPTIONS.find((o) => o.value === value);
+							if (option) {
+								onStatusChange(option.value);
+							}
+						}}
+						value={status}
+					>
+						{STATUS_OPTIONS.map((option) => (
+							<DropdownMenuRadioItem key={option.value} value={option.value}>
+								{option.label}
+							</DropdownMenuRadioItem>
+						))}
+					</DropdownMenuRadioGroup>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+}
+
+function AssigneeDropdown({
+	assigneeId,
+	members,
+	onAssigneeChange,
+	onClearAssignee,
+}: {
+	assigneeId?: Id<"users">;
+	members: { _id: Id<"users">; name: string }[];
+	onAssigneeChange: (userId: Id<"users">) => void;
+	onClearAssignee: () => void;
+}) {
+	const assignee = assigneeId
+		? members.find((m) => m._id === assigneeId)
+		: null;
+
+	return (
+		<div className="flex flex-col gap-1">
+			<FieldLabel>Assignee</FieldLabel>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<button className="w-fit cursor-pointer" type="button">
+							{assignee ? (
+								<Badge variant="outline">{assignee.name}</Badge>
+							) : (
+								<Badge variant="secondary">
+									<User className="mr-1 size-3" />
+									Unassigned
+								</Badge>
+							)}
+						</button>
+					}
+				/>
+				<DropdownMenuContent>
+					<DropdownMenuLabel>Assignee</DropdownMenuLabel>
+					{members.map((member) => (
+						<DropdownMenuItem
+							key={member._id}
+							onSelect={() => onAssigneeChange(member._id)}
+						>
+							<span className="truncate">{member.name}</span>
+							{member._id === assigneeId && (
+								<span className="ml-auto text-muted-foreground text-xs">
+									Current
+								</span>
+							)}
+						</DropdownMenuItem>
+					))}
+					{assigneeId && (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem onSelect={onClearAssignee}>
+								<X className="mr-1 size-3" />
+								Unassign
+							</DropdownMenuItem>
+						</>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+}
+
 function TaskDetailSheet({
 	task,
+	members,
 	onClose,
 }: {
 	task: Doc<"tasks">;
+	members: { _id: Id<"users">; name: string }[];
 	onClose: () => void;
 }) {
 	const { orgId, projectId } = Route.useParams();
 	const navigate = useNavigate();
+	const updateTask = useMutation(api.tasks.update);
+
+	const handleStatusChange = (status: TaskStatus) => {
+		updateTask({ taskId: task._id, status });
+	};
+
+	const handleAssigneeChange = (userId: Id<"users">) => {
+		updateTask({ taskId: task._id, assigneeId: userId });
+	};
+
+	const handleClearAssignee = () => {
+		updateTask({ taskId: task._id, assigneeId: null });
+	};
 
 	return (
 		<SheetContent>
@@ -192,10 +317,9 @@ function TaskDetailSheet({
 			<SheetBody>
 				<div className="flex flex-col gap-6">
 					<div className="grid grid-cols-3 gap-4">
-						<BadgeField
-							label="Status"
-							value={statusLabel(task.status)}
-							variant={statusVariant(task.status)}
+						<StatusDropdown
+							onStatusChange={handleStatusChange}
+							status={task.status}
 						/>
 						<BadgeField
 							label="Risk"
@@ -214,6 +338,12 @@ function TaskDetailSheet({
 							label="Effort"
 							value={task.effort}
 							variant={levelVariant(task.effort)}
+						/>
+						<AssigneeDropdown
+							assigneeId={task.assigneeId}
+							members={members}
+							onAssigneeChange={handleAssigneeChange}
+							onClearAssignee={handleClearAssignee}
 						/>
 					</div>
 
@@ -267,9 +397,12 @@ function TaskDetailSheet({
 }
 
 function TasksPage() {
-	const { projectId: projectIdParam } = Route.useParams();
+	const { orgId, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 	const tasks = useQuery(api.tasks.list, { projectId });
+	const members = useQuery(api.organizations.listMembers, {
+		orgId: orgId as Id<"organizations">,
+	});
 	const [selectedTaskId, setSelectedTaskId] = useState<Id<"tasks"> | null>(
 		null
 	);
@@ -444,6 +577,7 @@ function TasksPage() {
 			>
 				{selectedTask && (
 					<TaskDetailSheet
+						members={members ?? []}
 						onClose={() => setSelectedTaskId(null)}
 						task={selectedTask}
 					/>
