@@ -30,6 +30,12 @@ export const taskLevelValidator = v.union(
 	v.literal("high")
 );
 
+export const planStatusValidator = v.union(
+	v.literal("proposed"),
+	v.literal("approved"),
+	v.literal("rejected")
+);
+
 export const inviteStatusValidator = v.union(
 	v.literal("pending"),
 	v.literal("accepted"),
@@ -138,6 +144,23 @@ export default defineSchema({
 	})
 		.index("by_projectId", ["projectId"])
 		.index("by_projectId_createdAt", ["projectId", "createdAt"]),
+
+	plans: defineTable({
+		conversationId: v.id("conversations"),
+		projectId: v.id("projects"),
+		status: planStatusValidator,
+		tasks: v.array(
+			v.object({
+				title: v.string(),
+				brief: v.string(),
+				affectedAreas: v.array(v.string()),
+				risk: taskLevelValidator,
+				complexity: taskLevelValidator,
+				effort: taskLevelValidator,
+			})
+		),
+		createdAt: v.number(),
+	}).index("by_conversationId", ["conversationId"]),
 
 	docs: defineTable({
 		projectId: v.id("projects"),

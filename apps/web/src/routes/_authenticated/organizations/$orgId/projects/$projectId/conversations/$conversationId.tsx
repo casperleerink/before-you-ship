@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 
 import Loader from "@/components/loader";
 import MessageContent from "@/components/message-content";
+import { PlanCard } from "@/components/plan-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -159,21 +160,44 @@ function ConversationDetailPage() {
 					</div>
 				) : (
 					messages.map((message: UIMessage) => (
-						<div
-							className={`rounded-lg p-3 ${
-								message.role === "user"
-									? "ml-8 bg-primary/10"
-									: "mr-8 bg-secondary/20"
-							}`}
-							key={message.key}
-						>
-							<p className="mb-1 font-semibold text-sm">
-								{message.role === "user" ? "You" : "AI Assistant"}
-							</p>
-							<MessageContent
-								isStreaming={message.status === "streaming"}
-								text={message.text ?? ""}
-							/>
+						<div key={message.key}>
+							{message.text && (
+								<div
+									className={`rounded-lg p-3 ${
+										message.role === "user"
+											? "ml-8 bg-primary/10"
+											: "mr-8 bg-secondary/20"
+									}`}
+								>
+									<p className="mb-1 font-semibold text-sm">
+										{message.role === "user" ? "You" : "AI Assistant"}
+									</p>
+									<MessageContent
+										isStreaming={message.status === "streaming"}
+										text={message.text}
+									/>
+								</div>
+							)}
+							{message.parts
+								?.filter(
+									(part) =>
+										part.type === "tool-proposePlan" &&
+										"state" in part &&
+										part.state === "output-available"
+								)
+								.map((part) => {
+									const toolPart = part as unknown as {
+										toolCallId: string;
+										output: { planId: string; taskCount: number };
+									};
+									return (
+										<div className="mt-2 mr-8" key={toolPart.toolCallId}>
+											<PlanCard
+												planId={toolPart.output.planId as Id<"plans">}
+											/>
+										</div>
+									);
+								})}
 						</div>
 					))
 				)}

@@ -19,7 +19,7 @@ import {
 	query,
 } from "./_generated/server";
 import { chatAgent, languageModel } from "./agent";
-import { createSearchTools } from "./tools";
+import { createPlanTools, createSearchTools } from "./tools";
 
 export async function sendMessageToThread(
 	ctx: MutationCtx,
@@ -93,15 +93,17 @@ function buildSystemPrompt(project: {
 		"## Available Tools",
 		"- **searchTasks**: Search existing tasks in this project by semantic similarity. Use this to check for duplicates or related work before proposing new tasks.",
 		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications.",
+		"- **proposePlan**: Propose a structured plan with concrete tasks for the user to review. The plan renders as a card in the chat with an approve button.",
 		"",
 		"## Your Behavior",
 		"- Ask 1-2 clarifying questions at a time to understand the user's intent. Do not overwhelm with many questions.",
 		"- Use the search tools to check for existing tasks and relevant documentation when discussing features or bugs.",
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
-		"- When you have enough context, bias toward proposing a structured plan with concrete tasks.",
+		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
 		"- Each proposed task should include a title, brief description, complexity/risk/effort assessment, and affected areas of the codebase.",
 		"- Be honest about feasibility and complexity. If something is difficult or risky, say so clearly.",
-		"- Keep responses concise and focused. Avoid unnecessary filler."
+		"- Keep responses concise and focused. Avoid unnecessary filler.",
+		"- After calling `proposePlan`, briefly summarize what you proposed and ask the user to review the plan card."
 	);
 
 	return parts.join("\n");
@@ -120,7 +122,10 @@ export const generateResponseAsync = internalAction({
 
 		const systemPrompt = project ? buildSystemPrompt(project) : undefined;
 		const tools = conversation
-			? createSearchTools(conversation.projectId)
+			? {
+					...createSearchTools(conversation.projectId),
+					...createPlanTools(conversation.projectId, conversation._id),
+				}
 			: undefined;
 
 		await chatAgent.streamText(

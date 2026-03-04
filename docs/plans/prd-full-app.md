@@ -81,7 +81,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] System prompt injection: project description + available tools
 - [x] AI behavior: ask clarifying questions (1-2 at a time), surface technical insights in plain language
 - [ ] "Analyzing codebase..." indicator when AI reads files (hide raw file contents from user)
-- [ ] Plan proposal: structured card in chat (proposed tasks with title/brief, complexity/feasibility signal, affected areas, approve button)
+- [x] Plan proposal: structured card in chat (proposed tasks with title/brief, complexity/feasibility signal, affected areas, approve button)
 - [ ] Plan approve flow: user approves → tasks created, card locks showing what was created
 - [ ] Plan reject/revise flow: user requests changes via chat → AI produces new plan card
 - [x] Conversation status management: active, completed, abandoned
@@ -91,7 +91,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] Agent loop: reason → call tools → verify → respond
 - [ ] Read tools (always available): `list_files`, `read_file`, `search_code`, `search_docs`, `search_tasks`
 - [ ] Write tools (only after plan approval): `create_task`, `update_task`
-- [ ] Planning tool: `propose_plan` — renders structured plan card in chat
+- [x] Planning tool: `propose_plan` — renders structured plan card in chat
 - [ ] Phase 1 (Research & Discuss): all read tools, discussion, optional plan proposal
 - [ ] Phase 2 (Execute): only after user approves plan card, creates/updates tasks
 
