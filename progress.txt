@@ -14,3 +14,4 @@ Markdown brief: task detail brief field now rendered as markdown using Streamdow
 Task filtering: client-side filter dropdowns (status/risk/complexity/effort) with multi-select checkboxes, active filter count badges, clear all button
 Editable task fields: inline status dropdown and assignee dropdown in task detail sheet, update mutation with combined clear/set assignee, listMembers query
 Docs: schema table, list/getById/create/update/remove backend functions, docs list page with create form, sheet-based editor with markdown edit/preview toggle and debounced auto-save
+Member management: organizationInvites schema table, invite/accept/cancel mutations, removeMember/updateMemberRole mutations, members tab on org page with invite form and role actions, pending invites on org selector page

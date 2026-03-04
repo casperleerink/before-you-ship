@@ -42,8 +42,8 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 ### Organizations
 - [x] Create organization flow (name, creator becomes owner)
 - [x] Org selector screen: list orgs user belongs to, create new org, auto-skip if single org
-- [ ] Member management: invite by email, accept invite, assign roles (owner/admin/member)
-- [ ] Role-based access: owner=full control, admin=manage projects/members, member=use app
+- [x] Member management: invite by email, accept invite, assign roles (owner/admin/member)
+- [x] Role-based access: owner=full control, admin=manage projects/members, member=use app
 
 ### Projects
 - [x] Projects list screen: grid/list of projects in current org

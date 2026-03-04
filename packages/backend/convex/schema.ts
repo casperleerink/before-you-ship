@@ -30,6 +30,12 @@ export const taskLevelValidator = v.union(
 	v.literal("high")
 );
 
+export const inviteStatusValidator = v.union(
+	v.literal("pending"),
+	v.literal("accepted"),
+	v.literal("cancelled")
+);
+
 export const projectRepoProviderValidator = v.union(
 	v.literal("github"),
 	v.literal("gitlab"),
@@ -45,7 +51,9 @@ export default defineSchema({
 		email: v.string(),
 		avatarUrl: v.optional(v.string()),
 		createdAt: v.number(),
-	}).index("by_betterAuthId", ["betterAuthId"]),
+	})
+		.index("by_betterAuthId", ["betterAuthId"])
+		.index("by_email", ["email"]),
 
 	organizations: defineTable({
 		name: v.string(),
@@ -62,6 +70,17 @@ export default defineSchema({
 		.index("by_organizationId", ["organizationId"])
 		.index("by_userId", ["userId"])
 		.index("by_org_and_user", ["organizationId", "userId"]),
+
+	organizationInvites: defineTable({
+		organizationId: v.id("organizations"),
+		email: v.string(),
+		role: orgRoleValidator,
+		status: inviteStatusValidator,
+		invitedBy: v.id("users"),
+		createdAt: v.number(),
+	})
+		.index("by_organizationId", ["organizationId"])
+		.index("by_email", ["email"]),
 
 	projects: defineTable({
 		name: v.string(),
