@@ -116,7 +116,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Docs list screen within project
 - [x] Create new doc button
 - [x] Inline markdown editor for doc content
-- [ ] Docs stored with embedding for vector search
+- [x] Docs stored with embedding for vector search
 
 ### My Tasks (Cross-Project)
 - [x] Top-level nav item (outside project view)
@@ -125,8 +125,8 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [x] Same task detail sheet as within a project
 
 ### Real-Time
-- [ ] Convex reactive queries for instant UI updates
-- [ ] When conversation produces tasks, all connected users see updates immediately
+- [x] Convex reactive queries for instant UI updates
+- [x] When conversation produces tasks, all connected users see updates immediately
 
 ---
 
