@@ -1,9 +1,6 @@
 import { type UIMessage, useUIMessages } from "@convex-dev/agent/react";
 import { api } from "@project-manager/backend/convex/_generated/api";
-import type {
-	Doc,
-	Id,
-} from "@project-manager/backend/convex/_generated/dataModel";
+import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
@@ -13,24 +10,25 @@ import Loader from "@/components/loader";
 import MessageContent from "@/components/message-content";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+	CONVERSATION_STATUS_OPTIONS,
+	conversationStatusVariant,
+} from "@/lib/conversation-utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId"
 )({
 	component: ConversationDetailPage,
 });
-
-function statusVariant(status: Doc<"conversations">["status"]) {
-	switch (status) {
-		case "active":
-			return "default" as const;
-		case "completed":
-			return "secondary" as const;
-		default:
-			return "outline" as const;
-	}
-}
 
 function ConversationDetailPage() {
 	const {
@@ -44,6 +42,7 @@ function ConversationDetailPage() {
 		conversationId,
 	});
 	const sendMessage = useMutation(api.chat.sendMessage);
+	const updateStatus = useMutation(api.conversations.updateStatus);
 
 	const [input, setInput] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
@@ -117,9 +116,40 @@ function ConversationDetailPage() {
 				<h1 className="min-w-0 flex-1 truncate font-semibold text-lg">
 					{conversation.title ?? "Untitled conversation"}
 				</h1>
-				<Badge variant={statusVariant(conversation.status)}>
-					{conversation.status}
-				</Badge>
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						render={
+							<button className="cursor-pointer" type="button">
+								<Badge variant={conversationStatusVariant(conversation.status)}>
+									{conversation.status}
+								</Badge>
+							</button>
+						}
+					/>
+					<DropdownMenuContent>
+						<DropdownMenuLabel>Status</DropdownMenuLabel>
+						<DropdownMenuRadioGroup
+							onValueChange={(value) => {
+								const option = CONVERSATION_STATUS_OPTIONS.find(
+									(o) => o.value === value
+								);
+								if (option && option.value !== conversation.status) {
+									updateStatus({
+										conversationId,
+										status: option.value,
+									});
+								}
+							}}
+							value={conversation.status}
+						>
+							{CONVERSATION_STATUS_OPTIONS.map((option) => (
+								<DropdownMenuRadioItem key={option.value} value={option.value}>
+									{option.label}
+								</DropdownMenuRadioItem>
+							))}
+						</DropdownMenuRadioGroup>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</header>
 
 			<div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">

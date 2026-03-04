@@ -1,8 +1,5 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
-import type {
-	Doc,
-	Id,
-} from "@project-manager/backend/convex/_generated/dataModel";
+import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
@@ -11,25 +8,13 @@ import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { conversationStatusVariant } from "@/lib/conversation-utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/"
 )({
 	component: ConversationsPage,
 });
-
-function statusVariant(status: Doc<"conversations">["status"]) {
-	switch (status) {
-		case "active":
-			return "default";
-		case "completed":
-			return "secondary";
-		case "abandoned":
-			return "outline";
-		default:
-			return "outline";
-	}
-}
 
 function formatDate(timestamp: number) {
 	return new Date(timestamp).toLocaleDateString(undefined, {
@@ -108,7 +93,7 @@ function ConversationsPage() {
 									{formatDate(conversation.createdAt)}
 								</p>
 							</div>
-							<Badge variant={statusVariant(conversation.status)}>
+							<Badge variant={conversationStatusVariant(conversation.status)}>
 								{conversation.status}
 							</Badge>
 						</button>

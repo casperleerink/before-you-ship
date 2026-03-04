@@ -5,6 +5,7 @@ import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { sendMessageToThread } from "./chat";
 import { getAppUser, getOrgMembership } from "./helpers";
+import { conversationStatusValidator } from "./schema";
 
 export const list = query({
 	args: {
@@ -157,5 +158,40 @@ export const createFromTriageItem = mutation({
 		await sendMessageToThread(ctx, threadId, triageItem.content);
 
 		return conversationId;
+	},
+});
+
+export const updateStatus = mutation({
+	args: {
+		conversationId: v.id("conversations"),
+		status: conversationStatusValidator,
+	},
+	handler: async (ctx, args) => {
+		const [appUser, conversation] = await Promise.all([
+			getAppUser(ctx),
+			ctx.db.get(args.conversationId),
+		]);
+		if (!appUser) {
+			throw new Error("Not authenticated");
+		}
+		if (!conversation) {
+			throw new Error("Conversation not found");
+		}
+
+		const project = await ctx.db.get(conversation.projectId);
+		if (!project) {
+			throw new Error("Project not found");
+		}
+
+		const membership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			appUser._id
+		);
+		if (!membership) {
+			throw new Error("Not a member of this organization");
+		}
+
+		await ctx.db.patch(conversation._id, { status: args.status });
 	},
 });
