@@ -1,2 +1,3 @@
 User sync hook: added users table, authTriggers.ts with create/update mutations, wired via makeFunctionReference in auth.ts
 Session management: added /sign-in route, _authenticated layout guard, moved dashboard+ai under protected routes, auth-aware header
+Organizations: schema tables, list/getById/create functions, org selector page with auto-skip, org detail page, redirects updated to /organizations

@@ -10,7 +10,7 @@ export default function Header() {
 			<div className="flex flex-row items-center justify-between px-2 py-1">
 				<nav className="flex items-center gap-4 text-lg">
 					<Authenticated>
-						<Link to="/dashboard">Dashboard</Link>
+						<Link to="/organizations">Organizations</Link>
 					</Authenticated>
 					<Unauthenticated>
 						<Link to="/sign-in">Sign In</Link>

@@ -15,7 +15,7 @@ function HomeComponent() {
 	useEffect(() => {
 		if (!isLoading) {
 			if (isAuthenticated) {
-				navigate({ to: "/dashboard" });
+				navigate({ to: "/organizations" });
 			} else {
 				navigate({ to: "/sign-in" });
 			}

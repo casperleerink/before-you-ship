@@ -78,6 +78,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/web/src/routes/**/$*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
     }
   ],
   "javascript": {
