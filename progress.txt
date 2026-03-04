@@ -25,3 +25,4 @@ Vector search: embedding fields + vector indexes (768d, text-embedding-004) on t
 AI search tools: search_tasks and search_docs tools via createTool, vector search actions in embeddings.ts, tools injected per-conversation in chat.ts, system prompt updated with tool descriptions
 Plan proposal: plans schema table, proposePlan tool via createTool, PlanCard component with approve/reject buttons, plan cards rendered from message tool parts in conversation detail
 Plan approve flow: approve mutation creates tasks from plan, stores createdTaskIds, schedules embeddings, PlanCard locks and shows task count + links when approved
+Plan reject/revise flow: "Request Changes" button rejects plan and sends automated message to thread prompting AI to ask for feedback, system prompt updated with revision instructions

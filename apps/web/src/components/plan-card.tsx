@@ -17,12 +17,18 @@ import {
 import { levelVariant } from "@/lib/task-utils";
 
 interface PlanCardProps {
+	onRequestChanges?: () => void;
 	orgId: string;
 	planId: Id<"plans">;
 	projectId: string;
 }
 
-export function PlanCard({ planId, orgId, projectId }: PlanCardProps) {
+export function PlanCard({
+	planId,
+	orgId,
+	projectId,
+	onRequestChanges,
+}: PlanCardProps) {
 	const plan = useQuery(api.plans.getById, { planId });
 	const approvePlan = useMutation(api.plans.approve);
 	const rejectPlan = useMutation(api.plans.reject);
@@ -62,6 +68,7 @@ export function PlanCard({ planId, orgId, projectId }: PlanCardProps) {
 		setIsSubmitting(true);
 		try {
 			await rejectPlan({ planId });
+			onRequestChanges?.();
 		} finally {
 			setIsSubmitting(false);
 		}

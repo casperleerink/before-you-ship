@@ -83,7 +83,7 @@ IMPORTANT: When your task involves using external packages. Please confirm your 
 - [ ] "Analyzing codebase..." indicator when AI reads files (hide raw file contents from user)
 - [x] Plan proposal: structured card in chat (proposed tasks with title/brief, complexity/feasibility signal, affected areas, approve button)
 - [x] Plan approve flow: user approves → tasks created, card locks showing what was created
-- [ ] Plan reject/revise flow: user requests changes via chat → AI produces new plan card
+- [x] Plan reject/revise flow: user requests changes via chat → AI produces new plan card
 - [x] Conversation status management: active, completed, abandoned
 - [x] AI-generated conversation title after first few messages
 

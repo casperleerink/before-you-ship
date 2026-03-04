@@ -103,7 +103,9 @@ function buildSystemPrompt(project: {
 		"- Each proposed task should include a title, brief description, complexity/risk/effort assessment, and affected areas of the codebase.",
 		"- Be honest about feasibility and complexity. If something is difficult or risky, say so clearly.",
 		"- Keep responses concise and focused. Avoid unnecessary filler.",
-		"- After calling `proposePlan`, briefly summarize what you proposed and ask the user to review the plan card."
+		"- After calling `proposePlan`, briefly summarize what you proposed and ask the user to review the plan card.",
+		"- If the user requests changes to a plan, ask specifically what they'd like to change. Then incorporate their feedback and use `proposePlan` again with a revised plan.",
+		"- You can propose multiple revised plans in a single conversation. Each new plan replaces the previous rejected one."
 	);
 
 	return parts.join("\n");

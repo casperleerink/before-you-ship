@@ -193,6 +193,15 @@ function ConversationDetailPage() {
 									return (
 										<div className="mt-2 mr-8" key={toolPart.toolCallId}>
 											<PlanCard
+												onRequestChanges={() => {
+													if (threadId) {
+														sendMessage({
+															threadId,
+															prompt:
+																"I'd like to request changes to the proposed plan. Please ask me what I'd like to change.",
+														});
+													}
+												}}
 												orgId={orgIdParam}
 												planId={toolPart.output.planId as Id<"plans">}
 												projectId={projectIdParam}
