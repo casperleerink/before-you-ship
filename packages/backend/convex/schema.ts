@@ -130,7 +130,7 @@ export default defineSchema({
 		.index("by_assigneeId", ["assigneeId"])
 		.vectorIndex("by_embedding", {
 			vectorField: "embedding",
-			dimensions: 768,
+			dimensions: 3072,
 			filterFields: ["projectId"],
 		}),
 
@@ -219,7 +219,7 @@ export default defineSchema({
 		.index("by_projectId_updatedAt", ["projectId", "updatedAt"])
 		.vectorIndex("by_embedding", {
 			vectorField: "embedding",
-			dimensions: 768,
+			dimensions: 3072,
 			filterFields: ["projectId"],
 		}),
 });

@@ -10,7 +10,7 @@ import {
 	internalQuery,
 } from "./_generated/server";
 
-const embeddingModel = google.textEmbeddingModel("text-embedding-004");
+const embeddingModel = google.textEmbeddingModel("gemini-embedding-001");
 
 async function generateEmbedding(text: string): Promise<number[]> {
 	const { embedding } = await embed({
