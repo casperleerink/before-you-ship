@@ -1,4 +1,5 @@
 import type { GenericMutationCtx } from "convex/server";
+import { v } from "convex/values";
 import type { DataModel } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 
@@ -32,33 +33,25 @@ async function handleUserUpdate(ctx: MutCtx, doc: Record<string, unknown>) {
 }
 
 export const onCreate = internalMutation({
-	args: {},
+	args: { model: v.string(), doc: v.any() },
 	handler: async (ctx, args) => {
-		const { model, doc } = args as {
-			model: string;
-			doc: Record<string, unknown>;
-		};
-		if (model === "user") {
-			await handleUserCreate(ctx, doc);
+		if (args.model === "user") {
+			await handleUserCreate(ctx, args.doc as Record<string, unknown>);
 		}
 	},
 });
 
 export const onUpdate = internalMutation({
-	args: {},
+	args: { model: v.string(), newDoc: v.any() },
 	handler: async (ctx, args) => {
-		const { model, newDoc } = args as {
-			model: string;
-			newDoc: Record<string, unknown>;
-		};
-		if (model === "user") {
-			await handleUserUpdate(ctx, newDoc);
+		if (args.model === "user") {
+			await handleUserUpdate(ctx, args.newDoc as Record<string, unknown>);
 		}
 	},
 });
 
 export const onDelete = internalMutation({
-	args: {},
+	args: { model: v.string(), doc: v.any() },
 	handler: async (_ctx, _args) => {
 		// No-op for now — app user records are not deleted when auth user is deleted
 	},
