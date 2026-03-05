@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuLabel,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
@@ -219,27 +220,32 @@ function ConversationDetailPage() {
 						}
 					/>
 					<DropdownMenuContent>
-						<DropdownMenuLabel>Status</DropdownMenuLabel>
-						<DropdownMenuRadioGroup
-							onValueChange={(value) => {
-								const option = CONVERSATION_STATUS_OPTIONS.find(
-									(o) => o.value === value
-								);
-								if (option && option.value !== conversation.status) {
-									updateStatus({
-										conversationId,
-										status: option.value,
-									});
-								}
-							}}
-							value={conversation.status}
-						>
-							{CONVERSATION_STATUS_OPTIONS.map((option) => (
-								<DropdownMenuRadioItem key={option.value} value={option.value}>
-									{option.label}
-								</DropdownMenuRadioItem>
-							))}
-						</DropdownMenuRadioGroup>
+						<DropdownMenuGroup>
+							<DropdownMenuLabel>Status</DropdownMenuLabel>
+							<DropdownMenuRadioGroup
+								onValueChange={(value) => {
+									const option = CONVERSATION_STATUS_OPTIONS.find(
+										(o) => o.value === value
+									);
+									if (option && option.value !== conversation.status) {
+										updateStatus({
+											conversationId,
+											status: option.value,
+										});
+									}
+								}}
+								value={conversation.status}
+							>
+								{CONVERSATION_STATUS_OPTIONS.map((option) => (
+									<DropdownMenuRadioItem
+										key={option.value}
+										value={option.value}
+									>
+										{option.label}
+									</DropdownMenuRadioItem>
+								))}
+							</DropdownMenuRadioGroup>
+						</DropdownMenuGroup>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</header>

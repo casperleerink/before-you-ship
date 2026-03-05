@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -93,20 +94,22 @@ function AssigneeDropdown({
 					}
 				/>
 				<DropdownMenuContent>
-					<DropdownMenuLabel>Assignee</DropdownMenuLabel>
-					{members.map((member) => (
-						<DropdownMenuItem
-							key={member._id}
-							onSelect={() => onAssigneeChange(member._id)}
-						>
-							<span className="truncate">{member.name}</span>
-							{member._id === assigneeId && (
-								<span className="ml-auto text-muted-foreground text-xs">
-									Current
-								</span>
-							)}
-						</DropdownMenuItem>
-					))}
+					<DropdownMenuGroup>
+						<DropdownMenuLabel>Assignee</DropdownMenuLabel>
+						{members.map((member) => (
+							<DropdownMenuItem
+								key={member._id}
+								onSelect={() => onAssigneeChange(member._id)}
+							>
+								<span className="truncate">{member.name}</span>
+								{member._id === assigneeId && (
+									<span className="ml-auto text-muted-foreground text-xs">
+										Current
+									</span>
+								)}
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuGroup>
 					{assigneeId && (
 						<>
 							<DropdownMenuSeparator />

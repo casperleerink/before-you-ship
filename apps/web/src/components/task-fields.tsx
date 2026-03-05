@@ -6,6 +6,7 @@ import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuLabel,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
@@ -70,19 +71,21 @@ export function FilterDropdown<T extends string>({
 				}
 			/>
 			<DropdownMenuContent>
-				<DropdownMenuLabel>{label}</DropdownMenuLabel>
-				{options.map((option) => (
-					<DropdownMenuCheckboxItem
-						checked={selected.has(option.value)}
-						key={option.value}
-						onSelect={(e) => {
-							e.preventDefault();
-							onToggle(option.value);
-						}}
-					>
-						{option.label}
-					</DropdownMenuCheckboxItem>
-				))}
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>{label}</DropdownMenuLabel>
+					{options.map((option) => (
+						<DropdownMenuCheckboxItem
+							checked={selected.has(option.value)}
+							key={option.value}
+							onSelect={(e) => {
+								e.preventDefault();
+								onToggle(option.value);
+							}}
+						>
+							{option.label}
+						</DropdownMenuCheckboxItem>
+					))}
+				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
@@ -126,22 +129,24 @@ export function StatusDropdown({
 					}
 				/>
 				<DropdownMenuContent>
-					<DropdownMenuLabel>Status</DropdownMenuLabel>
-					<DropdownMenuRadioGroup
-						onValueChange={(value) => {
-							const option = STATUS_OPTIONS.find((o) => o.value === value);
-							if (option) {
-								onStatusChange(option.value);
-							}
-						}}
-						value={status}
-					>
-						{STATUS_OPTIONS.map((option) => (
-							<DropdownMenuRadioItem key={option.value} value={option.value}>
-								{option.label}
-							</DropdownMenuRadioItem>
-						))}
-					</DropdownMenuRadioGroup>
+					<DropdownMenuGroup>
+						<DropdownMenuLabel>Status</DropdownMenuLabel>
+						<DropdownMenuRadioGroup
+							onValueChange={(value) => {
+								const option = STATUS_OPTIONS.find((o) => o.value === value);
+								if (option) {
+									onStatusChange(option.value);
+								}
+							}}
+							value={status}
+						>
+							{STATUS_OPTIONS.map((option) => (
+								<DropdownMenuRadioItem key={option.value} value={option.value}>
+									{option.label}
+								</DropdownMenuRadioItem>
+							))}
+						</DropdownMenuRadioGroup>
+					</DropdownMenuGroup>
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>

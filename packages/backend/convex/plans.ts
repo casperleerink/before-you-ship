@@ -131,6 +131,11 @@ export const approve = mutation({
 			status: "approved",
 			createdTaskIds: taskIds,
 		});
+
+		await ctx.db.patch(plan.conversationId, {
+			status: "completed",
+		});
+
 		return plan._id;
 	},
 });
