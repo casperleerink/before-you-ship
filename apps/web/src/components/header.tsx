@@ -1,14 +1,23 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useMatch } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated } from "convex/react";
 
 import { ModeToggle } from "./mode-toggle";
 import UserMenu from "./user-menu";
 
 export default function Header() {
+	const isProjectRoute = useMatch({
+		from: "/_authenticated/organizations/$orgId/projects/$projectId",
+		shouldThrow: false,
+	});
+
+	if (isProjectRoute) {
+		return null;
+	}
+
 	return (
-		<div>
-			<div className="flex flex-row items-center justify-between px-2 py-1">
-				<nav className="flex items-center gap-4 text-lg">
+		<header className="border-border border-b">
+			<div className="flex items-center justify-between px-6 py-3">
+				<nav className="flex items-center gap-4 font-medium text-sm">
 					<Authenticated>
 						<Link to="/organizations">Organizations</Link>
 					</Authenticated>
@@ -23,7 +32,6 @@ export default function Header() {
 					<ModeToggle />
 				</div>
 			</div>
-			<hr />
-		</div>
+		</header>
 	);
 }

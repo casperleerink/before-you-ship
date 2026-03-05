@@ -19,8 +19,10 @@ import {
 import { useState } from "react";
 
 import Loader from "@/components/loader";
+import { ModeToggle } from "@/components/mode-toggle";
 import TriageQuickAddForm from "@/components/triage-quick-add-form";
 import { Button } from "@/components/ui/button";
+import UserMenu from "@/components/user-menu";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute(
@@ -56,7 +58,7 @@ function ProjectLayout() {
 	}
 
 	return (
-		<div className="flex h-[calc(100vh-41px)]">
+		<div className="flex h-svh">
 			<aside className="flex w-60 flex-col border-r">
 				<div className="border-b p-4">
 					<Link
@@ -97,6 +99,13 @@ function ProjectLayout() {
 						);
 					})}
 				</nav>
+
+				<div className="border-t p-3">
+					<div className="flex items-center justify-between">
+						<UserMenu />
+						<ModeToggle />
+					</div>
+				</div>
 
 				<div className="border-t p-3">
 					<SidebarQuickAdd projectId={projectId} />

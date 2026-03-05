@@ -24,11 +24,13 @@ export default function UserMenu() {
 			<DropdownMenuTrigger render={<Button variant="outline" />}>
 				{user?.name}
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="bg-card">
+			<DropdownMenuContent className="min-w-48 bg-card">
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>My Account</DropdownMenuLabel>
 					<DropdownMenuSeparator />
-					<DropdownMenuItem>{user?.email}</DropdownMenuItem>
+					<DropdownMenuItem className="truncate text-muted-foreground text-xs">
+						{user?.email}
+					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => {
 							authClient.signOut({
