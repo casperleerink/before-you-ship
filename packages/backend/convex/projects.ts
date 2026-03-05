@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { projectRepoProviderValidator } from "./schema";
@@ -107,14 +108,53 @@ export const create = mutation({
 			throw new Error("Not a member of this organization");
 		}
 
-		return ctx.db.insert("projects", {
+		// Detect provider from URL
+		let repoProvider: "github" | undefined;
+		if (args.repoUrl?.includes("github.com")) {
+			repoProvider = "github";
+		}
+
+		const projectId = await ctx.db.insert("projects", {
 			name: args.name,
 			description: args.description,
 			repoUrl: args.repoUrl,
+			repoProvider,
 			organizationId: args.orgId,
 			createdBy: appUser._id,
 			createdAt: Date.now(),
 		});
+
+		// If a repo URL was provided, set up the sandbox
+		if (args.repoUrl) {
+			let gitConnectionId: Id<"gitConnections"> | undefined;
+
+			if (repoProvider) {
+				const gitConnection = await ctx.db
+					.query("gitConnections")
+					.withIndex("by_userId_provider", (q) =>
+						q.eq("userId", appUser._id).eq("provider", repoProvider)
+					)
+					.first();
+				gitConnectionId = gitConnection?._id;
+
+				// Register webhook for push events (GitHub only, requires OAuth connection)
+				if (repoProvider === "github" && gitConnection) {
+					await ctx.scheduler.runAfter(0, internal.webhooks.registerGithub, {
+						projectId,
+						repoUrl: args.repoUrl,
+						gitConnectionId: gitConnection._id,
+					});
+				}
+			}
+
+			await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
+				projectId,
+				repoUrl: args.repoUrl,
+				gitConnectionId,
+			});
+		}
+
+		return projectId;
 	},
 });
 

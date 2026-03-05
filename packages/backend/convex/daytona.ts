@@ -10,6 +10,7 @@ import {
 import { languageModel } from "./agent";
 
 const DEFAULT_API_URL = "https://app.daytona.io/api";
+const DEFAULT_TOOLBOX_URL = "https://proxy.app.daytona.io/toolbox";
 
 function getDaytonaConfig() {
 	const apiKey = process.env.DAYTONA_API_KEY;
@@ -20,9 +21,10 @@ function getDaytonaConfig() {
 	}
 
 	const apiUrl = process.env.DAYTONA_API_URL || DEFAULT_API_URL;
+	const toolboxUrl = process.env.DAYTONA_TOOLBOX_URL || DEFAULT_TOOLBOX_URL;
 	const target = process.env.DAYTONA_TARGET || "us";
 
-	return { apiKey, apiUrl, target };
+	return { apiKey, apiUrl, toolboxUrl, target };
 }
 
 export const REPO_ROOT = "/home/daytona/repo";
@@ -39,10 +41,10 @@ async function fetchToolbox(
 	path: string,
 	params?: URLSearchParams
 ): Promise<Response> {
-	const { apiKey, apiUrl } = getDaytonaConfig();
+	const { apiKey, toolboxUrl } = getDaytonaConfig();
 	const url = params
-		? `${apiUrl}/sandbox/${sandboxId}/toolbox/${path}?${params}`
-		: `${apiUrl}/sandbox/${sandboxId}/toolbox/${path}`;
+		? `${toolboxUrl}/${sandboxId}/${path}?${params}`
+		: `${toolboxUrl}/${sandboxId}/${path}`;
 	const res = await fetch(url, { headers: daytonaHeaders(apiKey) });
 	if (!res.ok) {
 		const text = await res.text();
@@ -58,7 +60,7 @@ export const createSandbox = internalAction({
 		gitConnectionId: v.optional(v.id("gitConnections")),
 	},
 	handler: async (ctx, args) => {
-		const { apiKey, apiUrl, target } = getDaytonaConfig();
+		const { apiKey, apiUrl, toolboxUrl, target } = getDaytonaConfig();
 		const headers = daytonaHeaders(apiKey);
 
 		// Look up OAuth token for private repo access
@@ -98,7 +100,7 @@ export const createSandbox = internalAction({
 			const sandboxId: string = sandbox.id;
 
 			// Clone repo into sandbox (with optional auth for private repos)
-			const cloneUrl = `${apiUrl}/sandbox/${sandboxId}/toolbox/git/clone`;
+			const cloneUrl = `${toolboxUrl}/${sandboxId}/git/clone`;
 			const cloneBody: Record<string, string> = {
 				url: args.repoUrl,
 				path: REPO_ROOT,
@@ -232,15 +234,12 @@ export const gitPull = internalAction({
 		sandboxId: v.string(),
 	},
 	handler: async (_ctx, args) => {
-		const { apiKey, apiUrl } = getDaytonaConfig();
-		const res = await fetch(
-			`${apiUrl}/sandbox/${args.sandboxId}/toolbox/git/pull`,
-			{
-				method: "POST",
-				headers: daytonaHeaders(apiKey),
-				body: JSON.stringify({ path: REPO_ROOT }),
-			}
-		);
+		const { apiKey, toolboxUrl } = getDaytonaConfig();
+		const res = await fetch(`${toolboxUrl}/${args.sandboxId}/git/pull`, {
+			method: "POST",
+			headers: daytonaHeaders(apiKey),
+			body: JSON.stringify({ path: REPO_ROOT }),
+		});
 		if (!res.ok) {
 			const text = await res.text();
 			throw new Error(`Git pull failed (${res.status}): ${text}`);
@@ -433,7 +432,11 @@ export const buildFileTreeCache = internalAction({
 		await ctx.runMutation(internal.daytona.setFileTreeCache, {
 			projectId: args.projectId,
 			path: REPO_ROOT,
-			entries: files,
+			entries: files.map((f) => ({
+				name: f.name,
+				isDir: f.isDir,
+				size: f.size,
+			})),
 		});
 	},
 });
