@@ -23,7 +23,6 @@ import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as organizations from "../organizations.js";
 import type * as plans from "../plans.js";
-import type * as privateData from "../privateData.js";
 import type * as projects from "../projects.js";
 import type * as shared from "../shared.js";
 import type * as tasks from "../tasks.js";
@@ -53,7 +52,6 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   organizations: typeof organizations;
   plans: typeof plans;
-  privateData: typeof privateData;
   projects: typeof projects;
   shared: typeof shared;
   tasks: typeof tasks;
