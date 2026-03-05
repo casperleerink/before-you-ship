@@ -26,6 +26,96 @@ import {
 	conversationStatusVariant,
 } from "@/lib/conversation-utils";
 
+function MessagePartRenderer({
+	part,
+	partIndex,
+	isUser,
+	threadId,
+	sendMessage,
+	orgIdParam,
+	projectIdParam,
+}: {
+	part: UIMessage["parts"][number];
+	partIndex: number;
+	isUser: boolean;
+	threadId: string | null;
+	sendMessage: (args: { threadId: string; prompt: string }) => void;
+	orgIdParam: string;
+	projectIdParam: string;
+}) {
+	const type = part.type as string;
+
+	if (type === "text") {
+		const textPart = part as unknown as { text: string; state?: string };
+		if (!textPart.text) {
+			return null;
+		}
+		return (
+			<div
+				className={`mb-2 rounded-lg p-3 ${
+					isUser ? "ml-8 bg-primary/10" : "mr-8 bg-secondary/20"
+				}`}
+				key={`text-${partIndex}`}
+			>
+				<MessageContent
+					isStreaming={textPart.state === "streaming"}
+					text={textPart.text}
+				/>
+			</div>
+		);
+	}
+
+	if (
+		type.startsWith("tool-") &&
+		type !== "tool-proposePlan" &&
+		"state" in part
+	) {
+		const toolPart = part as unknown as {
+			toolCallId: string;
+			state: string;
+		};
+		return (
+			<div className="mr-8 mb-2" key={toolPart.toolCallId}>
+				<ToolActivityIndicator
+					state={toolPart.state}
+					toolName={type.replace("tool-", "")}
+				/>
+			</div>
+		);
+	}
+
+	if (
+		type === "tool-proposePlan" &&
+		"state" in part &&
+		part.state === "output-available"
+	) {
+		const toolPart = part as unknown as {
+			toolCallId: string;
+			output: { planId: string; taskCount: number };
+		};
+		return (
+			<div className="mt-2 mr-8 mb-2" key={toolPart.toolCallId}>
+				<PlanCard
+					onRequestChanges={() => {
+						if (threadId) {
+							sendMessage({
+								threadId,
+								prompt:
+									"I'd like to request changes to the proposed plan. Please ask me what I'd like to change.",
+							});
+						}
+					}}
+					orgId={orgIdParam}
+					planId={toolPart.output.planId as Id<"plans">}
+					projectId={projectIdParam}
+				/>
+			</div>
+		);
+	}
+
+	return null;
+}
+
 export const Route = createFileRoute(
 	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId"
 )({
@@ -160,83 +250,34 @@ function ConversationDetailPage() {
 						Start the conversation by sending a message.
 					</div>
 				) : (
-					messages.map((message: UIMessage) => (
-						<div key={message.key}>
-							{message.text && (
-								<div
-									className={`rounded-lg p-3 ${
-										message.role === "user"
-											? "ml-8 bg-primary/10"
-											: "mr-8 bg-secondary/20"
-									}`}
+					messages.map((message: UIMessage) => {
+						const isUser = message.role === "user";
+						return (
+							<div key={message.key}>
+								<p
+									className={`mb-1 font-semibold text-sm ${isUser ? "ml-8" : "mr-8"}`}
 								>
-									<p className="mb-1 font-semibold text-sm">
-										{message.role === "user" ? "You" : "AI Assistant"}
-									</p>
-									<MessageContent
-										isStreaming={message.status === "streaming"}
-										text={message.text}
+									{isUser ? "You" : "AI Assistant"}
+								</p>
+								{message.parts?.map((part, index) => (
+									<MessagePartRenderer
+										isUser={isUser}
+										key={
+											"toolCallId" in part
+												? (part as unknown as { toolCallId: string }).toolCallId
+												: `part-${index}`
+										}
+										orgIdParam={orgIdParam}
+										part={part}
+										partIndex={index}
+										projectIdParam={projectIdParam}
+										sendMessage={sendMessage}
+										threadId={threadId}
 									/>
-								</div>
-							)}
-							{message.parts
-								?.filter((part) => {
-									if (!("state" in part)) {
-										return false;
-									}
-									const type = part.type as string;
-									return (
-										type.startsWith("tool-") && type !== "tool-proposePlan"
-									);
-								})
-								.map((part) => {
-									const toolPart = part as unknown as {
-										toolCallId: string;
-										state: string;
-									};
-									const toolName = (part.type as string).replace("tool-", "");
-									return (
-										<div className="mr-8" key={toolPart.toolCallId}>
-											<ToolActivityIndicator
-												state={toolPart.state}
-												toolName={toolName}
-											/>
-										</div>
-									);
-								})}
-							{message.parts
-								?.filter(
-									(part) =>
-										part.type === "tool-proposePlan" &&
-										"state" in part &&
-										part.state === "output-available"
-								)
-								.map((part) => {
-									const toolPart = part as unknown as {
-										toolCallId: string;
-										output: { planId: string; taskCount: number };
-									};
-									return (
-										<div className="mt-2 mr-8" key={toolPart.toolCallId}>
-											<PlanCard
-												onRequestChanges={() => {
-													if (threadId) {
-														sendMessage({
-															threadId,
-															prompt:
-																"I'd like to request changes to the proposed plan. Please ask me what I'd like to change.",
-														});
-													}
-												}}
-												orgId={orgIdParam}
-												planId={toolPart.output.planId as Id<"plans">}
-												projectId={projectIdParam}
-											/>
-										</div>
-									);
-								})}
-						</div>
-					))
+								))}
+							</div>
+						);
+					})
 				)}
 				{isLoading && !hasStreamingMessage && (
 					<div className="mr-8 rounded-lg bg-secondary/20 p-3">
