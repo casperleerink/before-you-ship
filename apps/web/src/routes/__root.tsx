@@ -18,11 +18,12 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 	head: () => ({
 		meta: [
 			{
-				title: "project-manager",
+				title: "Before You Ship",
 			},
 			{
 				name: "description",
-				content: "project-manager is a web application",
+				content:
+					"Before You Ship — AI-powered technical advisor for non-technical teams",
 			},
 		],
 		links: [

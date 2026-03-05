@@ -1,4 +1,4 @@
-# App Concept: AI-Powered Technical Advisor for Non-Technical Teams
+# Before You Ship — AI-Powered Technical Advisor for Non-Technical Teams
 
 ## Problem
 

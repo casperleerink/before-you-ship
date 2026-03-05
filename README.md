@@ -1,8 +1,16 @@
-# project-manager
+# Before You Ship
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Convex, and more.
+An AI-powered technical advisor that helps non-technical team members refine feature requests and bug reports into dev-ready briefs — before they ever reach a developer.
 
 ## Features
+
+- **AI Conversations** - Chat with an AI that has codebase access to understand feasibility, refine requests, and surface edge cases
+- **Triage Inbox** - Low-friction capture for ideas, bugs, and feature requests
+- **Dev-Ready Briefs** - Conversations produce scoped, vetted tasks that developers can work from
+- **Project Docs** - Lightweight knowledge base with semantic search that the AI references during conversations
+- **Git Integration** - Connect GitHub, GitLab, Azure DevOps, or Bitbucket repos
+
+## Tech Stack
 
 - **TypeScript** - For type safety and improved developer experience
 - **TanStack Router** - File-based routing with full type safety
@@ -49,7 +57,7 @@ Your app will connect to the Convex cloud backend automatically.
 ## Project Structure
 
 ```
-project-manager/
+before-you-ship/
 ├── apps/
 │   ├── web/         # Frontend application (React + TanStack Router)
 ├── packages/
