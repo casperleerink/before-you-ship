@@ -147,7 +147,7 @@ export const create = mutation({
 				}
 			}
 
-			await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
+			await ctx.scheduler.runAfter(0, internal.daytonaActions.createSandbox, {
 				projectId,
 				repoUrl: args.repoUrl,
 				gitConnectionId,
@@ -198,7 +198,7 @@ export const connectRepo = mutation({
 			)
 			.first();
 
-		await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
+		await ctx.scheduler.runAfter(0, internal.daytonaActions.createSandbox, {
 			projectId: args.projectId,
 			repoUrl: args.repoUrl,
 			gitConnectionId: gitConnection?._id,
@@ -278,7 +278,7 @@ export const connectSelfHostedRepo = mutation({
 			}
 		}
 
-		await ctx.scheduler.runAfter(0, internal.daytona.createSandbox, {
+		await ctx.scheduler.runAfter(0, internal.daytonaActions.createSandbox, {
 			projectId: args.projectId,
 			repoUrl: args.repoUrl,
 			gitConnectionId,
@@ -330,7 +330,7 @@ export const disconnectRepo = mutation({
 		}
 
 		if (project.sandboxId) {
-			await ctx.scheduler.runAfter(0, internal.daytona.deleteSandbox, {
+			await ctx.scheduler.runAfter(0, internal.daytonaActions.deleteSandbox, {
 				sandboxId: project.sandboxId,
 			});
 		}

@@ -5,7 +5,7 @@ import {
 	syncStreams,
 	vStreamArgs,
 } from "@convex-dev/agent";
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
@@ -206,7 +206,12 @@ export const generateResponseAsync = internalAction({
 		await chatAgent.streamText(
 			ctx,
 			{ threadId },
-			{ promptMessageId, system: systemPrompt, tools },
+			{
+				promptMessageId,
+				system: systemPrompt,
+				tools,
+				stopWhen: stepCountIs(10),
+			},
 			{ saveStreamDeltas: true }
 		);
 

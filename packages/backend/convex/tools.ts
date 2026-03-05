@@ -22,6 +22,7 @@ const proposedTaskSchema = z.object({
 
 const MAX_FILE_SIZE = 50_000; // characters
 const MAX_SEARCH_RESULTS = 50;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function createCodebaseTools(
 	sandboxId: string,
@@ -41,8 +42,6 @@ export function createCodebaseTools(
 		handler: async (ctx, args) => {
 			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
 
-			// Check cache first (expire after 24 hours)
-			const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 			const cached = await ctx.runQuery(internal.daytona.getFileTreeCache, {
 				projectId,
 				path: fullPath,
@@ -52,19 +51,26 @@ export function createCodebaseTools(
 			}
 
 			// Fall back to Daytona API
-			const files = await ctx.runAction(internal.daytona.listFiles, {
+			const files = await ctx.runAction(internal.daytonaActions.listFiles, {
 				sandboxId,
 				path: fullPath,
 			});
+
+			// Strip extra fields before caching
+			const entries = files.map((f) => ({
+				name: f.name,
+				isDir: f.isDir,
+				size: f.size,
+			}));
 
 			// Store in cache for future calls
 			await ctx.runMutation(internal.daytona.setFileTreeCache, {
 				projectId,
 				path: fullPath,
-				entries: files,
+				entries,
 			});
 
-			return files;
+			return entries;
 		},
 	});
 
@@ -76,7 +82,7 @@ export function createCodebaseTools(
 		}),
 		handler: async (ctx, args) => {
 			const fullPath = `${REPO_ROOT}/${args.path}`;
-			const content = await ctx.runAction(internal.daytona.readFile, {
+			const content = await ctx.runAction(internal.daytonaActions.readFile, {
 				sandboxId,
 				path: fullPath,
 			});
@@ -105,7 +111,7 @@ export function createCodebaseTools(
 		}),
 		handler: async (ctx, args) => {
 			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
-			const matches = await ctx.runAction(internal.daytona.searchCode, {
+			const matches = await ctx.runAction(internal.daytonaActions.searchCode, {
 				sandboxId,
 				path: fullPath,
 				pattern: args.query,

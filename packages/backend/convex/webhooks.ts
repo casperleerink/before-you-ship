@@ -341,7 +341,7 @@ export const syncSandbox = internalAction({
 	handler: async (ctx, args) => {
 		try {
 			// Pull latest changes via Daytona git pull
-			await ctx.runAction(internal.daytona.gitPull, {
+			await ctx.runAction(internal.daytonaActions.gitPull, {
 				sandboxId: args.sandboxId,
 			});
 
@@ -349,7 +349,7 @@ export const syncSandbox = internalAction({
 			await ctx.runMutation(internal.daytona.clearFileTreeCache, {
 				projectId: args.projectId,
 			});
-			await ctx.runAction(internal.daytona.buildFileTreeCache, {
+			await ctx.runAction(internal.daytonaActions.buildFileTreeCache, {
 				projectId: args.projectId,
 				sandboxId: args.sandboxId,
 			});

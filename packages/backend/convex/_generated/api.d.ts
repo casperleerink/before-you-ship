@@ -14,6 +14,7 @@ import type * as authTriggers from "../authTriggers.js";
 import type * as chat from "../chat.js";
 import type * as conversations from "../conversations.js";
 import type * as daytona from "../daytona.js";
+import type * as daytonaActions from "../daytonaActions.js";
 import type * as docs from "../docs.js";
 import type * as embeddings from "../embeddings.js";
 import type * as gitConnections from "../gitConnections.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   conversations: typeof conversations;
   daytona: typeof daytona;
+  daytonaActions: typeof daytonaActions;
   docs: typeof docs;
   embeddings: typeof embeddings;
   gitConnections: typeof gitConnections;
