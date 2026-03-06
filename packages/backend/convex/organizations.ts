@@ -51,6 +51,33 @@ export const getById = query({
 	},
 });
 
+export const getBySlug = query({
+	args: {
+		slug: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const appUser = await getAppUser(ctx);
+		if (!appUser) {
+			return null;
+		}
+
+		const org = await ctx.db
+			.query("organizations")
+			.withIndex("by_slug", (q) => q.eq("slug", args.slug))
+			.first();
+		if (!org) {
+			return null;
+		}
+
+		const membership = await getOrgMembership(ctx, org._id, appUser._id);
+		if (!membership) {
+			return null;
+		}
+
+		return { ...org, role: membership.role };
+	},
+});
+
 export const listMembers = query({
 	args: {
 		orgId: v.id("organizations"),
@@ -101,8 +128,12 @@ export const create = mutation({
 			throw new Error("Not authenticated");
 		}
 
+		const { generateUniqueSlug } = await import("./slugUtils");
+		const slug = await generateUniqueSlug(ctx, args.name);
+
 		const orgId = await ctx.db.insert("organizations", {
 			name: args.name,
+			slug,
 			createdBy: appUser._id,
 			createdAt: Date.now(),
 		});
@@ -114,7 +145,7 @@ export const create = mutation({
 			joinedAt: Date.now(),
 		});
 
-		return orgId;
+		return { orgId, slug };
 	},
 });
 
@@ -282,7 +313,8 @@ export const acceptInvite = mutation({
 
 		await ctx.db.patch(args.inviteId, { status: "accepted" });
 
-		return invite.organizationId;
+		const org = await ctx.db.get(invite.organizationId);
+		return { organizationId: invite.organizationId, slug: org?.slug ?? "" };
 	},
 });
 

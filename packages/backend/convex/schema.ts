@@ -63,9 +63,10 @@ export default defineSchema({
 
 	organizations: defineTable({
 		name: v.string(),
+		slug: v.string(),
 		createdBy: v.id("users"),
 		createdAt: v.number(),
-	}),
+	}).index("by_slug", ["slug"]),
 
 	organizationMembers: defineTable({
 		organizationId: v.id("organizations"),

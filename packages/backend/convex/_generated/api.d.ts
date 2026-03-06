@@ -11,6 +11,7 @@
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
 import type * as authTriggers from "../authTriggers.js";
+import type * as backfillSlugs from "../backfillSlugs.js";
 import type * as chat from "../chat.js";
 import type * as conversations from "../conversations.js";
 import type * as daytona from "../daytona.js";
@@ -26,6 +27,7 @@ import type * as organizations from "../organizations.js";
 import type * as plans from "../plans.js";
 import type * as projects from "../projects.js";
 import type * as shared from "../shared.js";
+import type * as slugUtils from "../slugUtils.js";
 import type * as tasks from "../tasks.js";
 import type * as tools from "../tools.js";
 import type * as triageItems from "../triageItems.js";
@@ -41,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
   authTriggers: typeof authTriggers;
+  backfillSlugs: typeof backfillSlugs;
   chat: typeof chat;
   conversations: typeof conversations;
   daytona: typeof daytona;
@@ -56,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   plans: typeof plans;
   projects: typeof projects;
   shared: typeof shared;
+  slugUtils: typeof slugUtils;
   tasks: typeof tasks;
   tools: typeof tools;
   triageItems: typeof triageItems;
