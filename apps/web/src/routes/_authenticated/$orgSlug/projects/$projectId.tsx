@@ -11,16 +11,17 @@ import {
 	ArrowLeft,
 	FileText,
 	Inbox,
+	LayoutDashboard,
 	ListTodo,
 	MessageSquare,
 	Plus,
 	Settings,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import Loader from "@/components/loader";
 import { ModeToggle } from "@/components/mode-toggle";
-import TriageQuickAddForm from "@/components/triage-quick-add-form";
+import TriageCaptureModal from "@/components/triage-capture-modal";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
 import { useOrg } from "@/lib/org-context";
@@ -33,14 +34,32 @@ export const Route = createFileRoute(
 });
 
 const navItems = [
-	{ label: "Triage", icon: Inbox, to: "/$orgSlug/projects/$projectId/triage" },
+	{
+		label: "Overview",
+		icon: LayoutDashboard,
+		to: "/$orgSlug/projects/$projectId",
+		exact: true,
+	},
+	{
+		label: "Triage",
+		icon: Inbox,
+		to: "/$orgSlug/projects/$projectId/triage",
+	},
 	{
 		label: "Conversations",
 		icon: MessageSquare,
 		to: "/$orgSlug/projects/$projectId/conversations",
 	},
-	{ label: "Tasks", icon: ListTodo, to: "/$orgSlug/projects/$projectId/tasks" },
-	{ label: "Docs", icon: FileText, to: "/$orgSlug/projects/$projectId/docs" },
+	{
+		label: "Tasks",
+		icon: ListTodo,
+		to: "/$orgSlug/projects/$projectId/tasks",
+	},
+	{
+		label: "Docs",
+		icon: FileText,
+		to: "/$orgSlug/projects/$projectId/docs",
+	},
 	{
 		label: "Settings",
 		icon: Settings,
@@ -54,6 +73,22 @@ function ProjectLayout() {
 	const projectId = projectIdParam as Id<"projects">;
 	const project = useQuery(api.projects.getById, { projectId });
 	const matchRoute = useMatchRoute();
+	const [triageModalOpen, setTriageModalOpen] = useState(false);
+
+	const handleOpenTriageModal = useCallback(() => {
+		setTriageModalOpen(true);
+	}, []);
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+				e.preventDefault();
+				handleOpenTriageModal();
+			}
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [handleOpenTriageModal]);
 
 	if (project === undefined) {
 		return <Loader />;
@@ -85,11 +120,17 @@ function ProjectLayout() {
 
 				<nav className="flex-1 p-2">
 					{navItems.map((item) => {
-						const isActive = matchRoute({
-							fuzzy: true,
-							params: { orgSlug, projectId: projectIdParam },
-							to: item.to,
-						});
+						const isActive =
+							"exact" in item && item.exact
+								? matchRoute({
+										params: { orgSlug, projectId: projectIdParam },
+										to: item.to,
+									})
+								: matchRoute({
+										fuzzy: true,
+										params: { orgSlug, projectId: projectIdParam },
+										to: item.to,
+									});
 
 						return (
 							<Link
@@ -116,41 +157,26 @@ function ProjectLayout() {
 						<ModeToggle />
 					</div>
 				</div>
-
-				<div className="border-t p-3">
-					<SidebarQuickAdd projectId={projectId} />
-				</div>
 			</aside>
 
-			<main className="flex-1 overflow-auto">
+			<main className="relative flex-1 overflow-auto">
 				<Outlet />
+
+				<Button
+					className="absolute right-6 bottom-6 h-12 w-12 rounded-full shadow-lg"
+					onClick={handleOpenTriageModal}
+					size="icon"
+				>
+					<Plus className="h-5 w-5" />
+					<span className="sr-only">Quick add triage item</span>
+				</Button>
 			</main>
+
+			<TriageCaptureModal
+				onOpenChange={setTriageModalOpen}
+				open={triageModalOpen}
+				projectId={projectId}
+			/>
 		</div>
-	);
-}
-
-function SidebarQuickAdd({ projectId }: { projectId: Id<"projects"> }) {
-	const [isOpen, setIsOpen] = useState(false);
-
-	if (!isOpen) {
-		return (
-			<Button
-				className="w-full"
-				onClick={() => setIsOpen(true)}
-				size="sm"
-				variant="outline"
-			>
-				<Plus className="mr-1 h-4 w-4" />
-				Quick Add Triage
-			</Button>
-		);
-	}
-
-	return (
-		<TriageQuickAddForm
-			layout="stacked"
-			onSuccess={() => setIsOpen(false)}
-			projectId={projectId}
-		/>
 	);
 }

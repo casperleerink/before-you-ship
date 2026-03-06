@@ -2,14 +2,11 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Inbox, MessageSquare, Plus } from "lucide-react";
-import { useState } from "react";
+import { Inbox, MessageSquare } from "lucide-react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
-import TriageQuickAddForm from "@/components/triage-quick-add-form";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/triage"
@@ -25,7 +22,6 @@ function TriagePage() {
 		api.conversations.createFromTriageItem
 	);
 	const navigate = useNavigate();
-	const [showCreateForm, setShowCreateForm] = useState(false);
 
 	if (items === undefined) {
 		return (
@@ -53,26 +49,13 @@ function TriagePage() {
 
 	return (
 		<div className="p-6">
-			<div className="mb-4 flex items-center justify-between">
+			<div className="mb-4">
 				<h1 className="font-bold text-2xl">Triage</h1>
-				<Button onClick={() => setShowCreateForm(true)} size="sm">
-					<Plus className="mr-1 h-4 w-4" />
-					Add Item
-				</Button>
 			</div>
 
-			{showCreateForm && (
-				<div className="mb-4">
-					<TriageQuickAddForm
-						onSuccess={() => setShowCreateForm(false)}
-						projectId={projectId}
-					/>
-				</div>
-			)}
-
-			{items.length === 0 && !showCreateForm ? (
+			{items.length === 0 ? (
 				<EmptyState
-					description="Submit ideas and bug reports to be refined by AI."
+					description="Submit ideas and bug reports to be refined by AI. Use the + button or press Cmd+J."
 					icon={Inbox}
 					title="No triage items yet"
 				/>
@@ -87,7 +70,7 @@ function TriagePage() {
 									navigateToConversation(item.conversationId);
 								} else if (item.status === "pending") {
 									handlePendingClick(item._id).catch(() => {
-										// Keep the user on the current screen if conversion fails.
+										// Keep user on current screen if conversion fails
 									});
 								}
 							}}
