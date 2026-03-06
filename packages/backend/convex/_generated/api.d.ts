@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as activity from "../activity.js";
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
 import type * as authTriggers from "../authTriggers.js";
@@ -40,6 +41,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  activity: typeof activity;
   agent: typeof agent;
   auth: typeof auth;
   authTriggers: typeof authTriggers;

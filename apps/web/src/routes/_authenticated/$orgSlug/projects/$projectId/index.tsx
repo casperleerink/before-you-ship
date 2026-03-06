@@ -2,7 +2,16 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Inbox, ListTodo, MessageSquare } from "lucide-react";
+import {
+	FileText,
+	Inbox,
+	ListTodo,
+	Map as MapIcon,
+	MessageSquare,
+	Pencil,
+	Plus,
+	Trash2,
+} from "lucide-react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
@@ -14,43 +23,27 @@ export const Route = createFileRoute(
 	component: ProjectDashboard,
 });
 
-type ActivityItem =
-	| {
-			type: "triage";
-			id: string;
-			content: string;
-			createdAt: number;
-			status: string;
-			conversationId?: Id<"conversations">;
-	  }
-	| {
-			type: "conversation";
-			id: string;
-			title: string;
-			createdAt: number;
-			status: string;
-	  }
-	| {
-			type: "task";
-			id: string;
-			title: string;
-			createdAt: number;
-			status: string;
-	  };
+const entityIconMap = {
+	triage: Inbox,
+	conversation: MessageSquare,
+	task: ListTodo,
+	doc: FileText,
+	plan: MapIcon,
+} as const;
+
+const actionIconMap = {
+	created: Plus,
+	updated: Pencil,
+	deleted: Trash2,
+} as const;
 
 function ProjectDashboard() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 
-	const triageItems = useQuery(api.triageItems.list, { projectId });
-	const conversations = useQuery(api.conversations.list, { projectId });
-	const tasks = useQuery(api.tasks.list, { projectId });
+	const activity = useQuery(api.activity.list, { projectId });
 
-	if (
-		triageItems === undefined ||
-		conversations === undefined ||
-		tasks === undefined
-	) {
+	if (activity === undefined) {
 		return (
 			<div className="p-6">
 				<Loader />
@@ -58,120 +51,106 @@ function ProjectDashboard() {
 		);
 	}
 
-	const feed: ActivityItem[] = [
-		...triageItems.map((item) => ({
-			type: "triage" as const,
-			id: item._id,
-			content: item.content,
-			createdAt: item.createdAt,
-			status: item.status,
-			conversationId: item.conversationId,
-		})),
-		...conversations.map((c) => ({
-			type: "conversation" as const,
-			id: c._id,
-			title: c.title ?? "Untitled conversation",
-			createdAt: c.createdAt,
-			status: c.status,
-		})),
-		...tasks.map((t) => ({
-			type: "task" as const,
-			id: t._id,
-			title: t.title,
-			createdAt: t.createdAt,
-			status: t.status,
-		})),
-	]
-		.sort((a, b) => b.createdAt - a.createdAt)
-		.slice(0, 20);
-
-	const iconMap = {
-		triage: Inbox,
-		conversation: MessageSquare,
-		task: ListTodo,
-	};
-
-	const linkFor = (item: ActivityItem) => {
-		switch (item.type) {
-			case "triage":
-				return {
-					to: "/$orgSlug/projects/$projectId/triage" as const,
-					params: { orgSlug, projectId: projectIdParam },
-				};
-			case "conversation":
-				return {
-					to: "/$orgSlug/projects/$projectId/conversations/$conversationId" as const,
-					params: {
-						orgSlug,
-						projectId: projectIdParam,
-						conversationId: item.id,
-					},
-				};
-			case "task":
-				return {
-					to: "/$orgSlug/projects/$projectId/tasks" as const,
-					params: { orgSlug, projectId: projectIdParam },
-				};
-			default:
-				return {
-					to: "/$orgSlug/projects/$projectId" as const,
-					params: { orgSlug, projectId: projectIdParam },
-				};
-		}
-	};
-
-	const labelFor = (item: ActivityItem) => {
-		switch (item.type) {
-			case "triage":
-				return item.content;
-			case "conversation":
-				return item.title;
-			case "task":
-				return item.title;
-			default:
-				return "";
-		}
-	};
-
 	return (
 		<div className="p-6">
 			<h1 className="mb-6 font-bold text-2xl">Activity</h1>
 
-			{feed.length === 0 ? (
+			{activity.length === 0 ? (
 				<EmptyState
-					description="Triage items, conversations, and tasks will appear here."
+					description="Activity from triage items, conversations, tasks, docs, and plans will appear here."
 					icon={Inbox}
 					title="No activity yet"
 				/>
 			) : (
-				<div className="space-y-2">
-					{feed.map((item) => {
-						const Icon = iconMap[item.type];
-						const link = linkFor(item);
+				<div className="relative ml-4">
+					{/* Vertical timeline line */}
+					<div className="absolute top-0 bottom-0 left-3 w-px bg-border" />
 
-						return (
-							<Link
-								className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50"
-								key={`${item.type}-${item.id}`}
-								{...link}
-							>
-								<Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-								<span className="min-w-0 flex-1 truncate text-sm">
-									{labelFor(item)}
-								</span>
-								<Badge className="shrink-0" variant="outline">
-									{item.status}
-								</Badge>
-								<span className="shrink-0 text-muted-foreground text-xs">
-									{formatRelativeTime(item.createdAt)}
-								</span>
-							</Link>
-						);
-					})}
+					<div className="space-y-4">
+						{activity.map((item) => {
+							const EntityIcon = entityIconMap[item.entityType];
+							const ActionIcon = actionIconMap[item.action];
+							const link = linkFor(item, orgSlug, projectIdParam);
+
+							return (
+								<div className="relative flex gap-4" key={item._id}>
+									{/* Timeline dot */}
+									<div className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background">
+										<EntityIcon className="h-3 w-3 text-muted-foreground" />
+									</div>
+
+									{/* Content */}
+									<div className="flex min-w-0 flex-1 flex-col gap-1 pb-2">
+										<div className="flex items-center gap-2">
+											<span className="font-medium text-sm">
+												{item.user.name}
+											</span>
+											<span className="flex items-center gap-1 text-muted-foreground text-xs">
+												<ActionIcon className="h-3 w-3" />
+												{item.action}
+											</span>
+											<Badge className="text-xs" variant="outline">
+												{item.entityType}
+											</Badge>
+											<span className="ml-auto shrink-0 text-muted-foreground text-xs">
+												{formatRelativeTime(item.createdAt)}
+											</span>
+										</div>
+										{item.description && (
+											<Link
+												className="truncate text-muted-foreground text-sm transition-colors hover:text-foreground"
+												{...link}
+											>
+												{item.description}
+											</Link>
+										)}
+									</div>
+								</div>
+							);
+						})}
+					</div>
 				</div>
 			)}
 		</div>
 	);
+}
+
+function linkFor(
+	item: { entityType: string; entityId: string },
+	orgSlug: string,
+	projectIdParam: string
+) {
+	switch (item.entityType) {
+		case "triage":
+			return {
+				to: "/$orgSlug/projects/$projectId/triage" as const,
+				params: { orgSlug, projectId: projectIdParam },
+			};
+		case "conversation":
+			return {
+				to: "/$orgSlug/projects/$projectId/conversations/$conversationId" as const,
+				params: {
+					orgSlug,
+					projectId: projectIdParam,
+					conversationId: item.entityId,
+				},
+			};
+		case "task":
+			return {
+				to: "/$orgSlug/projects/$projectId/tasks" as const,
+				params: { orgSlug, projectId: projectIdParam },
+			};
+		case "doc":
+			return {
+				to: "/$orgSlug/projects/$projectId/docs" as const,
+				params: { orgSlug, projectId: projectIdParam },
+			};
+		default:
+			return {
+				to: "/$orgSlug/projects/$projectId" as const,
+				params: { orgSlug, projectId: projectIdParam },
+			};
+	}
 }
 
 function formatRelativeTime(timestamp: number): string {

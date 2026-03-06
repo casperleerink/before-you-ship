@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { taskLevelValidator, taskStatusValidator } from "./schema";
 
@@ -178,6 +179,23 @@ export const update = mutation({
 		}
 
 		await ctx.db.patch(args.taskId, updates);
+
+		const parts: string[] = [];
+		if (args.status !== undefined) {
+			parts.push(`changed status to ${args.status}`);
+		}
+		if (args.assigneeId !== undefined) {
+			parts.push(args.assigneeId === null ? "unassigned" : "reassigned");
+		}
+
+		await logActivity(ctx, {
+			projectId: task.projectId,
+			userId: appUser._id,
+			action: "updated",
+			entityType: "task",
+			entityId: args.taskId,
+			description: parts.join(", "),
+		});
 	},
 });
 

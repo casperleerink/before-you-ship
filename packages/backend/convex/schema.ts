@@ -207,6 +207,26 @@ export default defineSchema({
 		cachedAt: v.number(),
 	}).index("by_projectId_path", ["projectId", "path"]),
 
+	activity: defineTable({
+		projectId: v.id("projects"),
+		userId: v.id("users"),
+		action: v.union(
+			v.literal("created"),
+			v.literal("updated"),
+			v.literal("deleted")
+		),
+		entityType: v.union(
+			v.literal("triage"),
+			v.literal("conversation"),
+			v.literal("task"),
+			v.literal("doc"),
+			v.literal("plan")
+		),
+		entityId: v.string(),
+		description: v.optional(v.string()),
+		createdAt: v.number(),
+	}).index("by_projectId_createdAt", ["projectId", "createdAt"]),
+
 	docs: defineTable({
 		projectId: v.id("projects"),
 		title: v.string(),

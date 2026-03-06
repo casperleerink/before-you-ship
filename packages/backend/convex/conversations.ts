@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { logActivity } from "./activity";
 import { sendMessageToThread } from "./chat";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { conversationStatusValidator } from "./schema";
@@ -97,13 +98,23 @@ export const create = mutation({
 
 		const threadId = await createThread(ctx, components.agent, {});
 
-		return ctx.db.insert("conversations", {
+		const conversationId = await ctx.db.insert("conversations", {
 			projectId: args.projectId,
 			threadId,
 			status: "active",
 			createdBy: appUser._id,
 			createdAt: Date.now(),
 		});
+
+		await logActivity(ctx, {
+			projectId: args.projectId,
+			userId: appUser._id,
+			action: "created",
+			entityType: "conversation",
+			entityId: conversationId,
+		});
+
+		return conversationId;
 	},
 });
 
@@ -157,6 +168,15 @@ export const createFromTriageItem = mutation({
 
 		await sendMessageToThread(ctx, threadId, triageItem.content);
 
+		await logActivity(ctx, {
+			projectId: triageItem.projectId,
+			userId: appUser._id,
+			action: "created",
+			entityType: "conversation",
+			entityId: conversationId,
+			description: `from triage: ${triageItem.content.slice(0, 100)}`,
+		});
+
 		return conversationId;
 	},
 });
@@ -193,5 +213,14 @@ export const updateStatus = mutation({
 		}
 
 		await ctx.db.patch(conversation._id, { status: args.status });
+
+		await logActivity(ctx, {
+			projectId: conversation.projectId,
+			userId: appUser._id,
+			action: "updated",
+			entityType: "conversation",
+			entityId: conversation._id,
+			description: `changed status to ${args.status}`,
+		});
 	},
 });

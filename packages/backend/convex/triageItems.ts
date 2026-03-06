@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership } from "./helpers";
 
 export const list = query({
@@ -60,12 +61,23 @@ export const create = mutation({
 			throw new Error("Not a member of this organization");
 		}
 
-		return ctx.db.insert("triageItems", {
+		const triageId = await ctx.db.insert("triageItems", {
 			projectId: args.projectId,
 			content: args.content,
 			status: "pending",
 			createdBy: appUser._id,
 			createdAt: Date.now(),
 		});
+
+		await logActivity(ctx, {
+			projectId: args.projectId,
+			userId: appUser._id,
+			action: "created",
+			entityType: "triage",
+			entityId: triageId,
+			description: args.content,
+		});
+
+		return triageId;
 	},
 });

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
+import { hasRecentActivity, logActivity } from "./activity";
 import { getAppUser, getOrgMembership } from "./helpers";
 
 export const list = query({
@@ -103,6 +104,15 @@ export const create = mutation({
 			updatedAt: now,
 		});
 
+		await logActivity(ctx, {
+			projectId: args.projectId,
+			userId: appUser._id,
+			action: "created",
+			entityType: "doc",
+			entityId: docId,
+			description: args.title,
+		});
+
 		return docId;
 	},
 });
@@ -160,6 +170,21 @@ export const update = mutation({
 				internal.embeddings.generateDocEmbedding,
 				{ docId: args.docId }
 			);
+
+			const recent = await hasRecentActivity(ctx, args.docId);
+			if (!recent) {
+				await logActivity(ctx, {
+					projectId: doc.projectId,
+					userId: appUser._id,
+					action: "updated",
+					entityType: "doc",
+					entityId: args.docId,
+					description:
+						args.title !== undefined && args.title !== doc.title
+							? `renamed to "${args.title}"`
+							: `updated "${doc.title}"`,
+				});
+			}
 		}
 	},
 });
@@ -195,5 +220,14 @@ export const remove = mutation({
 		}
 
 		await ctx.db.delete(args.docId);
+
+		await logActivity(ctx, {
+			projectId: doc.projectId,
+			userId: appUser._id,
+			action: "deleted",
+			entityType: "doc",
+			entityId: args.docId,
+			description: doc.title,
+		});
 	},
 });

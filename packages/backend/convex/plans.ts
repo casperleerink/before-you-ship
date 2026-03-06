@@ -7,6 +7,7 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
+import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { taskLevelValidator } from "./schema";
 import { insertTask } from "./tasks";
@@ -107,7 +108,7 @@ async function getProposedPlanWithAuth(ctx: MutationCtx, planId: Id<"plans">) {
 		throw new Error("Not a member of this organization");
 	}
 
-	return plan;
+	return { plan, appUser };
 }
 
 export const approve = mutation({
@@ -115,7 +116,7 @@ export const approve = mutation({
 		planId: v.id("plans"),
 	},
 	handler: async (ctx, args) => {
-		const plan = await getProposedPlanWithAuth(ctx, args.planId);
+		const { plan, appUser } = await getProposedPlanWithAuth(ctx, args.planId);
 
 		const taskIds: Id<"tasks">[] = [];
 		for (const task of plan.tasks) {
@@ -125,6 +126,15 @@ export const approve = mutation({
 				...task,
 			});
 			taskIds.push(taskId);
+
+			await logActivity(ctx, {
+				projectId: plan.projectId,
+				userId: appUser._id,
+				action: "created",
+				entityType: "task",
+				entityId: taskId,
+				description: task.title,
+			});
 		}
 
 		await ctx.db.patch(args.planId, {
@@ -136,6 +146,15 @@ export const approve = mutation({
 			status: "completed",
 		});
 
+		await logActivity(ctx, {
+			projectId: plan.projectId,
+			userId: appUser._id,
+			action: "updated",
+			entityType: "plan",
+			entityId: args.planId,
+			description: `approved plan with ${taskIds.length} tasks`,
+		});
+
 		return plan._id;
 	},
 });
@@ -145,8 +164,18 @@ export const reject = mutation({
 		planId: v.id("plans"),
 	},
 	handler: async (ctx, args) => {
-		const plan = await getProposedPlanWithAuth(ctx, args.planId);
+		const { plan, appUser } = await getProposedPlanWithAuth(ctx, args.planId);
 		await ctx.db.patch(args.planId, { status: "rejected" });
+
+		await logActivity(ctx, {
+			projectId: plan.projectId,
+			userId: appUser._id,
+			action: "updated",
+			entityType: "plan",
+			entityId: args.planId,
+			description: "rejected plan",
+		});
+
 		return plan._id;
 	},
 });
