@@ -1,6 +1,6 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import {
 	FolderGit2,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,6 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -42,31 +42,27 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useOrg } from "@/lib/org-context";
 
-export const Route = createFileRoute("/_authenticated/organizations/$orgId/")({
-	component: OrgDashboardPage,
+const searchSchema = z.object({
+	tab: z.enum(["projects", "members"]).catch("projects"),
 });
 
-type Tab = "projects" | "members";
+export const Route = createFileRoute("/_authenticated/$orgSlug/")({
+	component: OrgDashboardPage,
+	validateSearch: searchSchema,
+});
 
 function OrgDashboardPage() {
-	const { orgId: orgIdParam } = Route.useParams();
-	const orgId = orgIdParam as Id<"organizations">;
-	const org = useQuery(api.organizations.getById, { orgId });
-	const projects = useQuery(api.projects.list, { orgId });
-	const [activeTab, setActiveTab] = useState<Tab>("projects");
+	const { orgSlug } = Route.useParams();
+	const { tab } = Route.useSearch();
+	const navigate = useNavigate({ from: Route.fullPath });
+	const org = useOrg();
+	const projects = useQuery(api.projects.list, { orgId: org._id });
 	const [showCreateForm, setShowCreateForm] = useState(false);
 
-	if (org === undefined || projects === undefined) {
+	if (projects === undefined) {
 		return <Loader />;
-	}
-
-	if (!org) {
-		return (
-			<div className="container mx-auto max-w-4xl px-4 py-8">
-				<h1 className="font-bold text-2xl">Organization not found</h1>
-			</div>
-		);
 	}
 
 	return (
@@ -75,7 +71,7 @@ function OrgDashboardPage() {
 				<div>
 					<Link
 						className="text-muted-foreground text-sm hover:underline"
-						to="/organizations"
+						to="/"
 					>
 						Organizations
 					</Link>
@@ -83,15 +79,22 @@ function OrgDashboardPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					<Link
-						params={{ orgId: orgIdParam }}
-						to="/organizations/$orgId/my-tasks"
+						params={{ orgSlug }}
+						search={{
+							complexity: [],
+							effort: [],
+							project: [],
+							risk: [],
+							status: [],
+						}}
+						to="/$orgSlug/my-tasks"
 					>
 						<Button variant="outline">
 							<ListTodo className="mr-2 h-4 w-4" />
 							My Tasks
 						</Button>
 					</Link>
-					{activeTab === "projects" && (
+					{tab === "projects" && (
 						<Button onClick={() => setShowCreateForm(true)}>
 							<Plus className="mr-2 h-4 w-4" />
 							New Project
@@ -104,35 +107,40 @@ function OrgDashboardPage() {
 				{[
 					{ key: "projects" as const, label: "Projects", icon: FolderGit2 },
 					{ key: "members" as const, label: "Members", icon: Users },
-				].map((tab) => (
+				].map((tabOption) => (
 					<button
 						className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-							activeTab === tab.key
+							tab === tabOption.key
 								? "border-primary text-primary"
 								: "border-transparent text-muted-foreground hover:text-foreground"
 						}`}
-						key={tab.key}
-						onClick={() => setActiveTab(tab.key)}
+						key={tabOption.key}
+						onClick={() =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									tab: tabOption.key,
+								}),
+							})
+						}
 						type="button"
 					>
-						<tab.icon className="mr-2 inline-block h-4 w-4" />
-						{tab.label}
+						<tabOption.icon className="mr-2 inline-block h-4 w-4" />
+						{tabOption.label}
 					</button>
 				))}
 			</div>
 
-			{activeTab === "projects" && (
+			{tab === "projects" ? (
 				<ProjectsTab
 					onHideCreateForm={() => setShowCreateForm(false)}
-					orgId={orgId}
-					orgIdParam={orgIdParam}
+					orgId={org._id}
+					orgSlug={org.slug}
 					projects={projects}
 					showCreateForm={showCreateForm}
 				/>
-			)}
-
-			{activeTab === "members" && (
-				<MembersTab currentUserRole={org.role} orgId={orgId} />
+			) : (
+				<MembersTab currentUserRole={org.role} orgId={org._id} />
 			)}
 		</div>
 	);
@@ -140,13 +148,13 @@ function OrgDashboardPage() {
 
 function ProjectsTab({
 	orgId,
-	orgIdParam,
+	orgSlug,
 	projects,
 	showCreateForm,
 	onHideCreateForm,
 }: {
 	orgId: Id<"organizations">;
-	orgIdParam: string;
+	orgSlug: string;
 	projects: Array<{
 		_id: Id<"projects">;
 		name: string;
@@ -163,6 +171,7 @@ function ProjectsTab({
 						onCancel={onHideCreateForm}
 						onCreated={onHideCreateForm}
 						orgId={orgId}
+						orgSlug={orgSlug}
 					/>
 				</div>
 			)}
@@ -180,8 +189,8 @@ function ProjectsTab({
 					{projects.map((project) => (
 						<Link
 							key={project._id}
-							params={{ orgId: orgIdParam, projectId: project._id }}
-							to="/organizations/$orgId/projects/$projectId"
+							params={{ orgSlug, projectId: project._id }}
+							to="/$orgSlug/projects/$projectId"
 						>
 							<Card className="cursor-pointer transition-colors hover:bg-muted/50">
 								<CardHeader>
@@ -282,7 +291,7 @@ function MembersTab({
 									</TableCell>
 									{canManage && (
 										<TableCell>
-											<CancelInviteButton inviteId={invite._id} />
+											<InviteActions inviteId={invite._id} />
 										</TableCell>
 									)}
 								</TableRow>
@@ -296,13 +305,94 @@ function MembersTab({
 }
 
 function RoleBadge({ role }: { role: string }) {
-	let variant: "default" | "secondary" | "outline" = "outline";
+	let Icon = Users;
 	if (role === "owner") {
-		variant = "default";
+		Icon = Shield;
 	} else if (role === "admin") {
-		variant = "secondary";
+		Icon = ShieldCheck;
 	}
-	return <Badge variant={variant}>{role}</Badge>;
+
+	return (
+		<Badge variant={role === "owner" ? "default" : "secondary"}>
+			<Icon className="mr-1 h-3 w-3" />
+			{role}
+		</Badge>
+	);
+}
+
+function MemberActions({
+	orgId,
+	member,
+	currentUserRole,
+}: {
+	orgId: Id<"organizations">;
+	member: {
+		_id: Id<"users">;
+		name: string;
+		role: string;
+	};
+	currentUserRole: string;
+}) {
+	const removeMember = useMutation(api.organizations.removeMember);
+	const canRemove =
+		member.role !== "owner" &&
+		(currentUserRole === "owner" || member.role === "member");
+
+	if (!canRemove) {
+		return null;
+	}
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button size="icon" variant="ghost">
+						<MoreHorizontal className="h-4 w-4" />
+					</Button>
+				}
+			/>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem
+					className="text-destructive"
+					onClick={async () => {
+						await removeMember({ orgId, userId: member._id });
+						toast.success(`${member.name} removed from organization`);
+					}}
+				>
+					<UserMinus className="mr-2 h-4 w-4" />
+					Remove member
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function InviteActions({ inviteId }: { inviteId: Id<"organizationInvites"> }) {
+	const cancelInvite = useMutation(api.organizations.cancelInvite);
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button size="icon" variant="ghost">
+						<MoreHorizontal className="h-4 w-4" />
+					</Button>
+				}
+			/>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem
+					className="text-destructive"
+					onClick={async () => {
+						await cancelInvite({ inviteId });
+						toast.success("Invite cancelled");
+					}}
+				>
+					<X className="mr-2 h-4 w-4" />
+					Cancel invite
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
 }
 
 function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
@@ -319,9 +409,14 @@ function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
 
 		setIsSubmitting(true);
 		try {
-			await inviteMember({ orgId, email: email.trim(), role });
-			toast.success(`Invite sent to ${email.trim()}`);
+			await inviteMember({
+				email: email.trim(),
+				orgId,
+				role,
+			});
 			setEmail("");
+			setRole("member");
+			toast.success("Invite sent");
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Failed to send invite"
@@ -335,31 +430,32 @@ function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
 		<Card>
 			<CardHeader>
 				<CardTitle>Invite Member</CardTitle>
+				<CardDescription>
+					Send an invite to add someone to this organization.
+				</CardDescription>
 			</CardHeader>
-			<form className="space-y-4 px-4 pb-4" onSubmit={handleSubmit}>
-				<div className="flex gap-3">
-					<div className="flex-1 space-y-2">
-						<Label htmlFor="invite-email">Email</Label>
-						<Input
-							id="invite-email"
-							onChange={(e) => setEmail(e.target.value)}
-							placeholder="user@example.com"
-							type="email"
-							value={email}
-						/>
-					</div>
-					<div className="space-y-2">
-						<Label htmlFor="invite-role">Role</Label>
-						<select
-							className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-							id="invite-role"
-							onChange={(e) => setRole(e.target.value as "admin" | "member")}
-							value={role}
-						>
-							<option value="member">Member</option>
-							<option value="admin">Admin</option>
-						</select>
-					</div>
+			<form className="space-y-4 px-6 pb-6" onSubmit={handleSubmit}>
+				<div className="space-y-2">
+					<Label htmlFor="invite-email">Email</Label>
+					<Input
+						id="invite-email"
+						onChange={(e) => setEmail(e.target.value)}
+						placeholder="person@company.com"
+						type="email"
+						value={email}
+					/>
+				</div>
+				<div className="space-y-2">
+					<Label htmlFor="invite-role">Role</Label>
+					<select
+						className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
+						id="invite-role"
+						onChange={(e) => setRole(e.target.value as "admin" | "member")}
+						value={role}
+					>
+						<option value="member">Member</option>
+						<option value="admin">Admin</option>
+					</select>
 				</div>
 				<Button disabled={!email.trim() || isSubmitting} type="submit">
 					{isSubmitting ? "Sending..." : "Send Invite"}
@@ -369,132 +465,23 @@ function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
 	);
 }
 
-function MemberActions({
-	orgId,
-	member,
-	currentUserRole,
-}: {
-	orgId: Id<"organizations">;
-	member: { _id: Id<"users">; role: string };
-	currentUserRole: string;
-}) {
-	const removeMember = useMutation(api.organizations.removeMember);
-	const updateRole = useMutation(api.organizations.updateMemberRole);
-
-	if (member.role === "owner") {
-		return null;
-	}
-
-	const canChangeRole = currentUserRole === "owner";
-	const canRemove =
-		currentUserRole === "owner" ||
-		(currentUserRole === "admin" && member.role !== "admin");
-
-	if (!(canChangeRole || canRemove)) {
-		return null;
-	}
-
-	const handleRemove = async () => {
-		try {
-			await removeMember({ orgId, userId: member._id });
-			toast.success("Member removed");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to remove member"
-			);
-		}
-	};
-
-	const handleRoleChange = async (newRole: "admin" | "member") => {
-		try {
-			await updateRole({ orgId, userId: member._id, role: newRole });
-			toast.success("Role updated");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to update role"
-			);
-		}
-	};
-
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				aria-label="Member actions"
-				className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
-			>
-				<MoreHorizontal className="h-4 w-4" />
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
-				{canChangeRole && member.role !== "admin" && (
-					<DropdownMenuItem onClick={() => handleRoleChange("admin")}>
-						<ShieldCheck className="mr-2 h-4 w-4" />
-						Make Admin
-					</DropdownMenuItem>
-				)}
-				{canChangeRole && member.role !== "member" && (
-					<DropdownMenuItem onClick={() => handleRoleChange("member")}>
-						<Shield className="mr-2 h-4 w-4" />
-						Make Member
-					</DropdownMenuItem>
-				)}
-				{canRemove && (
-					<>
-						{canChangeRole && <DropdownMenuSeparator />}
-						<DropdownMenuItem onClick={handleRemove} variant="destructive">
-							<UserMinus className="mr-2 h-4 w-4" />
-							Remove
-						</DropdownMenuItem>
-					</>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
-}
-
-function CancelInviteButton({
-	inviteId,
-}: {
-	inviteId: Id<"organizationInvites">;
-}) {
-	const cancelInvite = useMutation(api.organizations.cancelInvite);
-
-	const handleCancel = async () => {
-		try {
-			await cancelInvite({ inviteId });
-			toast.success("Invite cancelled");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to cancel invite"
-			);
-		}
-	};
-
-	return (
-		<button
-			aria-label="Cancel invite"
-			className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
-			onClick={handleCancel}
-			type="button"
-		>
-			<X className="h-4 w-4" />
-		</button>
-	);
-}
-
 function CreateProjectForm({
 	orgId,
-	onCreated,
+	orgSlug,
 	onCancel,
+	onCreated,
 }: {
 	orgId: Id<"organizations">;
-	onCreated: () => void;
+	orgSlug: string;
 	onCancel: () => void;
+	onCreated: () => void;
 }) {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [repoUrl, setRepoUrl] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createProject = useMutation(api.projects.create);
+	const navigate = useNavigate();
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -504,14 +491,17 @@ function CreateProjectForm({
 
 		setIsSubmitting(true);
 		try {
-			await createProject({
-				name: name.trim(),
+			const projectId = await createProject({
 				description: description.trim() || undefined,
-				repoUrl: repoUrl.trim() || undefined,
+				name: name.trim(),
 				orgId,
+				repoUrl: repoUrl.trim() || undefined,
 			});
-			toast.success("Project created");
 			onCreated();
+			navigate({
+				params: { orgSlug, projectId },
+				to: "/$orgSlug/projects/$projectId",
+			});
 		} catch {
 			toast.error("Failed to create project");
 		} finally {
@@ -522,37 +512,32 @@ function CreateProjectForm({
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Create New Project</CardTitle>
+				<CardTitle>Create Project</CardTitle>
+				<CardDescription>
+					Add a project to organize conversations, tasks, and docs.
+				</CardDescription>
 			</CardHeader>
-			<form className="space-y-4 px-4 pb-4" onSubmit={handleSubmit}>
+			<form className="space-y-4 px-6 pb-6" onSubmit={handleSubmit}>
 				<div className="space-y-2">
 					<Label htmlFor="project-name">Project Name</Label>
 					<Input
-						autoFocus
 						id="project-name"
 						onChange={(e) => setName(e.target.value)}
-						placeholder="My Project"
+						placeholder="Mobile app"
 						value={name}
 					/>
 				</div>
 				<div className="space-y-2">
-					<Label htmlFor="project-description">
-						Description{" "}
-						<span className="text-muted-foreground">(optional)</span>
-					</Label>
-					<textarea
-						className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+					<Label htmlFor="project-description">Description</Label>
+					<Input
 						id="project-description"
 						onChange={(e) => setDescription(e.target.value)}
-						placeholder="Brief description of the project"
+						placeholder="Optional"
 						value={description}
 					/>
 				</div>
 				<div className="space-y-2">
-					<Label htmlFor="project-repo-url">
-						Repository URL{" "}
-						<span className="text-muted-foreground">(optional)</span>
-					</Label>
+					<Label htmlFor="project-repo-url">Repository URL</Label>
 					<Input
 						id="project-repo-url"
 						onChange={(e) => setRepoUrl(e.target.value)}
@@ -564,12 +549,7 @@ function CreateProjectForm({
 					<Button disabled={!name.trim() || isSubmitting} type="submit">
 						{isSubmitting ? "Creating..." : "Create Project"}
 					</Button>
-					<Button
-						disabled={isSubmitting}
-						onClick={onCancel}
-						type="button"
-						variant="outline"
-					>
+					<Button onClick={onCancel} type="button" variant="outline">
 						Cancel
 					</Button>
 				</div>

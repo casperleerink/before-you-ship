@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
-
 import Loader from "@/components/loader";
+import OrgHome from "@/components/org-home";
 
 export const Route = createFileRoute("/")({
 	component: HomeComponent,
@@ -13,14 +13,28 @@ function HomeComponent() {
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		if (!isLoading) {
-			if (isAuthenticated) {
-				navigate({ to: "/organizations" });
-			} else {
-				navigate({ to: "/sign-in" });
-			}
+		if (!(isLoading || isAuthenticated)) {
+			navigate({ to: "/sign-in" });
 		}
 	}, [isAuthenticated, isLoading, navigate]);
 
-	return <Loader />;
+	if (isLoading) {
+		return <Loader />;
+	}
+
+	if (!isAuthenticated) {
+		return null;
+	}
+
+	return (
+		<OrgHome
+			onOpenOrg={(orgSlug) =>
+				navigate({
+					params: { orgSlug },
+					search: { tab: "projects" },
+					to: "/$orgSlug",
+				})
+			}
+		/>
+	);
 }

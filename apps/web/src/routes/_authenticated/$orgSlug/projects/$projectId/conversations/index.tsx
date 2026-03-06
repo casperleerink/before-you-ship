@@ -3,7 +3,8 @@ import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { z } from "zod";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
@@ -27,6 +28,10 @@ import {
 
 type StatusFilter = ConversationStatus | "all";
 
+const searchSchema = z.object({
+	status: z.enum(["all", "active", "completed", "abandoned"]).catch("active"),
+});
+
 const EMPTY_STATE_MESSAGES: Record<StatusFilter, string> = {
 	all: "Start a conversation to refine ideas into tasks.",
 	active: "No active conversations. Start one or check another tab.",
@@ -35,53 +40,59 @@ const EMPTY_STATE_MESSAGES: Record<StatusFilter, string> = {
 };
 
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/"
+	"/_authenticated/$orgSlug/projects/$projectId/conversations/"
 )({
 	component: ConversationsPage,
+	validateSearch: searchSchema,
 });
 
 function formatDate(timestamp: number) {
 	return new Date(timestamp).toLocaleDateString(undefined, {
-		month: "short",
 		day: "numeric",
+		month: "short",
 		year: "numeric",
 	});
 }
 
 function ConversationsPage() {
-	const { orgId: orgIdParam, projectId: projectIdParam } = Route.useParams();
+	const { orgSlug, projectId: projectIdParam } = Route.useParams();
+	const { status } = Route.useSearch();
 	const projectId = projectIdParam as Id<"projects">;
 	const conversations = useQuery(api.conversations.list, { projectId });
 	const createConversation = useMutation(api.conversations.create);
 	const updateStatus = useMutation(api.conversations.updateStatus);
-	const navigate = useNavigate();
-	const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+	const navigate = useNavigate({ from: Route.fullPath });
 
 	const filteredConversations = useMemo(() => {
 		if (!conversations) {
 			return [];
 		}
-		if (statusFilter === "all") {
+		if (status === "all") {
 			return conversations;
 		}
-		return conversations.filter((c) => c.status === statusFilter);
-	}, [conversations, statusFilter]);
+		return conversations.filter(
+			(conversation) => conversation.status === status
+		);
+	}, [conversations, status]);
 
 	const counts = useMemo(() => {
 		if (!conversations) {
-			return { all: 0, active: 0, completed: 0, abandoned: 0 };
+			return { abandoned: 0, active: 0, all: 0, completed: 0 };
 		}
+
 		const result = {
-			all: conversations.length,
-			active: 0,
-			completed: 0,
 			abandoned: 0,
+			active: 0,
+			all: conversations.length,
+			completed: 0,
 		};
-		for (const c of conversations) {
-			if (c.status in result) {
-				result[c.status as ConversationStatus]++;
+
+		for (const conversation of conversations) {
+			if (conversation.status in result) {
+				result[conversation.status as ConversationStatus] += 1;
 			}
 		}
+
 		return result;
 	}, [conversations]);
 
@@ -96,12 +107,12 @@ function ConversationsPage() {
 	const handleCreate = async () => {
 		const conversationId = await createConversation({ projectId });
 		navigate({
-			to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
 			params: {
-				orgId: orgIdParam,
-				projectId: projectIdParam,
 				conversationId,
+				orgSlug,
+				projectId: projectIdParam,
 			},
+			to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
 		});
 	};
 
@@ -117,8 +128,15 @@ function ConversationsPage() {
 
 			<Tabs
 				className="mb-4"
-				onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-				value={statusFilter}
+				onValueChange={(value) =>
+					navigate({
+						search: (prev) => ({
+							...prev,
+							status: value as StatusFilter,
+						}),
+					})
+				}
+				value={status}
 			>
 				<TabsList>
 					<TabsTrigger value="all">All ({counts.all})</TabsTrigger>
@@ -132,12 +150,12 @@ function ConversationsPage() {
 
 			{filteredConversations.length === 0 ? (
 				<EmptyState
-					description={EMPTY_STATE_MESSAGES[statusFilter]}
+					description={EMPTY_STATE_MESSAGES[status]}
 					icon={MessageSquare}
 					title={
-						statusFilter === "all"
+						status === "all"
 							? "No conversations yet"
-							: `No ${statusFilter} conversations`
+							: `No ${status} conversations`
 					}
 				/>
 			) : (
@@ -148,12 +166,12 @@ function ConversationsPage() {
 							key={conversation._id}
 							onClick={() =>
 								navigate({
-									to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
 									params: {
-										orgId: orgIdParam,
-										projectId: projectIdParam,
 										conversationId: conversation._id,
+										orgSlug,
+										projectId: projectIdParam,
 									},
+									to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
 								})
 							}
 							type="button"
@@ -167,7 +185,10 @@ function ConversationsPage() {
 								</p>
 							</div>
 							{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper to stop propagation */}
-							<div onClick={(e) => e.stopPropagation()} role="presentation">
+							<div
+								onClick={(event) => event.stopPropagation()}
+								role="presentation"
+							>
 								<DropdownMenu>
 									<DropdownMenuTrigger
 										render={
@@ -188,7 +209,7 @@ function ConversationsPage() {
 											<DropdownMenuRadioGroup
 												onValueChange={(value) => {
 													const option = CONVERSATION_STATUS_OPTIONS.find(
-														(o) => o.value === value
+														(entry) => entry.value === value
 													);
 													if (option && option.value !== conversation.status) {
 														updateStatus({

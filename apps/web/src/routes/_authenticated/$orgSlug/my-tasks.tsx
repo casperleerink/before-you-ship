@@ -1,13 +1,11 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
-import type {
-	Doc,
-	Id,
-} from "@project-manager/backend/convex/_generated/dataModel";
+import type { Doc } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowRight, Filter, ListTodo, User, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowRight, Filter, ListTodo, X } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
+import { z } from "zod";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
@@ -16,19 +14,9 @@ import {
 	FieldLabel,
 	FilterDropdown,
 	StatusDropdown,
-	useSetToggle,
 } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
 	Sheet,
 	SheetBody,
@@ -44,6 +32,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useOrg } from "@/lib/org-context";
+import {
+	createEnumListSearchParamSchema,
+	serializeSearchParamList,
+	stringListSearchParamSchema,
+	toggleSearchListValue,
+} from "@/lib/router-search";
 import {
 	LEVEL_OPTIONS,
 	levelVariant,
@@ -54,100 +49,35 @@ import {
 	type TaskStatus,
 } from "@/lib/task-utils";
 
-export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/tasks"
-)({
-	component: TasksPage,
+type MyTask = Doc<"tasks"> & { projectName: string };
+
+const searchSchema = z.object({
+	complexity: createEnumListSearchParamSchema(["low", "medium", "high"]),
+	effort: createEnumListSearchParamSchema(["low", "medium", "high"]),
+	project: stringListSearchParamSchema,
+	risk: createEnumListSearchParamSchema(["low", "medium", "high"]),
+	status: createEnumListSearchParamSchema(["ready", "in_progress", "done"]),
+	taskId: z.string().optional(),
 });
 
-function AssigneeDropdown({
-	assigneeId,
-	members,
-	onAssigneeChange,
-	onClearAssignee,
-}: {
-	assigneeId?: Id<"users">;
-	members: { _id: Id<"users">; name: string }[];
-	onAssigneeChange: (userId: Id<"users">) => void;
-	onClearAssignee: () => void;
-}) {
-	const assignee = assigneeId
-		? members.find((m) => m._id === assigneeId)
-		: null;
-
-	return (
-		<div className="flex flex-col gap-1">
-			<FieldLabel>Assignee</FieldLabel>
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					render={
-						<button className="w-fit cursor-pointer" type="button">
-							{assignee ? (
-								<Badge variant="outline">{assignee.name}</Badge>
-							) : (
-								<Badge variant="secondary">
-									<User className="mr-1 size-3" />
-									Unassigned
-								</Badge>
-							)}
-						</button>
-					}
-				/>
-				<DropdownMenuContent>
-					<DropdownMenuGroup>
-						<DropdownMenuLabel>Assignee</DropdownMenuLabel>
-						{members.map((member) => (
-							<DropdownMenuItem
-								key={member._id}
-								onSelect={() => onAssigneeChange(member._id)}
-							>
-								<span className="truncate">{member.name}</span>
-								{member._id === assigneeId && (
-									<span className="ml-auto text-muted-foreground text-xs">
-										Current
-									</span>
-								)}
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuGroup>
-					{assigneeId && (
-						<>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem onSelect={onClearAssignee}>
-								<X className="mr-1 size-3" />
-								Unassign
-							</DropdownMenuItem>
-						</>
-					)}
-				</DropdownMenuContent>
-			</DropdownMenu>
-		</div>
-	);
-}
+export const Route = createFileRoute("/_authenticated/$orgSlug/my-tasks")({
+	component: MyTasksPage,
+	validateSearch: searchSchema,
+});
 
 function TaskDetailSheet({
 	task,
-	members,
 	onClose,
 }: {
-	task: Doc<"tasks">;
-	members: { _id: Id<"users">; name: string }[];
+	task: MyTask;
 	onClose: () => void;
 }) {
-	const { orgId, projectId } = Route.useParams();
+	const { orgSlug } = Route.useParams();
 	const navigate = useNavigate();
 	const updateTask = useMutation(api.tasks.update);
 
 	const handleStatusChange = (status: TaskStatus) => {
 		updateTask({ taskId: task._id, status });
-	};
-
-	const handleAssigneeChange = (userId: Id<"users">) => {
-		updateTask({ taskId: task._id, assigneeId: userId });
-	};
-
-	const handleClearAssignee = () => {
-		updateTask({ taskId: task._id, assigneeId: null });
 	};
 
 	return (
@@ -157,6 +87,11 @@ function TaskDetailSheet({
 			</SheetHeader>
 			<SheetBody>
 				<div className="flex flex-col gap-6">
+					<div className="flex flex-col gap-1">
+						<FieldLabel>Project</FieldLabel>
+						<Badge variant="outline">{task.projectName}</Badge>
+					</div>
+
 					<div className="grid grid-cols-3 gap-4">
 						<StatusDropdown
 							onStatusChange={handleStatusChange}
@@ -179,12 +114,6 @@ function TaskDetailSheet({
 							label="Effort"
 							value={task.effort}
 							variant={levelVariant(task.effort)}
-						/>
-						<AssigneeDropdown
-							assigneeId={task.assigneeId}
-							members={members}
-							onAssigneeChange={handleAssigneeChange}
-							onClearAssignee={handleClearAssignee}
 						/>
 					</div>
 
@@ -217,12 +146,12 @@ function TaskDetailSheet({
 							onClick={() => {
 								onClose();
 								navigate({
-									to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
 									params: {
-										orgId,
-										projectId,
 										conversationId: task.conversationId,
+										orgSlug,
+										projectId: task.projectId,
 									},
+									to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
 								});
 							}}
 							variant="outline"
@@ -237,34 +166,50 @@ function TaskDetailSheet({
 	);
 }
 
-function TasksPage() {
-	const { orgId, projectId: projectIdParam } = Route.useParams();
-	const projectId = projectIdParam as Id<"projects">;
-	const tasks = useQuery(api.tasks.list, { projectId });
-	const members = useQuery(api.organizations.listMembers, {
-		orgId: orgId as Id<"organizations">,
-	});
-	const [selectedTaskId, setSelectedTaskId] = useState<Id<"tasks"> | null>(
-		null
-	);
+function MyTasksPage() {
+	const search = Route.useSearch();
+	const navigate = useNavigate({ from: Route.fullPath });
+	const org = useOrg();
+	const tasks = useQuery(api.tasks.listByAssignee, { orgId: org._id });
 
-	const [statusFilter, toggleStatus, clearStatus] = useSetToggle<TaskStatus>();
-	const [riskFilter, toggleRisk, clearRisk] = useSetToggle<TaskLevel>();
-	const [complexityFilter, toggleComplexity, clearComplexity] =
-		useSetToggle<TaskLevel>();
-	const [effortFilter, toggleEffort, clearEffort] = useSetToggle<TaskLevel>();
+	const projectFilter = new Set(search.project);
+	const statusFilter = new Set<TaskStatus>(search.status as TaskStatus[]);
+	const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
+	const complexityFilter = new Set<TaskLevel>(search.complexity as TaskLevel[]);
+	const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
 
 	const activeFilterCount =
+		projectFilter.size +
 		statusFilter.size +
 		riskFilter.size +
 		complexityFilter.size +
 		effortFilter.size;
 
+	const projectOptions = useMemo(() => {
+		if (!tasks) {
+			return [];
+		}
+
+		const seen = new Set<string>();
+		const options: { label: string; value: string }[] = [];
+		for (const task of tasks) {
+			if (!seen.has(task.projectId)) {
+				seen.add(task.projectId);
+				options.push({ label: task.projectName, value: task.projectId });
+			}
+		}
+		return options.sort((a, b) => a.label.localeCompare(b.label));
+	}, [tasks]);
+
 	const filteredTasks = useMemo(() => {
 		if (!tasks) {
 			return [];
 		}
+
 		return tasks.filter((task) => {
+			if (projectFilter.size > 0 && !projectFilter.has(task.projectId)) {
+				return false;
+			}
 			if (statusFilter.size > 0 && !statusFilter.has(task.status)) {
 				return false;
 			}
@@ -279,71 +224,116 @@ function TasksPage() {
 			}
 			return true;
 		});
-	}, [tasks, statusFilter, riskFilter, complexityFilter, effortFilter]);
+	}, [
+		complexityFilter,
+		effortFilter,
+		projectFilter,
+		riskFilter,
+		statusFilter,
+		tasks,
+	]);
 
-	const clearAllFilters = () => {
-		clearStatus();
-		clearRisk();
-		clearComplexity();
-		clearEffort();
-	};
+	const selectedTask = search.taskId
+		? (tasks?.find((task) => task._id === search.taskId) ?? null)
+		: null;
+
+	useEffect(() => {
+		if (tasks && search.taskId && !selectedTask) {
+			navigate({
+				replace: true,
+				search: (prev) => ({
+					...prev,
+					taskId: undefined,
+				}),
+			});
+		}
+	}, [navigate, search.taskId, selectedTask, tasks]);
 
 	if (tasks === undefined) {
 		return (
-			<div className="p-6">
+			<div className="container mx-auto max-w-4xl px-4 py-8">
 				<Loader />
 			</div>
 		);
 	}
 
-	const selectedTask = selectedTaskId
-		? (tasks.find((t) => t._id === selectedTaskId) ?? null)
-		: null;
+	const toggleFilter = (
+		key: "complexity" | "effort" | "project" | "risk" | "status",
+		value: string
+	) => {
+		navigate({
+			search: (prev) => ({
+				...prev,
+				[key]: serializeSearchParamList(
+					toggleSearchListValue(prev[key], value)
+				),
+			}),
+		});
+	};
 
 	return (
-		<div className="p-6">
+		<div className="container mx-auto max-w-4xl px-4 py-8">
 			<div className="mb-4 flex items-center justify-between">
-				<h1 className="font-bold text-2xl">Tasks</h1>
+				<h1 className="font-bold text-2xl">My Tasks</h1>
 			</div>
 
 			{tasks.length === 0 ? (
 				<EmptyState
-					description="Tasks are created from approved conversation plans."
+					description="Tasks assigned to you across all projects will appear here."
 					icon={ListTodo}
-					title="No tasks yet"
+					title="No tasks assigned to you"
 				/>
 			) : (
 				<>
-					<div className="mb-4 flex items-center gap-2">
+					<div className="mb-4 flex flex-wrap items-center gap-2">
 						<Filter className="size-4 text-muted-foreground" />
+						{projectOptions.length > 1 && (
+							<FilterDropdown
+								label="Project"
+								onToggle={(value) => toggleFilter("project", value)}
+								options={projectOptions}
+								selected={projectFilter}
+							/>
+						)}
 						<FilterDropdown
 							label="Status"
-							onToggle={toggleStatus}
+							onToggle={(value) => toggleFilter("status", value)}
 							options={STATUS_OPTIONS}
 							selected={statusFilter}
 						/>
 						<FilterDropdown
 							label="Risk"
-							onToggle={toggleRisk}
+							onToggle={(value) => toggleFilter("risk", value)}
 							options={LEVEL_OPTIONS}
 							selected={riskFilter}
 						/>
 						<FilterDropdown
 							label="Complexity"
-							onToggle={toggleComplexity}
+							onToggle={(value) => toggleFilter("complexity", value)}
 							options={LEVEL_OPTIONS}
 							selected={complexityFilter}
 						/>
 						<FilterDropdown
 							label="Effort"
-							onToggle={toggleEffort}
+							onToggle={(value) => toggleFilter("effort", value)}
 							options={LEVEL_OPTIONS}
 							selected={effortFilter}
 						/>
 						{activeFilterCount > 0 && (
 							<Button
 								className="ml-1"
-								onClick={clearAllFilters}
+								onClick={() =>
+									navigate({
+										search: (prev) => ({
+											...prev,
+											complexity: undefined,
+											effort: undefined,
+											project: undefined,
+											risk: undefined,
+											status: undefined,
+										}),
+									})
+								}
 								size="sm"
 								variant="ghost"
 							>
@@ -363,6 +353,7 @@ function TasksPage() {
 								<TableHeader>
 									<TableRow>
 										<TableHead>Title</TableHead>
+										<TableHead className="w-[120px]">Project</TableHead>
 										<TableHead className="w-[100px]">Status</TableHead>
 										<TableHead className="w-[80px]">Risk</TableHead>
 										<TableHead className="w-[100px]">Complexity</TableHead>
@@ -374,10 +365,22 @@ function TasksPage() {
 										<TableRow
 											className="cursor-pointer"
 											key={task._id}
-											onClick={() => setSelectedTaskId(task._id)}
+											onClick={() =>
+												navigate({
+													search: (prev) => ({
+														...prev,
+														taskId: task._id,
+													}),
+												})
+											}
 										>
 											<TableCell className="font-medium">
 												{task.title}
+											</TableCell>
+											<TableCell>
+												<span className="text-muted-foreground text-sm">
+													{task.projectName}
+												</span>
 											</TableCell>
 											<TableCell>
 												<Badge variant={statusVariant(task.status)}>
@@ -411,15 +414,26 @@ function TasksPage() {
 			<Sheet
 				onOpenChange={(open) => {
 					if (!open) {
-						setSelectedTaskId(null);
+						navigate({
+							search: (prev) => ({
+								...prev,
+								taskId: undefined,
+							}),
+						});
 					}
 				}}
-				open={selectedTaskId !== null}
+				open={selectedTask !== null}
 			>
 				{selectedTask && (
 					<TaskDetailSheet
-						members={members ?? []}
-						onClose={() => setSelectedTaskId(null)}
+						onClose={() =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									taskId: undefined,
+								}),
+							})
+						}
 						task={selectedTask}
 					/>
 				)}

@@ -5,5 +5,5 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function DashboardPage() {
-	return <Navigate to="/organizations" />;
+	return <Navigate to="/" />;
 }

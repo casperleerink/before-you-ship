@@ -18,14 +18,14 @@ import { levelVariant } from "@/lib/task-utils";
 
 interface PlanCardProps {
 	onRequestChanges?: () => void;
-	orgId: string;
+	orgSlug: string;
 	planId: Id<"plans">;
 	projectId: string;
 }
 
 export function PlanCard({
 	planId,
-	orgId,
+	orgSlug,
 	projectId,
 	onRequestChanges,
 }: PlanCardProps) {
@@ -101,8 +101,14 @@ export function PlanCard({
 							{isApproved && plan.createdTaskIds?.[index] && (
 								<Link
 									className="inline-flex shrink-0 items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
-									params={{ orgId, projectId }}
-									to="/organizations/$orgId/projects/$projectId/tasks"
+									params={{ orgSlug, projectId }}
+									search={{
+										complexity: [],
+										effort: [],
+										risk: [],
+										status: [],
+									}}
+									to="/$orgSlug/projects/$projectId/tasks"
 								>
 									<ExternalLink className="h-3 w-3" />
 									View task

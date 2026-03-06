@@ -23,24 +23,34 @@ import { ModeToggle } from "@/components/mode-toggle";
 import TriageQuickAddForm from "@/components/triage-quick-add-form";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
+import { useOrg } from "@/lib/org-context";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId"
+	"/_authenticated/$orgSlug/projects/$projectId"
 )({
 	component: ProjectLayout,
 });
 
 const navItems = [
-	{ label: "Triage", icon: Inbox, to: "triage" },
-	{ label: "Conversations", icon: MessageSquare, to: "conversations" },
-	{ label: "Tasks", icon: ListTodo, to: "tasks" },
-	{ label: "Docs", icon: FileText, to: "docs" },
-	{ label: "Settings", icon: Settings, to: "settings" },
+	{ label: "Triage", icon: Inbox, to: "/$orgSlug/projects/$projectId/triage" },
+	{
+		label: "Conversations",
+		icon: MessageSquare,
+		to: "/$orgSlug/projects/$projectId/conversations",
+	},
+	{ label: "Tasks", icon: ListTodo, to: "/$orgSlug/projects/$projectId/tasks" },
+	{ label: "Docs", icon: FileText, to: "/$orgSlug/projects/$projectId/docs" },
+	{
+		label: "Settings",
+		icon: Settings,
+		to: "/$orgSlug/projects/$projectId/settings",
+	},
 ] as const;
 
 function ProjectLayout() {
-	const { orgId: orgIdParam, projectId: projectIdParam } = Route.useParams();
+	const { orgSlug, projectId: projectIdParam } = Route.useParams();
+	const org = useOrg();
 	const projectId = projectIdParam as Id<"projects">;
 	const project = useQuery(api.projects.getById, { projectId });
 	const matchRoute = useMatchRoute();
@@ -49,7 +59,7 @@ function ProjectLayout() {
 		return <Loader />;
 	}
 
-	if (!project) {
+	if (!project || project.organizationId !== org._id) {
 		return (
 			<div className="container mx-auto max-w-4xl px-4 py-8">
 				<h1 className="font-bold text-2xl">Project not found</h1>
@@ -63,8 +73,9 @@ function ProjectLayout() {
 				<div className="border-b p-4">
 					<Link
 						className="mb-2 flex items-center gap-1 text-muted-foreground text-sm hover:underline"
-						params={{ orgId: orgIdParam }}
-						to="/organizations/$orgId"
+						params={{ orgSlug }}
+						search={{ tab: "projects" }}
+						to="/$orgSlug"
 					>
 						<ArrowLeft className="h-3 w-3" />
 						Back to projects
@@ -75,9 +86,11 @@ function ProjectLayout() {
 				<nav className="flex-1 p-2">
 					{navItems.map((item) => {
 						const isActive = matchRoute({
-							to: `/organizations/$orgId/projects/$projectId/${item.to}`,
 							fuzzy: true,
+							params: { orgSlug, projectId: projectIdParam },
+							to: item.to,
 						});
+
 						return (
 							<Link
 								className={cn(
@@ -87,11 +100,8 @@ function ProjectLayout() {
 										: "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
 								)}
 								key={item.to}
-								params={{
-									orgId: orgIdParam,
-									projectId: projectIdParam,
-								}}
-								to={`/organizations/$orgId/projects/$projectId/${item.to}`}
+								params={{ orgSlug, projectId: projectIdParam }}
+								to={item.to}
 							>
 								<item.icon className="h-4 w-4" />
 								{item.label}

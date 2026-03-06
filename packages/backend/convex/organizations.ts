@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { orgRoleValidator } from "./schema";
+import { generateUniqueSlug } from "./slugUtils";
 
 export const list = query({
 	args: {},
@@ -128,7 +129,6 @@ export const create = mutation({
 			throw new Error("Not authenticated");
 		}
 
-		const { generateUniqueSlug } = await import("./slugUtils");
 		const slug = await generateUniqueSlug(ctx, args.name);
 
 		const orgId = await ctx.db.insert("organizations", {

@@ -2,11 +2,11 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { env } from "@project-manager/env/web";
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
+import { z } from "zod";
 
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const searchSchema = z.object({
-	github: z.string().optional(),
 	error: z.string().optional(),
+	github: z.string().optional(),
 });
 
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/settings"
+	"/_authenticated/$orgSlug/projects/$projectId/settings"
 )({
 	component: SettingsPage,
 	validateSearch: searchSchema,
@@ -28,25 +28,37 @@ export const Route = createFileRoute(
 
 function SettingsPage() {
 	const { projectId: projectIdParam } = Route.useParams();
-	const { github, error } = Route.useSearch();
+	const { error, github } = Route.useSearch();
+	const navigate = useNavigate({ from: Route.fullPath });
 	const projectId = projectIdParam as Id<"projects">;
 	const project = useQuery(api.projects.getById, { projectId });
 	const updateProject = useMutation(api.projects.update);
 
 	useEffect(() => {
+		if (!(github === "connected" || error)) {
+			return;
+		}
+
 		if (github === "connected") {
 			toast.success("GitHub account connected");
-			window.history.replaceState({}, "", window.location.pathname);
 		} else if (error) {
 			const messages: Record<string, string> = {
-				invalid_state: "Connection failed — please try again",
 				expired: "Connection request expired — please try again",
+				invalid_state: "Connection failed — please try again",
 				oauth_failed: "GitHub authentication failed",
 			};
 			toast.error(messages[error] ?? "Connection error");
-			window.history.replaceState({}, "", window.location.pathname);
 		}
-	}, [github, error]);
+
+		navigate({
+			replace: true,
+			search: (prev) => ({
+				...prev,
+				error: undefined,
+				github: undefined,
+			}),
+		});
+	}, [error, github, navigate]);
 
 	if (project === undefined) {
 		return <Loader />;
@@ -65,9 +77,9 @@ function SettingsPage() {
 					name={project.name}
 					onSubmit={async (values) => {
 						await updateProject({
-							projectId,
-							name: values.name,
 							description: values.description || undefined,
+							name: values.name,
+							projectId,
 						});
 						toast.success("Project settings updated");
 					}}
@@ -283,10 +295,10 @@ function RepoSelector({
 	const connectRepo = useMutation(api.projects.connectRepo);
 	const [repos, setRepos] = useState<
 		Array<{
-			id: number;
-			fullName: string;
 			description: string | null;
+			fullName: string;
 			htmlUrl: string;
+			id: number;
 			isPrivate: boolean;
 		}>
 	>([]);
@@ -305,21 +317,25 @@ function RepoSelector({
 		} finally {
 			setLoading(false);
 		}
-	}, [listRepos, connectionId]);
+	}, [connectionId, listRepos]);
 
 	const filteredRepos = useMemo(() => {
 		if (!search) {
 			return repos;
 		}
 		const lower = search.toLowerCase();
-		return repos.filter((r) => r.fullName.toLowerCase().includes(lower));
+		return repos.filter((repo) => repo.fullName.toLowerCase().includes(lower));
 	}, [repos, search]);
 
 	if (!loaded) {
 		return (
 			<Button
 				disabled={loading}
-				onClick={handleLoadRepos}
+				onClick={() => {
+					handleLoadRepos().catch(() => {
+						// Errors are handled in handleLoadRepos.
+					});
+				}}
 				size="sm"
 				variant="outline"
 			>
@@ -331,7 +347,7 @@ function RepoSelector({
 	return (
 		<div className="space-y-2">
 			<Input
-				onChange={(e) => setSearch(e.target.value)}
+				onChange={(event) => setSearch(event.target.value)}
 				placeholder="Search repositories..."
 				value={search}
 			/>
@@ -348,8 +364,8 @@ function RepoSelector({
 							onClick={async () => {
 								await connectRepo({
 									projectId,
-									repoUrl: repo.htmlUrl,
 									repoProvider: "github",
+									repoUrl: repo.htmlUrl,
 								});
 								toast.success(`Connected to ${repo.fullName}`);
 							}}
@@ -380,16 +396,16 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 	const [submitting, setSubmitting] = useState(false);
 	const form = useForm({
 		defaultValues: {
-			repoUrl: "",
 			accessToken: "",
+			repoUrl: "",
 		},
 		onSubmit: async ({ value }) => {
 			setSubmitting(true);
 			try {
 				await connectSelfHosted({
+					accessToken: value.accessToken || undefined,
 					projectId,
 					repoUrl: value.repoUrl,
-					accessToken: value.accessToken || undefined,
 				});
 				toast.success("Repository connected");
 			} catch {
@@ -400,11 +416,11 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 		},
 		validators: {
 			onSubmit: z.object({
+				accessToken: z.string(),
 				repoUrl: z
 					.string()
 					.min(1, "Repository URL is required")
 					.url("Must be a valid URL"),
-				accessToken: z.string(),
 			}),
 		},
 	});
@@ -417,10 +433,12 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 			</p>
 			<form
 				className="space-y-3"
-				onSubmit={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					form.handleSubmit();
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					form.handleSubmit().catch(() => {
+						// Validation errors are surfaced by the form state.
+					});
 				}}
 			>
 				<form.Field name="repoUrl">
@@ -433,7 +451,7 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 								id={field.name}
 								name={field.name}
 								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
+								onChange={(event) => field.handleChange(event.target.value)}
 								placeholder="https://gitlab.example.com/org/repo.git"
 								value={field.state.value}
 							/>
@@ -456,7 +474,7 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 								id={field.name}
 								name={field.name}
 								onBlur={field.handleBlur}
-								onChange={(e) => field.handleChange(e.target.value)}
+								onChange={(event) => field.handleChange(event.target.value)}
 								placeholder="For private repositories"
 								type="password"
 								value={field.state.value}
@@ -517,46 +535,61 @@ function ProjectSettingsForm({
 }: {
 	name: string;
 	description: string;
-	onSubmit: (values: { name: string; description: string }) => Promise<void>;
+	onSubmit: (values: { description: string; name: string }) => Promise<void>;
 }) {
+	const [submitting, setSubmitting] = useState(false);
 	const form = useForm({
 		defaultValues: {
-			name,
 			description,
+			name,
 		},
 		onSubmit: async ({ value }) => {
-			await onSubmit(value);
+			setSubmitting(true);
+			try {
+				await onSubmit(value);
+			} finally {
+				setSubmitting(false);
+			}
 		},
 		validators: {
 			onSubmit: z.object({
-				name: z.string().min(1, "Project name is required"),
 				description: z.string(),
+				name: z.string().min(1, "Project name is required"),
 			}),
 		},
 	});
 
 	return (
 		<form
-			className="space-y-6"
-			onSubmit={(e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				form.handleSubmit();
+			className="space-y-4 rounded-lg border p-6"
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				form.handleSubmit().catch(() => {
+					// Validation errors are surfaced by the form state.
+				});
 			}}
 		>
+			<div>
+				<Label className="text-base">Project Details</Label>
+				<p className="mt-1 text-muted-foreground text-sm">
+					Update the project name and description used throughout the app.
+				</p>
+			</div>
+
 			<form.Field name="name">
 				{(field) => (
-					<div className="space-y-2">
-						<Label htmlFor={field.name}>Project Name</Label>
+					<div className="space-y-1">
+						<Label htmlFor={field.name}>Project name</Label>
 						<Input
 							id={field.name}
 							name={field.name}
 							onBlur={field.handleBlur}
-							onChange={(e) => field.handleChange(e.target.value)}
+							onChange={(event) => field.handleChange(event.target.value)}
 							value={field.state.value}
 						/>
 						{field.state.meta.errors.map((error) => (
-							<p className="text-red-500 text-sm" key={error?.message}>
+							<p className="text-red-500 text-xs" key={error?.message}>
 								{error?.message}
 							</p>
 						))}
@@ -566,33 +599,24 @@ function ProjectSettingsForm({
 
 			<form.Field name="description">
 				{(field) => (
-					<div className="space-y-2">
+					<div className="space-y-1">
 						<Label htmlFor={field.name}>Description</Label>
-						<textarea
-							className="h-32 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+						<Input
 							id={field.name}
 							name={field.name}
 							onBlur={field.handleBlur}
-							onChange={(e) => field.handleChange(e.target.value)}
-							placeholder="Describe the project..."
+							onChange={(event) => field.handleChange(event.target.value)}
+							placeholder="Optional"
 							value={field.state.value}
 						/>
-						{field.state.meta.errors.map((error) => (
-							<p className="text-red-500 text-sm" key={error?.message}>
-								{error?.message}
-							</p>
-						))}
 					</div>
 				)}
 			</form.Field>
 
 			<form.Subscribe>
 				{(state) => (
-					<Button
-						disabled={!state.canSubmit || state.isSubmitting}
-						type="submit"
-					>
-						{state.isSubmitting ? "Saving..." : "Save Changes"}
+					<Button disabled={!state.canSubmit || submitting} type="submit">
+						{submitting ? "Saving..." : "Save changes"}
 					</Button>
 				)}
 			</form.Subscribe>

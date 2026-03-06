@@ -12,13 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/triage"
+	"/_authenticated/$orgSlug/projects/$projectId/triage"
 )({
 	component: TriagePage,
 });
 
 function TriagePage() {
-	const { orgId: orgIdParam, projectId: projectIdParam } = Route.useParams();
+	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 	const items = useQuery(api.triageItems.list, { projectId });
 	const createFromTriageItem = useMutation(
@@ -37,12 +37,12 @@ function TriagePage() {
 
 	const navigateToConversation = (conversationId: Id<"conversations">) => {
 		navigate({
-			to: "/organizations/$orgId/projects/$projectId/conversations/$conversationId",
 			params: {
-				orgId: orgIdParam,
-				projectId: projectIdParam,
 				conversationId,
+				orgSlug,
+				projectId: projectIdParam,
 			},
+			to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
 		});
 	};
 
@@ -86,7 +86,9 @@ function TriagePage() {
 								if (item.status === "converted" && item.conversationId) {
 									navigateToConversation(item.conversationId);
 								} else if (item.status === "pending") {
-									handlePendingClick(item._id);
+									handlePendingClick(item._id).catch(() => {
+										// Keep the user on the current screen if conversion fails.
+									});
 								}
 							}}
 							type="button"

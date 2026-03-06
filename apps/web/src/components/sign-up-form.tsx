@@ -32,7 +32,7 @@ export default function SignUpForm({
 				{
 					onSuccess: () => {
 						navigate({
-							to: "/organizations",
+							to: "/",
 						});
 						toast.success("Sign up successful");
 					},

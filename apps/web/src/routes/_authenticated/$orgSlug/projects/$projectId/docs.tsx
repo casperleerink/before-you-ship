@@ -3,11 +3,12 @@ import type {
 	Doc,
 	Id,
 } from "@project-manager/backend/convex/_generated/dataModel";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
+import { z } from "zod";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
@@ -20,16 +21,21 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 
+const searchSchema = z.object({
+	docId: z.string().optional(),
+});
+
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/docs"
+	"/_authenticated/$orgSlug/projects/$projectId/docs"
 )({
 	component: DocsPage,
+	validateSearch: searchSchema,
 });
 
 function formatDate(timestamp: number) {
 	return new Date(timestamp).toLocaleDateString(undefined, {
-		month: "short",
 		day: "numeric",
+		month: "short",
 		year: "numeric",
 	});
 }
@@ -48,23 +54,14 @@ function DocEditor({
 	const [isPreview, setIsPreview] = useState(false);
 	const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	const saveChanges = (updates: { title?: string; content?: string }) => {
+	const saveChanges = (updates: { content?: string; title?: string }) => {
 		if (saveTimeoutRef.current) {
 			clearTimeout(saveTimeoutRef.current);
 		}
+
 		saveTimeoutRef.current = setTimeout(() => {
 			updateDoc({ docId: doc._id, ...updates });
 		}, 500);
-	};
-
-	const handleTitleChange = (newTitle: string) => {
-		setTitle(newTitle);
-		saveChanges({ title: newTitle });
-	};
-
-	const handleContentChange = (newContent: string) => {
-		setContent(newContent);
-		saveChanges({ content: newContent });
 	};
 
 	const handleDelete = async () => {
@@ -86,7 +83,11 @@ function DocEditor({
 				<SheetTitle>
 					<input
 						className="w-full border-none bg-transparent font-bold text-xl outline-none focus:ring-0"
-						onChange={(e) => handleTitleChange(e.target.value)}
+						onChange={(event) => {
+							const nextTitle = event.target.value;
+							setTitle(nextTitle);
+							saveChanges({ title: nextTitle });
+						}}
 						placeholder="Untitled document"
 						type="text"
 						value={title}
@@ -113,7 +114,15 @@ function DocEditor({
 								Preview
 							</Button>
 						</div>
-						<Button onClick={handleDelete} size="sm" variant="ghost">
+						<Button
+							onClick={() => {
+								handleDelete().catch(() => {
+									// Keep the editor open if deletion fails.
+								});
+							}}
+							size="sm"
+							variant="ghost"
+						>
 							<Trash2 className="mr-1 size-3" />
 							Delete
 						</Button>
@@ -130,7 +139,11 @@ function DocEditor({
 					) : (
 						<textarea
 							className="min-h-[400px] w-full resize-y rounded-md border bg-background p-3 font-mono text-sm outline-none focus:ring-1 focus:ring-ring"
-							onChange={(e) => handleContentChange(e.target.value)}
+							onChange={(event) => {
+								const nextContent = event.target.value;
+								setContent(nextContent);
+								saveChanges({ content: nextContent });
+							}}
 							placeholder="Write your document content in markdown..."
 							value={content}
 						/>
@@ -143,12 +156,29 @@ function DocEditor({
 
 function DocsPage() {
 	const { projectId: projectIdParam } = Route.useParams();
+	const search = Route.useSearch();
+	const navigate = useNavigate({ from: Route.fullPath });
 	const projectId = projectIdParam as Id<"projects">;
 	const docs = useQuery(api.docs.list, { projectId });
 	const createDoc = useMutation(api.docs.create);
-	const [selectedDocId, setSelectedDocId] = useState<Id<"docs"> | null>(null);
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [newTitle, setNewTitle] = useState("");
+
+	const selectedDoc = search.docId
+		? (docs?.find((doc) => doc._id === search.docId) ?? null)
+		: null;
+
+	useEffect(() => {
+		if (docs && search.docId && !selectedDoc) {
+			navigate({
+				replace: true,
+				search: (prev) => ({
+					...prev,
+					docId: undefined,
+				}),
+			});
+		}
+	}, [docs, navigate, search.docId, selectedDoc]);
 
 	if (docs === undefined) {
 		return (
@@ -158,21 +188,23 @@ function DocsPage() {
 		);
 	}
 
-	const handleCreate = async (e: React.FormEvent) => {
-		e.preventDefault();
-		const trimmed = newTitle.trim();
-		if (!trimmed) {
+	const handleCreate = async (event: React.FormEvent) => {
+		event.preventDefault();
+		const trimmedTitle = newTitle.trim();
+		if (!trimmedTitle) {
 			return;
 		}
-		const docId = await createDoc({ projectId, title: trimmed });
+
+		const docId = await createDoc({ projectId, title: trimmedTitle });
 		setNewTitle("");
 		setShowCreateForm(false);
-		setSelectedDocId(docId);
+		navigate({
+			search: (prev) => ({
+				...prev,
+				docId,
+			}),
+		});
 	};
-
-	const selectedDoc = selectedDocId
-		? (docs.find((d) => d._id === selectedDocId) ?? null)
-		: null;
 
 	return (
 		<div className="p-6">
@@ -189,7 +221,7 @@ function DocsPage() {
 					<input
 						autoFocus
 						className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-						onChange={(e) => setNewTitle(e.target.value)}
+						onChange={(event) => setNewTitle(event.target.value)}
 						placeholder="Document title..."
 						type="text"
 						value={newTitle}
@@ -223,7 +255,14 @@ function DocsPage() {
 						<button
 							className="flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-accent/50"
 							key={doc._id}
-							onClick={() => setSelectedDocId(doc._id)}
+							onClick={() =>
+								navigate({
+									search: (prev) => ({
+										...prev,
+										docId: doc._id,
+									}),
+								})
+							}
 							type="button"
 						>
 							<div className="min-w-0 flex-1">
@@ -241,16 +280,28 @@ function DocsPage() {
 			<Sheet
 				onOpenChange={(open) => {
 					if (!open) {
-						setSelectedDocId(null);
+						navigate({
+							search: (prev) => ({
+								...prev,
+								docId: undefined,
+							}),
+						});
 					}
 				}}
-				open={selectedDocId !== null}
+				open={selectedDoc !== null}
 			>
 				{selectedDoc && (
 					<DocEditor
 						doc={selectedDoc}
 						key={selectedDoc._id}
-						onClose={() => setSelectedDocId(null)}
+						onClose={() =>
+							navigate({
+								search: (prev) => ({
+									...prev,
+									docId: undefined,
+								}),
+							})
+						}
 					/>
 				)}
 			</Sheet>

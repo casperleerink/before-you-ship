@@ -16,7 +16,7 @@ function SignInPage() {
 
 	useEffect(() => {
 		if (!isLoading && isAuthenticated) {
-			navigate({ to: "/organizations" });
+			navigate({ to: "/" });
 		}
 	}, [isAuthenticated, isLoading, navigate]);
 

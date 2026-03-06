@@ -3,7 +3,7 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import Loader from "@/components/loader";
@@ -33,24 +33,25 @@ function MessagePartRenderer({
 	isUser,
 	threadId,
 	sendMessage,
-	orgIdParam,
-	projectIdParam,
+	orgSlug,
+	projectId,
 }: {
 	part: UIMessage["parts"][number];
 	partIndex: number;
 	isUser: boolean;
 	threadId: string | null;
 	sendMessage: (args: { threadId: string; prompt: string }) => void;
-	orgIdParam: string;
-	projectIdParam: string;
+	orgSlug: string;
+	projectId: string;
 }) {
 	const type = part.type as string;
 
 	if (type === "text") {
-		const textPart = part as unknown as { text: string; state?: string };
+		const textPart = part as { state?: string; text: string };
 		if (!textPart.text) {
 			return null;
 		}
+
 		return (
 			<div
 				className={`mb-2 rounded-lg p-3 ${
@@ -71,10 +72,11 @@ function MessagePartRenderer({
 		type !== "tool-proposePlan" &&
 		"state" in part
 	) {
-		const toolPart = part as unknown as {
-			toolCallId: string;
+		const toolPart = part as {
 			state: string;
+			toolCallId: string;
 		};
+
 		return (
 			<div className="mr-8 mb-2" key={toolPart.toolCallId}>
 				<ToolActivityIndicator
@@ -90,10 +92,11 @@ function MessagePartRenderer({
 		"state" in part &&
 		part.state === "output-available"
 	) {
-		const toolPart = part as unknown as {
+		const toolPart = part as {
 			toolCallId: string;
-			output: { planId: string; taskCount: number };
+			output: { planId: string };
 		};
+
 		return (
 			<div className="mt-2 mr-8 mb-2" key={toolPart.toolCallId}>
 				<PlanCard
@@ -106,9 +109,9 @@ function MessagePartRenderer({
 							});
 						}
 					}}
-					orgId={orgIdParam}
+					orgSlug={orgSlug}
 					planId={toolPart.output.planId as Id<"plans">}
-					projectId={projectIdParam}
+					projectId={projectId}
 				/>
 			</div>
 		);
@@ -118,16 +121,16 @@ function MessagePartRenderer({
 }
 
 export const Route = createFileRoute(
-	"/_authenticated/organizations/$orgId/projects/$projectId/conversations/$conversationId"
+	"/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId"
 )({
 	component: ConversationDetailPage,
 });
 
 function ConversationDetailPage() {
 	const {
-		orgId: orgIdParam,
-		projectId: projectIdParam,
 		conversationId: conversationIdParam,
+		orgSlug,
+		projectId,
 	} = Route.useParams();
 	const conversationId = conversationIdParam as Id<"conversations">;
 
@@ -149,14 +152,13 @@ function ConversationDetailPage() {
 		{ initialNumItems: 50, stream: true }
 	);
 
-	const messageCount = messages?.length ?? 0;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll when message count changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll when messages update
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messageCount]);
+	}, [messages]);
 
 	const hasStreamingMessage = messages?.some(
-		(m: UIMessage) => m.status === "streaming"
+		(message: UIMessage) => message.status === "streaming"
 	);
 	const isBusy = isLoading || !!hasStreamingMessage;
 
@@ -176,8 +178,8 @@ function ConversationDetailPage() {
 		);
 	}
 
-	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
+	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
 		const text = input.trim();
 		if (!text || isBusy || !threadId) {
 			return;
@@ -187,7 +189,7 @@ function ConversationDetailPage() {
 		setInput("");
 
 		try {
-			await sendMessage({ threadId, prompt: text });
+			await sendMessage({ prompt: text, threadId });
 		} finally {
 			setIsLoading(false);
 		}
@@ -198,11 +200,9 @@ function ConversationDetailPage() {
 			<header className="flex items-center gap-3 border-b px-6 py-3">
 				<Link
 					className="text-muted-foreground hover:text-foreground"
-					params={{
-						orgId: orgIdParam,
-						projectId: projectIdParam,
-					}}
-					to="/organizations/$orgId/projects/$projectId/conversations"
+					params={{ orgSlug, projectId }}
+					search={{ status: "active" }}
+					to="/$orgSlug/projects/$projectId/conversations"
 				>
 					<ArrowLeft className="h-4 w-4" />
 				</Link>
@@ -225,7 +225,7 @@ function ConversationDetailPage() {
 							<DropdownMenuRadioGroup
 								onValueChange={(value) => {
 									const option = CONVERSATION_STATUS_OPTIONS.find(
-										(o) => o.value === value
+										(entry) => entry.value === value
 									);
 									if (option && option.value !== conversation.status) {
 										updateStatus({
@@ -270,13 +270,13 @@ function ConversationDetailPage() {
 										isUser={isUser}
 										key={
 											"toolCallId" in part
-												? (part as unknown as { toolCallId: string }).toolCallId
+												? (part as { toolCallId: string }).toolCallId
 												: `part-${index}`
 										}
-										orgIdParam={orgIdParam}
+										orgSlug={orgSlug}
 										part={part}
 										partIndex={index}
-										projectIdParam={projectIdParam}
+										projectId={projectId}
 										sendMessage={sendMessage}
 										threadId={threadId}
 									/>
@@ -285,39 +285,23 @@ function ConversationDetailPage() {
 						);
 					})
 				)}
-				{isLoading && !hasStreamingMessage && (
-					<div className="mr-8 rounded-lg bg-secondary/20 p-3">
-						<p className="mb-1 font-semibold text-sm">AI Assistant</p>
-						<div className="flex items-center gap-2 text-muted-foreground">
-							<Loader2 className="h-4 w-4 animate-spin" />
-							<span>Thinking...</span>
-						</div>
-					</div>
-				)}
 				<div ref={messagesEndRef} />
 			</div>
 
-			<form
-				className="flex items-center gap-2 border-t px-6 py-3"
-				onSubmit={handleSubmit}
-			>
-				<Input
-					autoComplete="off"
-					autoFocus
-					className="flex-1"
-					disabled={isBusy}
-					name="prompt"
-					onChange={(e) => setInput(e.target.value)}
-					placeholder="Type your message..."
-					value={input}
-				/>
-				<Button disabled={isBusy || !input.trim()} size="icon" type="submit">
-					{isBusy ? (
-						<Loader2 className="h-4 w-4 animate-spin" />
-					) : (
-						<Send size={18} />
-					)}
-				</Button>
+			<form className="border-t px-6 py-4" onSubmit={handleSubmit}>
+				<div className="flex gap-3">
+					<Input
+						autoComplete="off"
+						className="flex-1"
+						disabled={isBusy}
+						onChange={(event) => setInput(event.target.value)}
+						placeholder="Ask the AI to refine this into a plan..."
+						value={input}
+					/>
+					<Button disabled={!input.trim() || isBusy} type="submit">
+						<Send className="h-4 w-4" />
+					</Button>
+				</div>
 			</form>
 		</div>
 	);
