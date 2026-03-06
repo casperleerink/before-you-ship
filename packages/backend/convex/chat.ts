@@ -153,7 +153,7 @@ function buildSystemPrompt(
 	parts.push(
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
 		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
-		"- Each proposed task should include a title, brief description, complexity/risk/effort assessment, and affected areas of the codebase.",
+		"- Each proposed task should include a title, a brief written in plain language, complexity/risk/effort assessment, and affected areas. Focus on what changes for the user, not how it's implemented.",
 		"- Be honest about feasibility and complexity. If something is difficult or risky, say so clearly.",
 		"- Keep responses concise and focused. Avoid unnecessary filler.",
 		"- After calling `proposePlan`, briefly summarize what you proposed and ask the user to review the plan card.",

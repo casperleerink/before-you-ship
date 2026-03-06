@@ -9,10 +9,16 @@ const taskLevelSchema = z.enum(["low", "medium", "high"]);
 
 const proposedTaskSchema = z.object({
 	title: z.string().describe("Short, descriptive title for the task"),
-	brief: z.string().describe("Markdown description of what needs to be done"),
+	brief: z
+		.string()
+		.describe(
+			"Plain-language description of what needs to be done, written for non-technical stakeholders. Focus on the user-facing outcome, not implementation details."
+		),
 	affectedAreas: z
 		.array(z.string())
-		.describe("Codebase paths or areas affected by this task"),
+		.describe(
+			"High-level areas of the product affected (e.g. 'Login page', 'Checkout flow'), not specific file paths"
+		),
 	risk: taskLevelSchema.describe("Risk level: low, medium, or high"),
 	complexity: taskLevelSchema.describe(
 		"Complexity level: low, medium, or high"
