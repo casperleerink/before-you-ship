@@ -13,9 +13,10 @@ import { z } from "zod";
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import {
-	BadgeField,
 	FieldLabel,
 	FilterDropdown,
+	LevelBadge,
+	LevelBadgeField,
 	StatusDropdown,
 } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +53,6 @@ import {
 } from "@/lib/router-search";
 import {
 	LEVEL_OPTIONS,
-	levelVariant,
 	STATUS_OPTIONS,
 	statusLabel,
 	statusVariant,
@@ -177,24 +177,12 @@ function TaskDetailSheet({
 							onStatusChange={handleStatusChange}
 							status={task.status}
 						/>
-						<BadgeField
-							label="Risk"
-							value={task.risk}
-							variant={levelVariant(task.risk)}
-						/>
-						<BadgeField
-							label="Complexity"
-							value={task.complexity}
-							variant={levelVariant(task.complexity)}
-						/>
+						<LevelBadgeField level={task.risk} type="risk" />
+						<LevelBadgeField level={task.complexity} type="complexity" />
 					</div>
 
 					<div className="grid grid-cols-3 gap-4">
-						<BadgeField
-							label="Effort"
-							value={task.effort}
-							variant={levelVariant(task.effort)}
-						/>
+						<LevelBadgeField level={task.effort} type="effort" />
 						<AssigneeDropdown
 							assigneeId={task.assigneeId}
 							members={members}
@@ -436,19 +424,13 @@ function TasksPage() {
 												</Badge>
 											</TableCell>
 											<TableCell>
-												<Badge variant={levelVariant(task.risk)}>
-													{task.risk}
-												</Badge>
+												<LevelBadge level={task.risk} type="risk" />
 											</TableCell>
 											<TableCell>
-												<Badge variant={levelVariant(task.complexity)}>
-													{task.complexity}
-												</Badge>
+												<LevelBadge level={task.complexity} type="complexity" />
 											</TableCell>
 											<TableCell>
-												<Badge variant={levelVariant(task.effort)}>
-													{task.effort}
-												</Badge>
+												<LevelBadge level={task.effort} type="effort" />
 											</TableCell>
 										</TableRow>
 									))}

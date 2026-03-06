@@ -32,16 +32,3 @@ export function statusVariant(status: TaskStatus): BadgeVariant {
 export function statusLabel(status: TaskStatus): string {
 	return STATUS_OPTIONS.find((opt) => opt.value === status)?.label ?? status;
 }
-
-export function levelVariant(level: TaskLevel): BadgeVariant {
-	switch (level) {
-		case "low":
-			return "secondary";
-		case "medium":
-			return "outline";
-		case "high":
-			return "destructive";
-		default:
-			return "outline";
-	}
-}

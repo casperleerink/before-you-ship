@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Check, ExternalLink, FileText, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
+import { LevelBadge } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { levelVariant } from "@/lib/task-utils";
 
 interface PlanCardProps {
 	onRequestChanges?: () => void;
@@ -119,13 +119,9 @@ export function PlanCard({
 							{task.brief}
 						</p>
 						<div className="flex flex-wrap gap-1.5">
-							<Badge variant={levelVariant(task.risk)}>Risk: {task.risk}</Badge>
-							<Badge variant={levelVariant(task.complexity)}>
-								Complexity: {task.complexity}
-							</Badge>
-							<Badge variant={levelVariant(task.effort)}>
-								Effort: {task.effort}
-							</Badge>
+							<LevelBadge level={task.risk} showLabel type="risk" />
+							<LevelBadge level={task.complexity} showLabel type="complexity" />
+							<LevelBadge level={task.effort} showLabel type="effort" />
 						</div>
 						{task.affectedAreas.length > 0 && (
 							<div className="flex flex-wrap gap-1">

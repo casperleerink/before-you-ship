@@ -1,6 +1,7 @@
+import { Brain, Gauge, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -16,8 +17,44 @@ import {
 	STATUS_OPTIONS,
 	statusLabel,
 	statusVariant,
+	type TaskLevel,
 	type TaskStatus,
 } from "@/lib/task-utils";
+import { cn } from "@/lib/utils";
+
+const levelIcons = {
+	risk: ShieldAlert,
+	complexity: Brain,
+	effort: Gauge,
+} as const;
+
+const levelColorClasses: Record<TaskLevel, string> = {
+	low: "bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400",
+	medium:
+		"bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400",
+	high: "bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400",
+};
+
+type LevelCategory = keyof typeof levelIcons;
+
+export function LevelBadge({
+	type,
+	level,
+	showLabel = false,
+}: {
+	type: LevelCategory;
+	level: TaskLevel;
+	showLabel?: boolean;
+}) {
+	const Icon = levelIcons[type];
+	const label = type.charAt(0).toUpperCase() + type.slice(1);
+	return (
+		<Badge className={cn(levelColorClasses[level])}>
+			<Icon className="h-3 w-3" />
+			{showLabel ? `${label}: ${level}` : level}
+		</Badge>
+	);
+}
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
 	return (
@@ -27,19 +64,18 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
 	);
 }
 
-export function BadgeField({
-	label,
-	value,
-	variant,
+export function LevelBadgeField({
+	type,
+	level,
 }: {
-	label: string;
-	value: string;
-	variant: BadgeVariant;
+	type: LevelCategory;
+	level: TaskLevel;
 }) {
+	const label = type.charAt(0).toUpperCase() + type.slice(1);
 	return (
 		<div className="flex flex-col gap-1">
 			<FieldLabel>{label}</FieldLabel>
-			<Badge variant={variant}>{value}</Badge>
+			<LevelBadge level={level} type={type} />
 		</div>
 	);
 }
