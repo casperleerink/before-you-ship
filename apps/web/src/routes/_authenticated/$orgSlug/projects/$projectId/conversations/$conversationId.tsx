@@ -158,7 +158,7 @@ function ChatComposer({
 					disabled={isBusy}
 					onChange={(e) => setInput(e.target.value)}
 					onKeyDown={handleKeyDown}
-					placeholder="Ask the AI to refine this into a plan..."
+					placeholder="Explain your idea..."
 					rows={2}
 					value={input}
 				/>
