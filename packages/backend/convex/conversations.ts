@@ -7,35 +7,8 @@ import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
 import { sendMessageToThread } from "./chat";
-import { getAppUser, getOrgMembership } from "./helpers";
+import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 import { conversationStatusValidator } from "./schema";
-
-async function getAuthenticatedMember(
-	ctx: MutationCtx,
-	projectId: Id<"projects">
-) {
-	const [appUser, project] = await Promise.all([
-		getAppUser(ctx),
-		ctx.db.get(projectId),
-	]);
-	if (!appUser) {
-		throw new Error("Not authenticated");
-	}
-	if (!project) {
-		throw new Error("Project not found");
-	}
-
-	const membership = await getOrgMembership(
-		ctx,
-		project.organizationId,
-		appUser._id
-	);
-	if (!membership) {
-		throw new Error("Not a member of this organization");
-	}
-
-	return appUser;
-}
 
 async function insertConversation(
 	ctx: MutationCtx,
@@ -133,7 +106,7 @@ export const create = mutation({
 		projectId: v.id("projects"),
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAuthenticatedMember(ctx, args.projectId);
+		const { appUser } = await requireProjectMember(ctx, args.projectId);
 		const { conversationId } = await insertConversation(
 			ctx,
 			args.projectId,
@@ -148,13 +121,7 @@ export const createFromTriageItem = mutation({
 		triageItemId: v.id("triageItems"),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, triageItem] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.triageItemId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const triageItem = await ctx.db.get(args.triageItemId);
 		if (!triageItem) {
 			throw new Error("Triage item not found");
 		}
@@ -162,19 +129,7 @@ export const createFromTriageItem = mutation({
 			throw new Error("Triage item already converted");
 		}
 
-		const project = await ctx.db.get(triageItem.projectId);
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, triageItem.projectId);
 
 		const { conversationId, threadId } = await insertConversation(
 			ctx,
@@ -200,7 +155,7 @@ export const createWithMessage = mutation({
 		prompt: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAuthenticatedMember(ctx, args.projectId);
+		const { appUser } = await requireProjectMember(ctx, args.projectId);
 		const { conversationId, threadId } = await insertConversation(
 			ctx,
 			args.projectId,
@@ -217,30 +172,11 @@ export const updateStatus = mutation({
 		status: conversationStatusValidator,
 	},
 	handler: async (ctx, args) => {
-		const [appUser, conversation] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.conversationId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const conversation = await ctx.db.get(args.conversationId);
 		if (!conversation) {
 			throw new Error("Conversation not found");
 		}
-
-		const project = await ctx.db.get(conversation.projectId);
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, conversation.projectId);
 
 		await ctx.db.patch(conversation._id, { status: args.status });
 

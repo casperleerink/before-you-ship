@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { hasRecentActivity, logActivity } from "./activity";
-import { getAppUser, getOrgMembership } from "./helpers";
+import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 
 export const list = query({
 	args: {
@@ -74,25 +74,7 @@ export const create = mutation({
 		title: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, project] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.projectId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, args.projectId);
 
 		const now = Date.now();
 		const docId = await ctx.db.insert("docs", {
@@ -124,30 +106,11 @@ export const update = mutation({
 		content: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, doc] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.docId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const doc = await ctx.db.get(args.docId);
 		if (!doc) {
 			throw new Error("Doc not found");
 		}
-
-		const project = await ctx.db.get(doc.projectId);
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, doc.projectId);
 
 		const updates: { updatedAt: number; title?: string; content?: string } = {
 			updatedAt: Date.now(),
@@ -194,30 +157,11 @@ export const remove = mutation({
 		docId: v.id("docs"),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, doc] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.docId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const doc = await ctx.db.get(args.docId);
 		if (!doc) {
 			throw new Error("Doc not found");
 		}
-
-		const project = await ctx.db.get(doc.projectId);
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, doc.projectId);
 
 		await ctx.db.delete(args.docId);
 

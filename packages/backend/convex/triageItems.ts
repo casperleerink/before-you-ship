@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
-import { getAppUser, getOrgMembership } from "./helpers";
+import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 
 export const list = query({
 	args: {
@@ -41,25 +41,7 @@ export const create = mutation({
 		content: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, project] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.projectId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, args.projectId);
 
 		const triageId = await ctx.db.insert("triageItems", {
 			projectId: args.projectId,

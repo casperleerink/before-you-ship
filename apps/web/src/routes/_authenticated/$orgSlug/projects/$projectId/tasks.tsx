@@ -30,6 +30,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
 	Sheet,
 	SheetBody,
@@ -46,25 +47,24 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useOrg } from "@/lib/org-context";
-import {
-	createEnumListSearchParamSchema,
-	serializeSearchParamList,
-	toggleSearchListValue,
-} from "@/lib/router-search";
+import { toggleSearchListValue } from "@/lib/router-search";
 import {
 	LEVEL_OPTIONS,
 	STATUS_OPTIONS,
 	statusLabel,
 	statusVariant,
+	TASK_LEVEL_VALUES,
+	TASK_STATUS_VALUES,
 	type TaskLevel,
 	type TaskStatus,
 } from "@/lib/task-utils";
 
 const searchSchema = z.object({
-	complexity: createEnumListSearchParamSchema(["low", "medium", "high"]),
-	effort: createEnumListSearchParamSchema(["low", "medium", "high"]),
-	risk: createEnumListSearchParamSchema(["low", "medium", "high"]),
-	status: createEnumListSearchParamSchema(["ready", "in_progress", "done"]),
+	complexity: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	effort: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	q: z.string().catch("").optional(),
+	risk: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	status: z.array(z.enum(TASK_STATUS_VALUES)).catch([]).optional(),
 	taskId: z.string().optional(),
 });
 
@@ -74,6 +74,41 @@ export const Route = createFileRoute(
 	component: TasksPage,
 	validateSearch: searchSchema,
 });
+
+function matchesTaskFilters(
+	task: Doc<"tasks">,
+	filters: {
+		statusFilter: Set<TaskStatus>;
+		riskFilter: Set<TaskLevel>;
+		complexityFilter: Set<TaskLevel>;
+		effortFilter: Set<TaskLevel>;
+		searchQuery: string;
+	}
+) {
+	if (filters.statusFilter.size > 0 && !filters.statusFilter.has(task.status)) {
+		return false;
+	}
+	if (filters.riskFilter.size > 0 && !filters.riskFilter.has(task.risk)) {
+		return false;
+	}
+	if (
+		filters.complexityFilter.size > 0 &&
+		!filters.complexityFilter.has(task.complexity)
+	) {
+		return false;
+	}
+	if (filters.effortFilter.size > 0 && !filters.effortFilter.has(task.effort)) {
+		return false;
+	}
+	if (!filters.searchQuery) {
+		return true;
+	}
+
+	const searchableText = [task.title, task.brief, ...task.affectedAreas]
+		.join(" ")
+		.toLowerCase();
+	return searchableText.includes(filters.searchQuery);
+}
 
 function AssigneeDropdown({
 	assigneeId,
@@ -114,7 +149,7 @@ function AssigneeDropdown({
 						{members.map((member) => (
 							<DropdownMenuItem
 								key={member._id}
-								onSelect={() => onAssigneeChange(member._id)}
+								onClick={() => onAssigneeChange(member._id)}
 							>
 								<span className="truncate">{member.name}</span>
 								{member._id === assigneeId && (
@@ -128,7 +163,7 @@ function AssigneeDropdown({
 					{assigneeId && (
 						<>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem onSelect={onClearAssignee}>
+							<DropdownMenuItem onClick={onClearAssignee}>
 								<X className="mr-1 size-3" />
 								Unassign
 							</DropdownMenuItem>
@@ -251,38 +286,46 @@ function TasksPage() {
 		orgId: org._id,
 	});
 
-	const statusFilter = new Set<TaskStatus>(search.status as TaskStatus[]);
-	const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
-	const complexityFilter = new Set<TaskLevel>(search.complexity as TaskLevel[]);
-	const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
+	const statusFilter = new Set<TaskStatus>(search.status ?? []);
+	const riskFilter = new Set<TaskLevel>(search.risk ?? []);
+	const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
+	const effortFilter = new Set<TaskLevel>(search.effort ?? []);
+	const searchQuery = search.q?.trim().toLowerCase() ?? "";
 
 	const activeFilterCount =
 		statusFilter.size +
 		riskFilter.size +
 		complexityFilter.size +
-		effortFilter.size;
+		effortFilter.size +
+		(searchQuery ? 1 : 0);
 
 	const filteredTasks = useMemo(() => {
 		if (!tasks) {
 			return [];
 		}
 
-		return tasks.filter((task) => {
-			if (statusFilter.size > 0 && !statusFilter.has(task.status)) {
-				return false;
-			}
-			if (riskFilter.size > 0 && !riskFilter.has(task.risk)) {
-				return false;
-			}
-			if (complexityFilter.size > 0 && !complexityFilter.has(task.complexity)) {
-				return false;
-			}
-			if (effortFilter.size > 0 && !effortFilter.has(task.effort)) {
-				return false;
-			}
-			return true;
-		});
-	}, [complexityFilter, effortFilter, riskFilter, statusFilter, tasks]);
+		const statusFilter = new Set<TaskStatus>(search.status ?? []);
+		const riskFilter = new Set<TaskLevel>(search.risk ?? []);
+		const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
+		const effortFilter = new Set<TaskLevel>(search.effort ?? []);
+
+		return tasks.filter((task) =>
+			matchesTaskFilters(task, {
+				statusFilter,
+				riskFilter,
+				complexityFilter,
+				effortFilter,
+				searchQuery,
+			})
+		);
+	}, [
+		search.complexity,
+		search.effort,
+		search.risk,
+		search.status,
+		searchQuery,
+		tasks,
+	]);
 
 	const selectedTask = search.taskId
 		? (tasks?.find((task) => task._id === search.taskId) ?? null)
@@ -310,14 +353,14 @@ function TasksPage() {
 
 	const toggleFilter = (
 		key: "complexity" | "effort" | "risk" | "status",
-		value: string
+		value: TaskLevel | TaskStatus
 	) => {
+		const nextValues = toggleSearchListValue(search[key], value);
+
 		navigate({
 			search: (prev) => ({
 				...prev,
-				[key]: serializeSearchParamList(
-					toggleSearchListValue(prev[key], value)
-				),
+				[key]: nextValues.length > 0 ? nextValues : undefined,
 			}),
 		});
 	};
@@ -337,6 +380,20 @@ function TasksPage() {
 			) : (
 				<>
 					<div className="mb-4 flex items-center gap-2">
+						<Input
+							className="h-8 w-64"
+							onChange={(event) =>
+								navigate({
+									replace: true,
+									search: (prev) => ({
+										...prev,
+										q: event.target.value.trim() || undefined,
+									}),
+								})
+							}
+							placeholder="Search tasks"
+							value={search.q ?? ""}
+						/>
 						<Filter className="size-4 text-muted-foreground" />
 						<FilterDropdown
 							label="Status"
@@ -371,6 +428,7 @@ function TasksPage() {
 											...prev,
 											complexity: undefined,
 											effort: undefined,
+											q: undefined,
 											risk: undefined,
 											status: undefined,
 										}),

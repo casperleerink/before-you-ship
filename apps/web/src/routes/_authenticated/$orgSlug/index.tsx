@@ -7,6 +7,7 @@ import {
 	ListTodo,
 	MoreHorizontal,
 	Plus,
+	Settings,
 	Shield,
 	ShieldCheck,
 	UserMinus,
@@ -28,6 +29,12 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -46,7 +53,7 @@ import {
 import { useOrg } from "@/lib/org-context";
 
 const searchSchema = z.object({
-	tab: z.enum(["projects", "members"]).catch("projects"),
+	tab: z.enum(["projects", "members", "settings"]).catch("projects"),
 });
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/")({
@@ -61,9 +68,30 @@ function OrgDashboardPage() {
 	const org = useOrg();
 	const projects = useQuery(api.projects.list, { orgId: org._id });
 	const [showCreateForm, setShowCreateForm] = useState(false);
+	const activeTab =
+		tab === "settings" && org.role !== "owner" ? "projects" : tab;
 
 	if (projects === undefined) {
 		return <Loader />;
+	}
+
+	let tabContent: React.ReactNode;
+	if (activeTab === "projects") {
+		tabContent = (
+			<ProjectsTab
+				onHideCreateForm={() => setShowCreateForm(false)}
+				orgId={org._id}
+				orgSlug={org.slug}
+				projects={projects}
+				showCreateForm={showCreateForm}
+			/>
+		);
+	} else if (activeTab === "members") {
+		tabContent = <MembersTab currentUserRole={org.role} orgId={org._id} />;
+	} else {
+		tabContent = (
+			<SettingsTab orgId={org._id} orgName={org.name} orgSlug={org.slug} />
+		);
 	}
 
 	return (
@@ -95,7 +123,7 @@ function OrgDashboardPage() {
 							My Tasks
 						</Button>
 					</Link>
-					{tab === "projects" && (
+					{activeTab === "projects" && (
 						<Button onClick={() => setShowCreateForm(true)}>
 							<Plus className="mr-2 h-4 w-4" />
 							New Project
@@ -108,10 +136,13 @@ function OrgDashboardPage() {
 				{[
 					{ key: "projects" as const, label: "Projects", icon: FolderGit2 },
 					{ key: "members" as const, label: "Members", icon: Users },
+					...(org.role === "owner"
+						? [{ key: "settings" as const, label: "Settings", icon: Settings }]
+						: []),
 				].map((tabOption) => (
 					<button
 						className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-							tab === tabOption.key
+							activeTab === tabOption.key
 								? "border-primary text-primary"
 								: "border-transparent text-muted-foreground hover:text-foreground"
 						}`}
@@ -132,19 +163,188 @@ function OrgDashboardPage() {
 				))}
 			</div>
 
-			{tab === "projects" ? (
-				<ProjectsTab
-					onHideCreateForm={() => setShowCreateForm(false)}
-					orgId={org._id}
-					orgSlug={org.slug}
-					projects={projects}
-					showCreateForm={showCreateForm}
-				/>
-			) : (
-				<MembersTab currentUserRole={org.role} orgId={org._id} />
-			)}
+			{tabContent}
 		</div>
 	);
+}
+
+function SettingsTab({
+	orgId,
+	orgName,
+	orgSlug,
+}: {
+	orgId: Id<"organizations">;
+	orgName: string;
+	orgSlug: string;
+}) {
+	const navigate = useNavigate({ from: Route.fullPath });
+	const updateOrganization = useMutation(api.organizations.update);
+	const deleteOrganization = useMutation(api.organizations.deleteOrganization);
+	const [name, setName] = useState(orgName);
+	const [isSaving, setIsSaving] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [deleteConfirmation, setDeleteConfirmation] = useState("");
+	const [isDeleting, setIsDeleting] = useState(false);
+
+	const slugPreview = createSlugPreview(name) || orgSlug;
+	const isDeleteConfirmed = deleteConfirmation.trim() === orgName;
+
+	return (
+		<div className="space-y-8">
+			<Card>
+				<CardHeader>
+					<CardTitle>Organization Settings</CardTitle>
+					<CardDescription>
+						Rename the organization and review the URL slug that will be used
+						throughout the app.
+					</CardDescription>
+				</CardHeader>
+				<form
+					className="space-y-4 px-6 pb-6"
+					onSubmit={async (event) => {
+						event.preventDefault();
+						const nextName = name.trim();
+						if (!nextName) {
+							return;
+						}
+
+						setIsSaving(true);
+						try {
+							const updated = await updateOrganization({
+								name: nextName,
+								orgId,
+							});
+							toast.success("Organization updated");
+							navigate({
+								params: { orgSlug: updated.slug },
+								search: { tab: "settings" },
+								to: "/$orgSlug",
+							});
+						} catch (error) {
+							toast.error(
+								error instanceof Error
+									? error.message
+									: "Failed to update organization"
+							);
+						} finally {
+							setIsSaving(false);
+						}
+					}}
+				>
+					<div className="space-y-2">
+						<Label htmlFor="org-name">Organization name</Label>
+						<Input
+							id="org-name"
+							onChange={(event) => setName(event.target.value)}
+							value={name}
+						/>
+					</div>
+					<div className="space-y-1">
+						<Label>Slug preview</Label>
+						<p className="rounded-md border bg-muted/40 px-3 py-2 font-mono text-sm">
+							/{slugPreview}
+						</p>
+						<p className="text-muted-foreground text-xs">
+							Renaming the organization updates its URL.
+						</p>
+					</div>
+					<Button disabled={!name.trim() || isSaving} type="submit">
+						{isSaving ? "Saving..." : "Save changes"}
+					</Button>
+				</form>
+			</Card>
+
+			<Card className="border-destructive/30">
+				<CardHeader>
+					<CardTitle className="text-destructive">Danger Zone</CardTitle>
+					<CardDescription>
+						Delete the organization and all of its projects, members, invites,
+						and connected resources.
+					</CardDescription>
+				</CardHeader>
+				<div className="px-6 pb-6">
+					<Button
+						onClick={() => setIsDeleteDialogOpen(true)}
+						variant="destructive"
+					>
+						Delete Organization
+					</Button>
+				</div>
+			</Card>
+
+			<Dialog
+				onOpenChange={(open) => {
+					setIsDeleteDialogOpen(open);
+					if (!open) {
+						setDeleteConfirmation("");
+					}
+				}}
+				open={isDeleteDialogOpen}
+			>
+				<DialogContent>
+					<DialogTitle>Delete organization</DialogTitle>
+					<DialogDescription>
+						Type <span className="font-medium text-foreground">{orgName}</span>{" "}
+						to confirm. This permanently deletes the organization and every
+						project inside it.
+					</DialogDescription>
+
+					<div className="mt-4 space-y-4">
+						<div className="space-y-1">
+							<Label htmlFor="delete-org-confirmation">Organization name</Label>
+							<Input
+								id="delete-org-confirmation"
+								onChange={(event) => setDeleteConfirmation(event.target.value)}
+								placeholder={orgName}
+								value={deleteConfirmation}
+							/>
+						</div>
+
+						<div className="flex justify-end gap-2">
+							<Button
+								onClick={() => setIsDeleteDialogOpen(false)}
+								type="button"
+								variant="outline"
+							>
+								Cancel
+							</Button>
+							<Button
+								disabled={!isDeleteConfirmed || isDeleting}
+								onClick={async () => {
+									setIsDeleting(true);
+									try {
+										await deleteOrganization({ orgId });
+										toast.success("Organization deleted");
+										navigate({ to: "/" });
+									} catch (error) {
+										toast.error(
+											error instanceof Error
+												? error.message
+												: "Failed to delete organization"
+										);
+									} finally {
+										setIsDeleting(false);
+									}
+								}}
+								type="button"
+								variant="destructive"
+							>
+								{isDeleting ? "Deleting..." : "Delete Organization"}
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}
+
+function createSlugPreview(value: string) {
+	return value
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
 }
 
 function ProjectsTab({

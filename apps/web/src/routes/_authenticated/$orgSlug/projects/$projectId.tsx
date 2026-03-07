@@ -16,9 +16,11 @@ import {
 	MessageSquare,
 	Plus,
 	Settings,
+	TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import { ProjectDot } from "@/components/project-dot";
 import TriageCaptureModal from "@/components/triage-capture-modal";
@@ -102,7 +104,11 @@ function ProjectLayout() {
 	if (!project || project.organizationId !== org._id) {
 		return (
 			<div className="container mx-auto max-w-4xl px-4 py-8">
-				<h1 className="font-bold text-2xl">Project not found</h1>
+				<EmptyState
+					description="This project doesn't exist or you don't have access to it."
+					icon={TriangleAlert}
+					title="Project not found"
+				/>
 			</div>
 		);
 	}

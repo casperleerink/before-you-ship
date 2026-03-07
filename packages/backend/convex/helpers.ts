@@ -1,8 +1,10 @@
 import type { Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { authComponent } from "./auth";
 
-export async function getAppUser(ctx: QueryCtx) {
+type AuthCtx = QueryCtx | MutationCtx;
+
+export async function getAppUser(ctx: AuthCtx) {
 	const authUser = await authComponent.safeGetAuthUser(ctx);
 	if (!authUser) {
 		return null;
@@ -14,7 +16,7 @@ export async function getAppUser(ctx: QueryCtx) {
 }
 
 export function getOrgMembership(
-	ctx: QueryCtx,
+	ctx: AuthCtx,
 	orgId: Id<"organizations">,
 	userId: Id<"users">
 ) {
@@ -24,4 +26,48 @@ export function getOrgMembership(
 			q.eq("organizationId", orgId).eq("userId", userId)
 		)
 		.first();
+}
+
+export async function requireUser(ctx: AuthCtx) {
+	const appUser = await getAppUser(ctx);
+	if (!appUser) {
+		throw new Error("Not authenticated");
+	}
+	return appUser;
+}
+
+export async function requireOrgMember(
+	ctx: AuthCtx,
+	orgId: Id<"organizations">
+) {
+	const appUser = await requireUser(ctx);
+	const membership = await getOrgMembership(ctx, orgId, appUser._id);
+	if (!membership) {
+		throw new Error("Not a member of this organization");
+	}
+	return { appUser, membership };
+}
+
+export async function requireProjectMember(
+	ctx: AuthCtx,
+	projectId: Id<"projects">
+) {
+	const [appUser, project] = await Promise.all([
+		requireUser(ctx),
+		ctx.db.get(projectId),
+	]);
+	if (!project) {
+		throw new Error("Project not found");
+	}
+
+	const membership = await getOrgMembership(
+		ctx,
+		project.organizationId,
+		appUser._id
+	);
+	if (!membership) {
+		throw new Error("Not a member of this organization");
+	}
+
+	return { appUser, membership, project };
 }

@@ -216,6 +216,50 @@ export const unregisterGithub = internalAction({
 	},
 });
 
+export const deleteGithubByDetails = internalAction({
+	args: {
+		repoUrl: v.string(),
+		gitConnectionId: v.id("gitConnections"),
+		providerWebhookId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const parsed = parseGitHubRepoUrl(args.repoUrl);
+		if (!parsed) {
+			return;
+		}
+
+		const connection = await ctx.runQuery(
+			internal.gitConnections.getConnectionById,
+			{ connectionId: args.gitConnectionId }
+		);
+		if (!connection?.accessToken) {
+			return;
+		}
+
+		try {
+			const res = await fetch(
+				`${GITHUB_API_URL}/repos/${parsed.owner}/${parsed.repo}/hooks/${args.providerWebhookId}`,
+				{
+					method: "DELETE",
+					headers: {
+						Authorization: `Bearer ${connection.accessToken}`,
+						Accept: "application/vnd.github+json",
+					},
+				}
+			);
+			if (!res.ok && res.status !== 404) {
+				const text = await res.text();
+				console.error(
+					`GitHub webhook deletion failed (${res.status}): ${text}`
+				);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			console.error(`Failed to delete GitHub webhook: ${message}`);
+		}
+	},
+});
+
 // --- Webhook handler (HTTP endpoint) ---
 
 async function verifyGitHubSignature(
@@ -280,25 +324,20 @@ export const githubWebhookHandler = httpAction(
 			return new Response("Missing repository URL", { status: 400 });
 		}
 
-		// Find the project with this repo URL
-		const project = await ctx.runQuery(internal.webhooks.getProjectByRepoUrl, {
-			repoUrl,
-		});
-		if (!project) {
-			return new Response("No matching project", { status: 404 });
+		const projectWithWebhook = await ctx.runQuery(
+			internal.webhooks.getProjectWebhookByRepoUrl,
+			{
+				repoUrl,
+			}
+		);
+		if (!projectWithWebhook) {
+			return new Response("Unauthorized", { status: 401 });
 		}
 
-		// Get the webhook record to verify signature
-		const webhook = await ctx.runQuery(internal.webhooks.getByProjectId, {
-			projectId: project._id,
-		});
-		if (!webhook) {
-			return new Response("No webhook configured", { status: 404 });
-		}
-
+		const { project, webhook } = projectWithWebhook;
 		const valid = await verifyGitHubSignature(body, signature, webhook.secret);
 		if (!valid) {
-			return new Response("Invalid signature", { status: 401 });
+			return new Response("Unauthorized", { status: 401 });
 		}
 
 		// Schedule sandbox sync
@@ -315,19 +354,34 @@ export const githubWebhookHandler = httpAction(
 
 // --- Helper queries for webhook handler ---
 
-export const getProjectByRepoUrl = internalQuery({
+export const getProjectWebhookByRepoUrl = internalQuery({
 	args: { repoUrl: v.string() },
 	handler: async (ctx, args) => {
-		// Search across all projects for matching repoUrl
-		// GitHub may send URL with or without .git suffix
 		const normalizedUrl = args.repoUrl.replace(GIT_SUFFIX_RE, "");
-		const projects = await ctx.db.query("projects").collect();
-		return (
-			projects.find(
-				(p) =>
-					p.repoUrl && p.repoUrl.replace(GIT_SUFFIX_RE, "") === normalizedUrl
-			) ?? null
-		);
+		const project =
+			(await ctx.db
+				.query("projects")
+				.withIndex("by_repoUrl", (q) => q.eq("repoUrl", normalizedUrl))
+				.first()) ??
+			(await ctx.db
+				.query("projects")
+				.withIndex("by_repoUrl", (q) => q.eq("repoUrl", `${normalizedUrl}.git`))
+				.first());
+
+		if (!project) {
+			return null;
+		}
+
+		const webhook = await ctx.db
+			.query("webhooks")
+			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+			.first();
+
+		if (!webhook) {
+			return null;
+		}
+
+		return { project, webhook };
 	},
 });
 

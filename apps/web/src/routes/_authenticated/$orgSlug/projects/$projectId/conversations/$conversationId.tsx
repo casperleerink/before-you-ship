@@ -8,22 +8,9 @@ import { useState } from "react";
 
 import { ChatComposer } from "@/components/chat-composer";
 import { ChatMessageList } from "@/components/chat-message-list";
+import { ConversationStatusDropdown } from "@/components/conversation-status-dropdown";
 import Loader from "@/components/loader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuLabel,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-	CONVERSATION_STATUS_OPTIONS,
-	conversationStatusVariant,
-} from "@/lib/conversation-utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId"
@@ -43,7 +30,6 @@ function ConversationDetailPage() {
 		conversationId,
 	});
 	const sendMessage = useMutation(api.chat.sendMessage);
-	const updateStatus = useMutation(api.conversations.updateStatus);
 
 	const [isLoading, setIsLoading] = useState(false);
 
@@ -108,45 +94,10 @@ function ConversationDetailPage() {
 				<h1 className="min-w-0 flex-1 truncate font-semibold text-lg">
 					{conversation.title ?? "Untitled conversation"}
 				</h1>
-				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<button className="cursor-pointer" type="button">
-								<Badge variant={conversationStatusVariant(conversation.status)}>
-									{conversation.status}
-								</Badge>
-							</button>
-						}
-					/>
-					<DropdownMenuContent>
-						<DropdownMenuGroup>
-							<DropdownMenuLabel>Status</DropdownMenuLabel>
-							<DropdownMenuRadioGroup
-								onValueChange={(value) => {
-									const option = CONVERSATION_STATUS_OPTIONS.find(
-										(entry) => entry.value === value
-									);
-									if (option && option.value !== conversation.status) {
-										updateStatus({
-											conversationId,
-											status: option.value,
-										});
-									}
-								}}
-								value={conversation.status}
-							>
-								{CONVERSATION_STATUS_OPTIONS.map((option) => (
-									<DropdownMenuRadioItem
-										key={option.value}
-										value={option.value}
-									>
-										{option.label}
-									</DropdownMenuRadioItem>
-								))}
-							</DropdownMenuRadioGroup>
-						</DropdownMenuGroup>
-					</DropdownMenuContent>
-				</DropdownMenu>
+				<ConversationStatusDropdown
+					conversationId={conversationId}
+					status={conversation.status}
+				/>
 			</header>
 
 			<ChatMessageList

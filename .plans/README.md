@@ -9,6 +9,7 @@ Proposed improvements to the codebase, organized by type and priority.
 | 001 | [useMemo unstable deps in tasks page](./001-bug-usememo-unstable-deps.md) | High | Small |
 | 002 | [Full table scan in webhook handler](./002-bug-webhook-full-table-scan.md) | High | Small |
 | 003 | [Webhook signature verified too late](./003-security-webhook-signature-order.md) | High | Small |
+| 011 | [useMemo unstable deps in My Tasks page](./011-bug-usememo-unstable-deps-my-tasks.md) | High | Small |
 
 ## Refactors
 
@@ -26,3 +27,4 @@ Proposed improvements to the codebase, organized by type and priority.
 | 008 | [Project/org not found handling](./008-feature-project-not-found-handling.md) | Medium | Small |
 | 009 | [Task text search](./009-feature-task-text-search.md) | Low | Medium |
 | 010 | [Organization settings](./010-feature-org-settings.md) | Low | Medium |
+| 012 | [Optimistic conversation status updates](./012-feature-optimistic-conversation-status-updates.md) | Medium | Medium |

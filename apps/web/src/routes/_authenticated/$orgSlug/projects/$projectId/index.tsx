@@ -13,6 +13,7 @@ import {
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatRelativeTime } from "@/lib/utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/"
@@ -254,29 +255,4 @@ function linkFor(
 				params: { orgSlug, projectId: projectIdParam },
 			};
 	}
-}
-
-function formatRelativeTime(timestamp: number): string {
-	const now = Date.now();
-	const diff = now - timestamp;
-	const minutes = Math.floor(diff / 60_000);
-
-	if (minutes < 1) {
-		return "just now";
-	}
-	if (minutes < 60) {
-		return `${minutes}m ago`;
-	}
-
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) {
-		return `${hours}h ago`;
-	}
-
-	const days = Math.floor(hours / 24);
-	if (days < 7) {
-		return `${days}d ago`;
-	}
-
-	return new Date(timestamp).toLocaleDateString();
 }

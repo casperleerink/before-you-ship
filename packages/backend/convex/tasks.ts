@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
-import { getAppUser, getOrgMembership } from "./helpers";
+import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 import { taskLevelValidator, taskStatusValidator } from "./schema";
 
 type TaskLevel = "low" | "medium" | "high";
@@ -144,30 +144,11 @@ export const update = mutation({
 		assigneeId: v.optional(v.union(v.id("users"), v.null())),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, task] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.taskId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const task = await ctx.db.get(args.taskId);
 		if (!task) {
 			throw new Error("Task not found");
 		}
-
-		const project = await ctx.db.get(task.projectId);
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
+		const { appUser } = await requireProjectMember(ctx, task.projectId);
 
 		const updates: Partial<Pick<typeof task, "status" | "assigneeId">> = {};
 		if (args.status !== undefined) {

@@ -11,8 +11,15 @@ import { z } from "zod";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useOrg } from "@/lib/org-context";
 
 const searchSchema = z.object({
 	error: z.string().optional(),
@@ -27,12 +34,14 @@ export const Route = createFileRoute(
 });
 
 function SettingsPage() {
-	const { projectId: projectIdParam } = Route.useParams();
+	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const { error, github } = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
+	const org = useOrg();
 	const projectId = projectIdParam as Id<"projects">;
 	const project = useQuery(api.projects.getById, { projectId });
 	const updateProject = useMutation(api.projects.update);
+	const deleteProject = useMutation(api.projects.deleteProject);
 
 	useEffect(() => {
 		if (!(github === "connected" || error)) {
@@ -90,7 +99,118 @@ function SettingsPage() {
 					repoUrl={project.repoUrl}
 					sandboxId={project.sandboxId}
 				/>
+				<DeleteProjectSection
+					canDelete={org.role !== "member"}
+					onDelete={async () => {
+						await deleteProject({ projectId });
+						toast.success("Project deleted");
+						navigate({
+							params: { orgSlug },
+							search: { tab: "projects" },
+							to: "/$orgSlug",
+						});
+					}}
+					projectName={project.name}
+				/>
 			</div>
+		</div>
+	);
+}
+
+function DeleteProjectSection({
+	projectName,
+	canDelete,
+	onDelete,
+}: {
+	projectName: string;
+	canDelete: boolean;
+	onDelete: () => Promise<void>;
+}) {
+	const [confirmValue, setConfirmValue] = useState("");
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [open, setOpen] = useState(false);
+
+	if (!canDelete) {
+		return null;
+	}
+
+	const isConfirmed = confirmValue.trim() === projectName;
+
+	return (
+		<div className="rounded-lg border border-destructive/30 p-6">
+			<div className="space-y-1">
+				<Label className="text-base text-destructive">Danger Zone</Label>
+				<p className="text-muted-foreground text-sm">
+					Delete this project and all of its conversations, tasks, docs,
+					activity, and connected resources.
+				</p>
+			</div>
+
+			<div className="mt-4">
+				<Button onClick={() => setOpen(true)} variant="destructive">
+					Delete Project
+				</Button>
+			</div>
+
+			<Dialog
+				onOpenChange={(nextOpen) => {
+					setOpen(nextOpen);
+					if (!nextOpen) {
+						setConfirmValue("");
+					}
+				}}
+				open={open}
+			>
+				<DialogContent>
+					<DialogTitle>Delete project</DialogTitle>
+					<DialogDescription>
+						Type{" "}
+						<span className="font-medium text-foreground">{projectName}</span>{" "}
+						to confirm. This action permanently removes the project and its
+						associated data.
+					</DialogDescription>
+
+					<div className="mt-4 space-y-4">
+						<div className="space-y-1">
+							<Label htmlFor="delete-project-confirmation">Project name</Label>
+							<Input
+								id="delete-project-confirmation"
+								onChange={(event) => setConfirmValue(event.target.value)}
+								placeholder={projectName}
+								value={confirmValue}
+							/>
+						</div>
+
+						<div className="flex justify-end gap-2">
+							<Button
+								onClick={() => setOpen(false)}
+								type="button"
+								variant="outline"
+							>
+								Cancel
+							</Button>
+							<Button
+								disabled={!isConfirmed || isDeleting}
+								onClick={async () => {
+									setIsDeleting(true);
+									try {
+										await onDelete();
+										setOpen(false);
+									} catch {
+										toast.error("Failed to delete project");
+									} finally {
+										setIsDeleting(false);
+									}
+								}}
+								type="button"
+								variant="destructive"
+							>
+								{isDeleting ? "Deleting..." : "Delete Project"}
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

@@ -113,8 +113,7 @@ export function FilterDropdown<T extends string>({
 						<DropdownMenuCheckboxItem
 							checked={selected.has(option.value)}
 							key={option.value}
-							onSelect={(e) => {
-								e.preventDefault();
+							onCheckedChange={() => {
 								onToggle(option.value);
 							}}
 						>
