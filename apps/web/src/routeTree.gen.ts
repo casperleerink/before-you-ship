@@ -25,6 +25,7 @@ import { Route as AuthenticatedOrgSlugProjectsProjectIdTasksRouteImport } from '
 import { Route as AuthenticatedOrgSlugProjectsProjectIdSettingsRouteImport } from './routes/_authenticated/$orgSlug/projects/$projectId/settings'
 import { Route as AuthenticatedOrgSlugProjectsProjectIdDocsRouteImport } from './routes/_authenticated/$orgSlug/projects/$projectId/docs'
 import { Route as AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRouteImport } from './routes/_authenticated/$orgSlug/projects/$projectId/conversations/index'
+import { Route as AuthenticatedOrgSlugProjectsProjectIdConversationsNewRouteImport } from './routes/_authenticated/$orgSlug/projects/$projectId/conversations/new'
 import { Route as AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRouteImport } from './routes/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId'
 
 const SignInRoute = SignInRouteImport.update({
@@ -116,6 +117,12 @@ const AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute =
     path: '/conversations/',
     getParentRoute: () => AuthenticatedOrgSlugProjectsProjectIdRoute,
   } as any)
+const AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute =
+  AuthenticatedOrgSlugProjectsProjectIdConversationsNewRouteImport.update({
+    id: '/conversations/new',
+    path: '/conversations/new',
+    getParentRoute: () => AuthenticatedOrgSlugProjectsProjectIdRoute,
+  } as any)
 const AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute =
   AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRouteImport.update(
     {
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/$orgSlug/projects/$projectId/triage': typeof AuthenticatedOrgSlugProjectsProjectIdTriageRoute
   '/$orgSlug/projects/$projectId/': typeof AuthenticatedOrgSlugProjectsProjectIdIndexRoute
   '/$orgSlug/projects/$projectId/conversations/$conversationId': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute
+  '/$orgSlug/projects/$projectId/conversations/new': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute
   '/$orgSlug/projects/$projectId/conversations/': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +165,7 @@ export interface FileRoutesByTo {
   '/$orgSlug/projects/$projectId/triage': typeof AuthenticatedOrgSlugProjectsProjectIdTriageRoute
   '/$orgSlug/projects/$projectId': typeof AuthenticatedOrgSlugProjectsProjectIdIndexRoute
   '/$orgSlug/projects/$projectId/conversations/$conversationId': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute
+  '/$orgSlug/projects/$projectId/conversations/new': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute
   '/$orgSlug/projects/$projectId/conversations': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute
 }
 export interface FileRoutesById {
@@ -177,6 +186,7 @@ export interface FileRoutesById {
   '/_authenticated/$orgSlug/projects/$projectId/triage': typeof AuthenticatedOrgSlugProjectsProjectIdTriageRoute
   '/_authenticated/$orgSlug/projects/$projectId/': typeof AuthenticatedOrgSlugProjectsProjectIdIndexRoute
   '/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute
+  '/_authenticated/$orgSlug/projects/$projectId/conversations/new': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute
   '/_authenticated/$orgSlug/projects/$projectId/conversations/': typeof AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute
 }
 export interface FileRouteTypes {
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/projects/$projectId/triage'
     | '/$orgSlug/projects/$projectId/'
     | '/$orgSlug/projects/$projectId/conversations/$conversationId'
+    | '/$orgSlug/projects/$projectId/conversations/new'
     | '/$orgSlug/projects/$projectId/conversations/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/$orgSlug/projects/$projectId/triage'
     | '/$orgSlug/projects/$projectId'
     | '/$orgSlug/projects/$projectId/conversations/$conversationId'
+    | '/$orgSlug/projects/$projectId/conversations/new'
     | '/$orgSlug/projects/$projectId/conversations'
   id:
     | '__root__'
@@ -232,6 +244,7 @@ export interface FileRouteTypes {
     | '/_authenticated/$orgSlug/projects/$projectId/triage'
     | '/_authenticated/$orgSlug/projects/$projectId/'
     | '/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId'
+    | '/_authenticated/$orgSlug/projects/$projectId/conversations/new'
     | '/_authenticated/$orgSlug/projects/$projectId/conversations/'
   fileRoutesById: FileRoutesById
 }
@@ -355,6 +368,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRouteImport
       parentRoute: typeof AuthenticatedOrgSlugProjectsProjectIdRoute
     }
+    '/_authenticated/$orgSlug/projects/$projectId/conversations/new': {
+      id: '/_authenticated/$orgSlug/projects/$projectId/conversations/new'
+      path: '/conversations/new'
+      fullPath: '/$orgSlug/projects/$projectId/conversations/new'
+      preLoaderRoute: typeof AuthenticatedOrgSlugProjectsProjectIdConversationsNewRouteImport
+      parentRoute: typeof AuthenticatedOrgSlugProjectsProjectIdRoute
+    }
     '/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId': {
       id: '/_authenticated/$orgSlug/projects/$projectId/conversations/$conversationId'
       path: '/conversations/$conversationId'
@@ -372,6 +392,7 @@ interface AuthenticatedOrgSlugProjectsProjectIdRouteChildren {
   AuthenticatedOrgSlugProjectsProjectIdTriageRoute: typeof AuthenticatedOrgSlugProjectsProjectIdTriageRoute
   AuthenticatedOrgSlugProjectsProjectIdIndexRoute: typeof AuthenticatedOrgSlugProjectsProjectIdIndexRoute
   AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute: typeof AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute
+  AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute: typeof AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute
   AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute: typeof AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute
 }
 
@@ -389,6 +410,8 @@ const AuthenticatedOrgSlugProjectsProjectIdRouteChildren: AuthenticatedOrgSlugPr
       AuthenticatedOrgSlugProjectsProjectIdIndexRoute,
     AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute:
       AuthenticatedOrgSlugProjectsProjectIdConversationsConversationIdRoute,
+    AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute:
+      AuthenticatedOrgSlugProjectsProjectIdConversationsNewRoute,
     AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute:
       AuthenticatedOrgSlugProjectsProjectIdConversationsIndexRoute,
   }

@@ -3,6 +3,7 @@ import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
+
 import { useMemo } from "react";
 import { z } from "zod";
 
@@ -59,7 +60,6 @@ function ConversationsPage() {
 	const { status } = Route.useSearch();
 	const projectId = projectIdParam as Id<"projects">;
 	const conversations = useQuery(api.conversations.list, { projectId });
-	const createConversation = useMutation(api.conversations.create);
 	const updateStatus = useMutation(api.conversations.updateStatus);
 	const navigate = useNavigate({ from: Route.fullPath });
 
@@ -104,15 +104,10 @@ function ConversationsPage() {
 		);
 	}
 
-	const handleCreate = async () => {
-		const conversationId = await createConversation({ projectId });
+	const handleCreate = () => {
 		navigate({
-			params: {
-				conversationId,
-				orgSlug,
-				projectId: projectIdParam,
-			},
-			to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
+			params: { orgSlug, projectId: projectIdParam },
+			to: "/$orgSlug/projects/$projectId/conversations/new",
 		});
 	};
 
