@@ -16,6 +16,7 @@ import {
 	CONVERSATION_STATUS_OPTIONS,
 	type ConversationStatus,
 } from "@/lib/conversation-utils";
+import { formatDate } from "@/lib/utils";
 
 type StatusFilter = ConversationStatus | "all";
 
@@ -36,14 +37,6 @@ export const Route = createFileRoute(
 	component: ConversationsPage,
 	validateSearch: searchSchema,
 });
-
-function formatDate(timestamp: number) {
-	return new Date(timestamp).toLocaleDateString(undefined, {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-	});
-}
 
 function ConversationsPage() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();

@@ -20,6 +20,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { formatDate } from "@/lib/utils";
 
 const searchSchema = z.object({
 	docId: z.string().optional(),
@@ -31,14 +32,6 @@ export const Route = createFileRoute(
 	component: DocsPage,
 	validateSearch: searchSchema,
 });
-
-function formatDate(timestamp: number) {
-	return new Date(timestamp).toLocaleDateString(undefined, {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-	});
-}
 
 function DocEditor({
 	doc,
