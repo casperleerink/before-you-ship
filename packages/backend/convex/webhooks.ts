@@ -318,16 +318,18 @@ export const githubWebhookHandler = httpAction(
 export const getProjectByRepoUrl = internalQuery({
 	args: { repoUrl: v.string() },
 	handler: async (ctx, args) => {
-		// Search across all projects for matching repoUrl
-		// GitHub may send URL with or without .git suffix
 		const normalizedUrl = args.repoUrl.replace(GIT_SUFFIX_RE, "");
-		const projects = await ctx.db.query("projects").collect();
-		return (
-			projects.find(
-				(p) =>
-					p.repoUrl && p.repoUrl.replace(GIT_SUFFIX_RE, "") === normalizedUrl
-			) ?? null
-		);
+		const project =
+			(await ctx.db
+				.query("projects")
+				.withIndex("by_repoUrl", (q) => q.eq("repoUrl", normalizedUrl))
+				.first()) ??
+			(await ctx.db
+				.query("projects")
+				.withIndex("by_repoUrl", (q) => q.eq("repoUrl", `${normalizedUrl}.git`))
+				.first());
+
+		return project ?? null;
 	},
 });
 

@@ -98,7 +98,9 @@ export default defineSchema({
 		sandboxId: v.optional(v.string()),
 		createdBy: v.id("users"),
 		createdAt: v.number(),
-	}).index("by_organizationId", ["organizationId"]),
+	})
+		.index("by_organizationId", ["organizationId"])
+		.index("by_repoUrl", ["repoUrl"]),
 
 	conversations: defineTable({
 		projectId: v.id("projects"),
