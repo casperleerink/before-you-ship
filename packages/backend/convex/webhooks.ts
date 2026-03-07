@@ -216,6 +216,50 @@ export const unregisterGithub = internalAction({
 	},
 });
 
+export const deleteGithubByDetails = internalAction({
+	args: {
+		repoUrl: v.string(),
+		gitConnectionId: v.id("gitConnections"),
+		providerWebhookId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const parsed = parseGitHubRepoUrl(args.repoUrl);
+		if (!parsed) {
+			return;
+		}
+
+		const connection = await ctx.runQuery(
+			internal.gitConnections.getConnectionById,
+			{ connectionId: args.gitConnectionId }
+		);
+		if (!connection?.accessToken) {
+			return;
+		}
+
+		try {
+			const res = await fetch(
+				`${GITHUB_API_URL}/repos/${parsed.owner}/${parsed.repo}/hooks/${args.providerWebhookId}`,
+				{
+					method: "DELETE",
+					headers: {
+						Authorization: `Bearer ${connection.accessToken}`,
+						Accept: "application/vnd.github+json",
+					},
+				}
+			);
+			if (!res.ok && res.status !== 404) {
+				const text = await res.text();
+				console.error(
+					`GitHub webhook deletion failed (${res.status}): ${text}`
+				);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			console.error(`Failed to delete GitHub webhook: ${message}`);
+		}
+	},
+});
+
 // --- Webhook handler (HTTP endpoint) ---
 
 async function verifyGitHubSignature(

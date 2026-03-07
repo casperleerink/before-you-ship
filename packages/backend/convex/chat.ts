@@ -319,3 +319,22 @@ export const updateConversationTitle = internalMutation({
 		await ctx.db.patch(conversationId, { title });
 	},
 });
+
+export const deleteThreadData = internalAction({
+	args: {
+		threadIds: v.array(v.string()),
+	},
+	handler: async (ctx, { threadIds }) => {
+		for (const threadId of threadIds) {
+			try {
+				await ctx.runAction(components.agent.threads.deleteAllForThreadIdSync, {
+					threadId,
+				});
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : "Unknown error";
+				console.error(`Failed to delete thread ${threadId}: ${message}`);
+			}
+		}
+	},
+});

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import {
 	getAppUser,
@@ -10,6 +11,20 @@ import {
 	requireProjectMember,
 } from "./helpers";
 import { projectRepoProviderValidator } from "./schema";
+
+async function deleteRecords<
+	T extends
+		| "activity"
+		| "conversations"
+		| "docs"
+		| "fileTreeCache"
+		| "plans"
+		| "tasks"
+		| "triageItems"
+		| "webhooks",
+>(ctx: MutationCtx, ids: Id<T>[]) {
+	await Promise.all(ids.map((id) => ctx.db.delete(id)));
+}
 
 export const list = query({
 	args: {
@@ -273,5 +288,150 @@ export const disconnectRepo = mutation({
 			repoProvider: undefined,
 			sandboxId: undefined,
 		});
+	},
+});
+
+export const deleteProject = mutation({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		const { appUser, membership, project } = await requireProjectMember(
+			ctx,
+			args.projectId
+		);
+		if (membership.role === "member") {
+			throw new Error("Only owners and admins can delete projects");
+		}
+
+		const [
+			conversations,
+			tasks,
+			triageItems,
+			docs,
+			activity,
+			fileTreeEntries,
+			webhook,
+		] = await Promise.all([
+			ctx.db
+				.query("conversations")
+				.withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+				.collect(),
+			ctx.db
+				.query("tasks")
+				.withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+				.collect(),
+			ctx.db
+				.query("triageItems")
+				.withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+				.collect(),
+			ctx.db
+				.query("docs")
+				.withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+				.collect(),
+			ctx.db
+				.query("activity")
+				.withIndex("by_projectId_createdAt", (q) =>
+					q.eq("projectId", args.projectId)
+				)
+				.collect(),
+			ctx.db
+				.query("fileTreeCache")
+				.withIndex("by_projectId_path", (q) =>
+					q.eq("projectId", args.projectId)
+				)
+				.collect(),
+			ctx.db
+				.query("webhooks")
+				.withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+				.first(),
+		]);
+
+		const plans = (
+			await Promise.all(
+				conversations.map((conversation) =>
+					ctx.db
+						.query("plans")
+						.withIndex("by_conversationId", (q) =>
+							q.eq("conversationId", conversation._id)
+						)
+						.collect()
+				)
+			)
+		).flat();
+
+		const threadIds = conversations.map(
+			(conversation) => conversation.threadId
+		);
+
+		if (
+			project.repoProvider === "github" &&
+			project.repoUrl &&
+			webhook?.providerWebhookId
+		) {
+			const gitConnection = await ctx.db
+				.query("gitConnections")
+				.withIndex("by_userId_provider", (q) =>
+					q.eq("userId", appUser._id).eq("provider", "github")
+				)
+				.first();
+
+			if (gitConnection) {
+				await ctx.scheduler.runAfter(
+					0,
+					internal.webhooks.deleteGithubByDetails,
+					{
+						repoUrl: project.repoUrl,
+						gitConnectionId: gitConnection._id,
+						providerWebhookId: webhook.providerWebhookId,
+					}
+				);
+			}
+		}
+
+		if (project.sandboxId) {
+			await ctx.scheduler.runAfter(0, internal.daytonaActions.deleteSandbox, {
+				sandboxId: project.sandboxId,
+			});
+		}
+
+		if (threadIds.length > 0) {
+			await ctx.scheduler.runAfter(0, internal.chat.deleteThreadData, {
+				threadIds,
+			});
+		}
+
+		await deleteRecords(
+			ctx,
+			plans.map((plan) => plan._id)
+		);
+		await deleteRecords(
+			ctx,
+			tasks.map((task) => task._id)
+		);
+		await deleteRecords(
+			ctx,
+			triageItems.map((item) => item._id)
+		);
+		await deleteRecords(
+			ctx,
+			docs.map((doc) => doc._id)
+		);
+		await deleteRecords(
+			ctx,
+			activity.map((entry) => entry._id)
+		);
+		await deleteRecords(
+			ctx,
+			fileTreeEntries.map((entry) => entry._id)
+		);
+		if (webhook) {
+			await ctx.db.delete(webhook._id);
+		}
+		await deleteRecords(
+			ctx,
+			conversations.map((conversation) => conversation._id)
+		);
+		await ctx.db.delete(project._id);
 	},
 });
