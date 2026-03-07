@@ -20,7 +20,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import Loader from "@/components/loader";
-import { ModeToggle } from "@/components/mode-toggle";
+import { ProjectDot } from "@/components/project-dot";
 import TriageCaptureModal from "@/components/triage-capture-modal";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
@@ -105,17 +105,20 @@ function ProjectLayout() {
 	return (
 		<div className="flex h-svh">
 			<aside className="flex w-60 flex-col border-r">
-				<div className="border-b p-4">
+				<div className="flex items-center gap-2 p-3">
 					<Link
-						className="mb-2 flex items-center gap-1 text-muted-foreground text-sm hover:underline"
+						className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent"
 						params={{ orgSlug }}
 						search={{ tab: "projects" }}
 						to="/$orgSlug"
 					>
-						<ArrowLeft className="h-3 w-3" />
-						Back to projects
+						<ArrowLeft className="h-4 w-4" />
+						<span className="sr-only">Back to projects</span>
 					</Link>
-					<h2 className="truncate font-semibold text-lg">{project.name}</h2>
+					<ProjectDot name={project.name} />
+					<h2 className="min-w-0 flex-1 truncate font-semibold text-sm">
+						{project.name}
+					</h2>
 				</div>
 
 				<nav className="flex-1 p-2">
@@ -151,11 +154,8 @@ function ProjectLayout() {
 					})}
 				</nav>
 
-				<div className="border-t p-3">
-					<div className="flex items-center justify-between">
-						<UserMenu />
-						<ModeToggle />
-					</div>
+				<div className="p-2">
+					<UserMenu />
 				</div>
 			</aside>
 
