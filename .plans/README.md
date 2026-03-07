@@ -27,3 +27,4 @@ Proposed improvements to the codebase, organized by type and priority.
 | 008 | [Project/org not found handling](./008-feature-project-not-found-handling.md) | Medium | Small |
 | 009 | [Task text search](./009-feature-task-text-search.md) | Low | Medium |
 | 010 | [Organization settings](./010-feature-org-settings.md) | Low | Medium |
+| 012 | [Optimistic conversation status updates](./012-feature-optimistic-conversation-status-updates.md) | Medium | Medium |
