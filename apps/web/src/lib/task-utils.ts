@@ -4,6 +4,9 @@ import type { BadgeVariant } from "@/components/ui/badge";
 export type TaskStatus = Doc<"tasks">["status"];
 export type TaskLevel = Doc<"tasks">["risk"];
 
+export const TASK_STATUS_VALUES = ["ready", "in_progress", "done"] as const;
+export const TASK_LEVEL_VALUES = ["low", "medium", "high"] as const;
+
 export const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
 	{ value: "ready", label: "Ready" },
 	{ value: "in_progress", label: "In Progress" },

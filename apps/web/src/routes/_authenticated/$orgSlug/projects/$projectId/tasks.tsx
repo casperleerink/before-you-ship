@@ -47,26 +47,24 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useOrg } from "@/lib/org-context";
-import {
-	createEnumListSearchParamSchema,
-	serializeSearchParamList,
-	toggleSearchListValue,
-} from "@/lib/router-search";
+import { toggleSearchListValue } from "@/lib/router-search";
 import {
 	LEVEL_OPTIONS,
 	STATUS_OPTIONS,
 	statusLabel,
 	statusVariant,
+	TASK_LEVEL_VALUES,
+	TASK_STATUS_VALUES,
 	type TaskLevel,
 	type TaskStatus,
 } from "@/lib/task-utils";
 
 const searchSchema = z.object({
-	complexity: createEnumListSearchParamSchema(["low", "medium", "high"]),
-	effort: createEnumListSearchParamSchema(["low", "medium", "high"]),
-	q: z.string().optional(),
-	risk: createEnumListSearchParamSchema(["low", "medium", "high"]),
-	status: createEnumListSearchParamSchema(["ready", "in_progress", "done"]),
+	complexity: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	effort: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	q: z.string().catch("").optional(),
+	risk: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	status: z.array(z.enum(TASK_STATUS_VALUES)).catch([]).optional(),
 	taskId: z.string().optional(),
 });
 
@@ -288,10 +286,10 @@ function TasksPage() {
 		orgId: org._id,
 	});
 
-	const statusFilter = new Set<TaskStatus>(search.status as TaskStatus[]);
-	const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
-	const complexityFilter = new Set<TaskLevel>(search.complexity as TaskLevel[]);
-	const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
+	const statusFilter = new Set<TaskStatus>(search.status ?? []);
+	const riskFilter = new Set<TaskLevel>(search.risk ?? []);
+	const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
+	const effortFilter = new Set<TaskLevel>(search.effort ?? []);
 	const searchQuery = search.q?.trim().toLowerCase() ?? "";
 
 	const activeFilterCount =
@@ -306,12 +304,10 @@ function TasksPage() {
 			return [];
 		}
 
-		const statusFilter = new Set<TaskStatus>(search.status as TaskStatus[]);
-		const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
-		const complexityFilter = new Set<TaskLevel>(
-			search.complexity as TaskLevel[]
-		);
-		const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
+		const statusFilter = new Set<TaskStatus>(search.status ?? []);
+		const riskFilter = new Set<TaskLevel>(search.risk ?? []);
+		const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
+		const effortFilter = new Set<TaskLevel>(search.effort ?? []);
 
 		return tasks.filter((task) =>
 			matchesTaskFilters(task, {
@@ -357,14 +353,14 @@ function TasksPage() {
 
 	const toggleFilter = (
 		key: "complexity" | "effort" | "risk" | "status",
-		value: string
+		value: TaskLevel | TaskStatus
 	) => {
 		const nextValues = toggleSearchListValue(search[key], value);
 
 		navigate({
 			search: (prev) => ({
 				...prev,
-				[key]: serializeSearchParamList(nextValues),
+				[key]: nextValues.length > 0 ? nextValues : undefined,
 			}),
 		});
 	};
