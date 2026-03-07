@@ -151,7 +151,7 @@ function AssigneeDropdown({
 						{members.map((member) => (
 							<DropdownMenuItem
 								key={member._id}
-								onSelect={() => onAssigneeChange(member._id)}
+								onClick={() => onAssigneeChange(member._id)}
 							>
 								<span className="truncate">{member.name}</span>
 								{member._id === assigneeId && (
@@ -165,7 +165,7 @@ function AssigneeDropdown({
 					{assigneeId && (
 						<>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem onSelect={onClearAssignee}>
+							<DropdownMenuItem onClick={onClearAssignee}>
 								<X className="mr-1 size-3" />
 								Unassign
 							</DropdownMenuItem>
