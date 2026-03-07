@@ -194,6 +194,14 @@ function MyTasksPage() {
 			return [];
 		}
 
+		const projectFilter = new Set(search.project);
+		const statusFilter = new Set<TaskStatus>(search.status as TaskStatus[]);
+		const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
+		const complexityFilter = new Set<TaskLevel>(
+			search.complexity as TaskLevel[]
+		);
+		const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
+
 		return tasks.filter((task) => {
 			if (projectFilter.size > 0 && !projectFilter.has(task.projectId)) {
 				return false;
@@ -213,11 +221,11 @@ function MyTasksPage() {
 			return true;
 		});
 	}, [
-		complexityFilter,
-		effortFilter,
-		projectFilter,
-		riskFilter,
-		statusFilter,
+		search.complexity,
+		search.effort,
+		search.project,
+		search.risk,
+		search.status,
 		tasks,
 	]);
 
