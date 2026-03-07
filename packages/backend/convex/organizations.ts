@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import {
 	getAppUser,
@@ -148,6 +150,91 @@ export const create = mutation({
 		});
 
 		return { orgId, slug };
+	},
+});
+
+export const update = mutation({
+	args: {
+		orgId: v.id("organizations"),
+		name: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const { membership } = await requireOrgMember(ctx, args.orgId);
+		if (membership.role !== "owner") {
+			throw new Error("Only owners can rename organizations");
+		}
+
+		const org = await ctx.db.get(args.orgId);
+		if (!org) {
+			throw new Error("Organization not found");
+		}
+
+		const name = args.name.trim();
+		if (!name) {
+			throw new Error("Organization name is required");
+		}
+
+		const slug =
+			name === org.name ? org.slug : await generateUniqueSlug(ctx, name);
+
+		await ctx.db.patch(args.orgId, {
+			name,
+			slug,
+		});
+
+		return { name, slug };
+	},
+});
+
+export const deleteOrganization = mutation({
+	args: {
+		orgId: v.id("organizations"),
+	},
+	handler: async (ctx, args) => {
+		const { appUser, membership } = await requireOrgMember(ctx, args.orgId);
+		if (membership.role !== "owner") {
+			throw new Error("Only owners can delete organizations");
+		}
+
+		const org = await ctx.db.get(args.orgId);
+		if (!org) {
+			throw new Error("Organization not found");
+		}
+
+		const [projects, members, invites] = await Promise.all([
+			ctx.db
+				.query("projects")
+				.withIndex("by_organizationId", (q) =>
+					q.eq("organizationId", args.orgId)
+				)
+				.collect(),
+			ctx.db
+				.query("organizationMembers")
+				.withIndex("by_organizationId", (q) =>
+					q.eq("organizationId", args.orgId)
+				)
+				.collect(),
+			ctx.db
+				.query("organizationInvites")
+				.withIndex("by_organizationId", (q) =>
+					q.eq("organizationId", args.orgId)
+				)
+				.collect(),
+		]);
+
+		for (const project of projects) {
+			await ctx.runMutation(internal.projects.deleteProjectCascadeInternal, {
+				projectId: project._id,
+				actorUserId: appUser._id,
+			});
+		}
+
+		await Promise.all([
+			...members.map((member) => ctx.db.delete(member._id)),
+			...invites.map((invite) => ctx.db.delete(invite._id)),
+		]);
+
+		await ctx.db.delete(org._id);
 	},
 });
 
