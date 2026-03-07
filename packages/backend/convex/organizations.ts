@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAppUser, getOrgMembership } from "./helpers";
+import {
+	getAppUser,
+	getOrgMembership,
+	requireOrgMember,
+	requireUser,
+} from "./helpers";
 import { orgRoleValidator } from "./schema";
 import { generateUniqueSlug } from "./slugUtils";
 
@@ -124,10 +129,7 @@ export const create = mutation({
 		name: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAppUser(ctx);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const appUser = await requireUser(ctx);
 
 		const slug = await generateUniqueSlug(ctx, args.name);
 
@@ -225,12 +227,7 @@ export const inviteMember = mutation({
 		role: orgRoleValidator,
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAppUser(ctx);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
-
-		const membership = await getOrgMembership(ctx, args.orgId, appUser._id);
+		const { appUser, membership } = await requireOrgMember(ctx, args.orgId);
 		if (!membership || membership.role === "member") {
 			throw new Error("Only owners and admins can invite members");
 		}
@@ -282,10 +279,7 @@ export const acceptInvite = mutation({
 		inviteId: v.id("organizationInvites"),
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAppUser(ctx);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const appUser = await requireUser(ctx);
 
 		const invite = await ctx.db.get(args.inviteId);
 		if (!invite || invite.status !== "pending") {
@@ -323,10 +317,7 @@ export const cancelInvite = mutation({
 		inviteId: v.id("organizationInvites"),
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAppUser(ctx);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
+		const appUser = await requireUser(ctx);
 
 		const invite = await ctx.db.get(args.inviteId);
 		if (!invite || invite.status !== "pending") {
@@ -352,15 +343,9 @@ export const removeMember = mutation({
 		userId: v.id("users"),
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAppUser(ctx);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
-
-		const callerMembership = await getOrgMembership(
+		const { membership: callerMembership } = await requireOrgMember(
 			ctx,
-			args.orgId,
-			appUser._id
+			args.orgId
 		);
 		if (!callerMembership || callerMembership.role === "member") {
 			throw new Error("Only owners and admins can remove members");
@@ -397,15 +382,9 @@ export const updateMemberRole = mutation({
 		role: orgRoleValidator,
 	},
 	handler: async (ctx, args) => {
-		const appUser = await getAppUser(ctx);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
-
-		const callerMembership = await getOrgMembership(
+		const { appUser, membership: callerMembership } = await requireOrgMember(
 			ctx,
-			args.orgId,
-			appUser._id
+			args.orgId
 		);
 		if (!callerMembership || callerMembership.role !== "owner") {
 			throw new Error("Only owners can change member roles");

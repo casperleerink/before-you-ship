@@ -8,7 +8,7 @@ import {
 	query,
 } from "./_generated/server";
 import { logActivity } from "./activity";
-import { getAppUser, getOrgMembership } from "./helpers";
+import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 import { taskLevelValidator } from "./schema";
 import { insertTask } from "./tasks";
 
@@ -80,33 +80,14 @@ export const getByIdInternal = internalQuery({
 });
 
 async function getProposedPlanWithAuth(ctx: MutationCtx, planId: Id<"plans">) {
-	const [appUser, plan] = await Promise.all([
-		getAppUser(ctx),
-		ctx.db.get(planId),
-	]);
-	if (!appUser) {
-		throw new Error("Not authenticated");
-	}
+	const plan = await ctx.db.get(planId);
 	if (!plan) {
 		throw new Error("Plan not found");
 	}
 	if (plan.status !== "proposed") {
 		throw new Error("Plan is not in proposed status");
 	}
-
-	const project = await ctx.db.get(plan.projectId);
-	if (!project) {
-		throw new Error("Project not found");
-	}
-
-	const membership = await getOrgMembership(
-		ctx,
-		project.organizationId,
-		appUser._id
-	);
-	if (!membership) {
-		throw new Error("Not a member of this organization");
-	}
+	const { appUser } = await requireProjectMember(ctx, plan.projectId);
 
 	return { plan, appUser };
 }
