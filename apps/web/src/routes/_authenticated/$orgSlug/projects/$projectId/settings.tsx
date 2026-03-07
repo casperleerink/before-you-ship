@@ -1,7 +1,6 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { env } from "@project-manager/env/web";
-import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,6 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getAppFormOnSubmit, useAppForm, withForm } from "@/lib/app-form";
+import {
+	getProjectSettingsDefaults,
+	getSelfHostedRepoDefaults,
+	projectSettingsSchema,
+	selfHostedRepoSchema,
+} from "@/lib/form-schemas";
 import { useOrg } from "@/lib/org-context";
 
 const searchSchema = z.object({
@@ -31,6 +37,82 @@ export const Route = createFileRoute(
 )({
 	component: SettingsPage,
 	validateSearch: searchSchema,
+});
+
+const ProjectSettingsFields = withForm({
+	defaultValues: getProjectSettingsDefaults(),
+	validators: {
+		onChange: projectSettingsSchema,
+		onSubmit: projectSettingsSchema,
+	},
+	render({ form }) {
+		return (
+			<>
+				<div>
+					<Label className="text-base">Project Details</Label>
+					<p className="mt-1 text-muted-foreground text-sm">
+						Update the project name and description used throughout the app.
+					</p>
+				</div>
+
+				<form.AppField name="name">
+					{(field) => <field.TextField label="Project name" />}
+				</form.AppField>
+
+				<form.AppField name="description">
+					{(field) => (
+						<field.TextField label="Description" placeholder="Optional" />
+					)}
+				</form.AppField>
+
+				<form.SubmitButton submittingText="Saving..." type="submit">
+					Save changes
+				</form.SubmitButton>
+			</>
+		);
+	},
+});
+
+const SelfHostedRepoFields = withForm({
+	defaultValues: getSelfHostedRepoDefaults(),
+	validators: {
+		onChange: selfHostedRepoSchema,
+		onSubmit: selfHostedRepoSchema,
+	},
+	render({ form }) {
+		return (
+			<>
+				<form.AppField name="repoUrl">
+					{(field) => (
+						<field.TextField
+							errorClassName="space-y-0"
+							label="Repository URL"
+							placeholder="https://gitlab.example.com/org/repo.git"
+						/>
+					)}
+				</form.AppField>
+
+				<form.AppField name="accessToken">
+					{(field) => (
+						<field.TextField
+							description="Optional. Use for private repositories."
+							label="Access Token"
+							placeholder="For private repositories"
+							type="password"
+						/>
+					)}
+				</form.AppField>
+
+				<form.SubmitButton
+					size="sm"
+					submittingText="Connecting..."
+					type="submit"
+				>
+					Connect Repository
+				</form.SubmitButton>
+			</>
+		);
+	},
 });
 
 function SettingsPage() {
@@ -513,35 +595,24 @@ function RepoSelector({
 
 function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 	const connectSelfHosted = useMutation(api.projects.connectSelfHostedRepo);
-	const [submitting, setSubmitting] = useState(false);
-	const form = useForm({
-		defaultValues: {
-			accessToken: "",
-			repoUrl: "",
-		},
+	const form = useAppForm({
+		defaultValues: getSelfHostedRepoDefaults(),
 		onSubmit: async ({ value }) => {
-			setSubmitting(true);
 			try {
 				await connectSelfHosted({
-					accessToken: value.accessToken || undefined,
+					accessToken: value.accessToken.trim() || undefined,
 					projectId,
-					repoUrl: value.repoUrl,
+					repoUrl: value.repoUrl.trim(),
 				});
 				toast.success("Repository connected");
+				form.reset();
 			} catch {
 				toast.error("Failed to connect repository");
-			} finally {
-				setSubmitting(false);
 			}
 		},
 		validators: {
-			onSubmit: z.object({
-				accessToken: z.string(),
-				repoUrl: z
-					.string()
-					.min(1, "Repository URL is required")
-					.url("Must be a valid URL"),
-			}),
+			onChange: selfHostedRepoSchema,
+			onSubmit: selfHostedRepoSchema,
 		},
 	});
 
@@ -551,69 +622,11 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 			<p className="mb-4 text-muted-foreground text-xs">
 				Enter a Git repository URL directly. Supports any Git host.
 			</p>
-			<form
-				className="space-y-3"
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					form.handleSubmit().catch(() => {
-						// Validation errors are surfaced by the form state.
-					});
-				}}
-			>
-				<form.Field name="repoUrl">
-					{(field) => (
-						<div className="space-y-1">
-							<Label className="text-xs" htmlFor={field.name}>
-								Repository URL
-							</Label>
-							<Input
-								id={field.name}
-								name={field.name}
-								onBlur={field.handleBlur}
-								onChange={(event) => field.handleChange(event.target.value)}
-								placeholder="https://gitlab.example.com/org/repo.git"
-								value={field.state.value}
-							/>
-							{field.state.meta.errors.map((error) => (
-								<p className="text-red-500 text-xs" key={error?.message}>
-									{error?.message}
-								</p>
-							))}
-						</div>
-					)}
-				</form.Field>
-				<form.Field name="accessToken">
-					{(field) => (
-						<div className="space-y-1">
-							<Label className="text-xs" htmlFor={field.name}>
-								Access Token{" "}
-								<span className="text-muted-foreground">(optional)</span>
-							</Label>
-							<Input
-								id={field.name}
-								name={field.name}
-								onBlur={field.handleBlur}
-								onChange={(event) => field.handleChange(event.target.value)}
-								placeholder="For private repositories"
-								type="password"
-								value={field.state.value}
-							/>
-						</div>
-					)}
-				</form.Field>
-				<form.Subscribe>
-					{(state) => (
-						<Button
-							disabled={!state.canSubmit || submitting}
-							size="sm"
-							type="submit"
-						>
-							{submitting ? "Connecting..." : "Connect Repository"}
-						</Button>
-					)}
-				</form.Subscribe>
-			</form>
+			<form.AppForm>
+				<form className="space-y-3" onSubmit={getAppFormOnSubmit(form)}>
+					<SelfHostedRepoFields form={form} />
+				</form>
+			</form.AppForm>
 		</div>
 	);
 }
@@ -657,89 +670,32 @@ function ProjectSettingsForm({
 	description: string;
 	onSubmit: (values: { description: string; name: string }) => Promise<void>;
 }) {
-	const [submitting, setSubmitting] = useState(false);
-	const form = useForm({
-		defaultValues: {
-			description,
-			name,
-		},
+	const form = useAppForm({
+		defaultValues: getProjectSettingsDefaults({ description, name }),
 		onSubmit: async ({ value }) => {
-			setSubmitting(true);
 			try {
-				await onSubmit(value);
-			} finally {
-				setSubmitting(false);
+				await onSubmit({
+					description: value.description.trim(),
+					name: value.name.trim(),
+				});
+			} catch {
+				toast.error("Failed to update project settings");
 			}
 		},
 		validators: {
-			onSubmit: z.object({
-				description: z.string(),
-				name: z.string().min(1, "Project name is required"),
-			}),
+			onChange: projectSettingsSchema,
+			onSubmit: projectSettingsSchema,
 		},
 	});
 
 	return (
-		<form
-			className="space-y-4 rounded-lg border p-6"
-			onSubmit={(event) => {
-				event.preventDefault();
-				event.stopPropagation();
-				form.handleSubmit().catch(() => {
-					// Validation errors are surfaced by the form state.
-				});
-			}}
-		>
-			<div>
-				<Label className="text-base">Project Details</Label>
-				<p className="mt-1 text-muted-foreground text-sm">
-					Update the project name and description used throughout the app.
-				</p>
-			</div>
-
-			<form.Field name="name">
-				{(field) => (
-					<div className="space-y-1">
-						<Label htmlFor={field.name}>Project name</Label>
-						<Input
-							id={field.name}
-							name={field.name}
-							onBlur={field.handleBlur}
-							onChange={(event) => field.handleChange(event.target.value)}
-							value={field.state.value}
-						/>
-						{field.state.meta.errors.map((error) => (
-							<p className="text-red-500 text-xs" key={error?.message}>
-								{error?.message}
-							</p>
-						))}
-					</div>
-				)}
-			</form.Field>
-
-			<form.Field name="description">
-				{(field) => (
-					<div className="space-y-1">
-						<Label htmlFor={field.name}>Description</Label>
-						<Input
-							id={field.name}
-							name={field.name}
-							onBlur={field.handleBlur}
-							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Optional"
-							value={field.state.value}
-						/>
-					</div>
-				)}
-			</form.Field>
-
-			<form.Subscribe>
-				{(state) => (
-					<Button disabled={!state.canSubmit || submitting} type="submit">
-						{submitting ? "Saving..." : "Save changes"}
-					</Button>
-				)}
-			</form.Subscribe>
-		</form>
+		<form.AppForm>
+			<form
+				className="space-y-4 rounded-lg border p-6"
+				onSubmit={getAppFormOnSubmit(form)}
+			>
+				<ProjectSettingsFields form={form} />
+			</form>
+		</form.AppForm>
 	);
 }
