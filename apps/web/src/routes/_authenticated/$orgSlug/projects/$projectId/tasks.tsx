@@ -267,6 +267,13 @@ function TasksPage() {
 			return [];
 		}
 
+		const statusFilter = new Set<TaskStatus>(search.status as TaskStatus[]);
+		const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
+		const complexityFilter = new Set<TaskLevel>(
+			search.complexity as TaskLevel[]
+		);
+		const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
+
 		return tasks.filter((task) => {
 			if (statusFilter.size > 0 && !statusFilter.has(task.status)) {
 				return false;
@@ -282,7 +289,7 @@ function TasksPage() {
 			}
 			return true;
 		});
-	}, [complexityFilter, effortFilter, riskFilter, statusFilter, tasks]);
+	}, [search.complexity, search.effort, search.risk, search.status, tasks]);
 
 	const selectedTask = search.taskId
 		? (tasks?.find((task) => task._id === search.taskId) ?? null)
