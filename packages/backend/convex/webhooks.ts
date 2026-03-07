@@ -280,25 +280,20 @@ export const githubWebhookHandler = httpAction(
 			return new Response("Missing repository URL", { status: 400 });
 		}
 
-		// Find the project with this repo URL
-		const project = await ctx.runQuery(internal.webhooks.getProjectByRepoUrl, {
-			repoUrl,
-		});
-		if (!project) {
-			return new Response("No matching project", { status: 404 });
+		const projectWithWebhook = await ctx.runQuery(
+			internal.webhooks.getProjectWebhookByRepoUrl,
+			{
+				repoUrl,
+			}
+		);
+		if (!projectWithWebhook) {
+			return new Response("Unauthorized", { status: 401 });
 		}
 
-		// Get the webhook record to verify signature
-		const webhook = await ctx.runQuery(internal.webhooks.getByProjectId, {
-			projectId: project._id,
-		});
-		if (!webhook) {
-			return new Response("No webhook configured", { status: 404 });
-		}
-
+		const { project, webhook } = projectWithWebhook;
 		const valid = await verifyGitHubSignature(body, signature, webhook.secret);
 		if (!valid) {
-			return new Response("Invalid signature", { status: 401 });
+			return new Response("Unauthorized", { status: 401 });
 		}
 
 		// Schedule sandbox sync
@@ -315,7 +310,7 @@ export const githubWebhookHandler = httpAction(
 
 // --- Helper queries for webhook handler ---
 
-export const getProjectByRepoUrl = internalQuery({
+export const getProjectWebhookByRepoUrl = internalQuery({
 	args: { repoUrl: v.string() },
 	handler: async (ctx, args) => {
 		const normalizedUrl = args.repoUrl.replace(GIT_SUFFIX_RE, "");
@@ -329,7 +324,20 @@ export const getProjectByRepoUrl = internalQuery({
 				.withIndex("by_repoUrl", (q) => q.eq("repoUrl", `${normalizedUrl}.git`))
 				.first());
 
-		return project ?? null;
+		if (!project) {
+			return null;
+		}
+
+		const webhook = await ctx.db
+			.query("webhooks")
+			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+			.first();
+
+		if (!webhook) {
+			return null;
+		}
+
+		return { project, webhook };
 	},
 });
 
