@@ -30,6 +30,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
 	Sheet,
 	SheetBody,
@@ -63,6 +64,7 @@ import {
 const searchSchema = z.object({
 	complexity: createEnumListSearchParamSchema(["low", "medium", "high"]),
 	effort: createEnumListSearchParamSchema(["low", "medium", "high"]),
+	q: z.string().optional(),
 	risk: createEnumListSearchParamSchema(["low", "medium", "high"]),
 	status: createEnumListSearchParamSchema(["ready", "in_progress", "done"]),
 	taskId: z.string().optional(),
@@ -74,6 +76,41 @@ export const Route = createFileRoute(
 	component: TasksPage,
 	validateSearch: searchSchema,
 });
+
+function matchesTaskFilters(
+	task: Doc<"tasks">,
+	filters: {
+		statusFilter: Set<TaskStatus>;
+		riskFilter: Set<TaskLevel>;
+		complexityFilter: Set<TaskLevel>;
+		effortFilter: Set<TaskLevel>;
+		searchQuery: string;
+	}
+) {
+	if (filters.statusFilter.size > 0 && !filters.statusFilter.has(task.status)) {
+		return false;
+	}
+	if (filters.riskFilter.size > 0 && !filters.riskFilter.has(task.risk)) {
+		return false;
+	}
+	if (
+		filters.complexityFilter.size > 0 &&
+		!filters.complexityFilter.has(task.complexity)
+	) {
+		return false;
+	}
+	if (filters.effortFilter.size > 0 && !filters.effortFilter.has(task.effort)) {
+		return false;
+	}
+	if (!filters.searchQuery) {
+		return true;
+	}
+
+	const searchableText = [task.title, task.brief, ...task.affectedAreas]
+		.join(" ")
+		.toLowerCase();
+	return searchableText.includes(filters.searchQuery);
+}
 
 function AssigneeDropdown({
 	assigneeId,
@@ -255,12 +292,14 @@ function TasksPage() {
 	const riskFilter = new Set<TaskLevel>(search.risk as TaskLevel[]);
 	const complexityFilter = new Set<TaskLevel>(search.complexity as TaskLevel[]);
 	const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
+	const searchQuery = search.q?.trim().toLowerCase() ?? "";
 
 	const activeFilterCount =
 		statusFilter.size +
 		riskFilter.size +
 		complexityFilter.size +
-		effortFilter.size;
+		effortFilter.size +
+		(searchQuery ? 1 : 0);
 
 	const filteredTasks = useMemo(() => {
 		if (!tasks) {
@@ -274,22 +313,23 @@ function TasksPage() {
 		);
 		const effortFilter = new Set<TaskLevel>(search.effort as TaskLevel[]);
 
-		return tasks.filter((task) => {
-			if (statusFilter.size > 0 && !statusFilter.has(task.status)) {
-				return false;
-			}
-			if (riskFilter.size > 0 && !riskFilter.has(task.risk)) {
-				return false;
-			}
-			if (complexityFilter.size > 0 && !complexityFilter.has(task.complexity)) {
-				return false;
-			}
-			if (effortFilter.size > 0 && !effortFilter.has(task.effort)) {
-				return false;
-			}
-			return true;
-		});
-	}, [search.complexity, search.effort, search.risk, search.status, tasks]);
+		return tasks.filter((task) =>
+			matchesTaskFilters(task, {
+				statusFilter,
+				riskFilter,
+				complexityFilter,
+				effortFilter,
+				searchQuery,
+			})
+		);
+	}, [
+		search.complexity,
+		search.effort,
+		search.risk,
+		search.status,
+		searchQuery,
+		tasks,
+	]);
 
 	const selectedTask = search.taskId
 		? (tasks?.find((task) => task._id === search.taskId) ?? null)
@@ -344,6 +384,20 @@ function TasksPage() {
 			) : (
 				<>
 					<div className="mb-4 flex items-center gap-2">
+						<Input
+							className="h-8 w-64"
+							onChange={(event) =>
+								navigate({
+									replace: true,
+									search: (prev) => ({
+										...prev,
+										q: event.target.value.trim() || undefined,
+									}),
+								})
+							}
+							placeholder="Search tasks"
+							value={search.q ?? ""}
+						/>
 						<Filter className="size-4 text-muted-foreground" />
 						<FilterDropdown
 							label="Status"
@@ -378,6 +432,7 @@ function TasksPage() {
 											...prev,
 											complexity: undefined,
 											effort: undefined,
+											q: undefined,
 											risk: undefined,
 											status: undefined,
 										}),
