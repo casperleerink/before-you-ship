@@ -1,5 +1,6 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMutation } from "convex/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -40,6 +41,14 @@ export default function TriageCaptureModal({
 			onSubmit: triageItemSchema,
 		},
 	});
+
+	useHotkey(
+		"Mod+Enter",
+		() => {
+			form.handleSubmit();
+		},
+		{ enabled: open }
+	);
 
 	useEffect(() => {
 		if (open) {

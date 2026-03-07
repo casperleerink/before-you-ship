@@ -19,6 +19,7 @@
     "@project-manager/env": "workspace:*",
     "@tailwindcss/vite": "^4.0.15",
     "@tanstack/react-form": "^1.28.0",
+    "@tanstack/react-hotkeys": "^0.3.3",
     "@tanstack/react-router": "^1.141.1",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",

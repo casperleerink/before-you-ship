@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
@@ -25,13 +26,27 @@ export const list = query({
 			return [];
 		}
 
-		return ctx.db
+		const items = await ctx.db
 			.query("triageItems")
 			.withIndex("by_projectId_createdAt", (q) =>
 				q.eq("projectId", args.projectId)
 			)
 			.order("desc")
 			.collect();
+
+		const userIds = [...new Set(items.map((item) => item.createdBy))];
+		const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+		const userMap = new Map<Id<"users">, { name: string }>();
+		for (const u of users) {
+			if (u) {
+				userMap.set(u._id, { name: u.name });
+			}
+		}
+
+		return items.map((item) => ({
+			...item,
+			createdByUser: userMap.get(item.createdBy) ?? { name: "Unknown" },
+		}));
 	},
 });
 

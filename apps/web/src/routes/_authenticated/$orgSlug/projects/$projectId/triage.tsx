@@ -2,11 +2,20 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Inbox, MessageSquare } from "lucide-react";
+import { ArrowRight, Inbox, MessageSquare } from "lucide-react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardAction,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { formatRelativeTime } from "@/lib/utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/triage"
@@ -60,37 +69,60 @@ function TriagePage() {
 					title="No triage items yet"
 				/>
 			) : (
-				<div className="space-y-2">
+				<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 					{items.map((item) => (
-						<button
-							className="flex w-full items-start justify-between gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-accent/50"
-							key={item._id}
-							onClick={() => {
-								if (item.status === "converted" && item.conversationId) {
-									navigateToConversation(item.conversationId);
-								} else if (item.status === "pending") {
-									handlePendingClick(item._id).catch(() => {
-										// Keep user on current screen if conversion fails
-									});
-								}
-							}}
-							type="button"
-						>
-							<div className="min-w-0 flex-1">
-								<p className="text-sm">{item.content}</p>
-								{item.status === "converted" && (
-									<p className="mt-1 flex items-center gap-1 text-muted-foreground text-xs">
-										<MessageSquare className="h-3 w-3" />
-										View conversation
-									</p>
+						<Card key={item._id} size="sm">
+							<CardHeader>
+								<CardTitle className="line-clamp-3 text-sm">
+									{item.content}
+								</CardTitle>
+								<CardAction>
+									<Badge
+										variant={
+											item.status === "pending" ? "outline" : "secondary"
+										}
+									>
+										{item.status}
+									</Badge>
+								</CardAction>
+							</CardHeader>
+							<CardContent className="space-y-3">
+								<p className="text-muted-foreground text-xs">
+									{item.createdByUser.name} &middot;{" "}
+									{formatRelativeTime(item.createdAt)}
+								</p>
+								{item.status === "pending" && (
+									<Button
+										className="w-full"
+										onClick={() => {
+											handlePendingClick(item._id).catch(() => {
+												// Keep user on current screen if conversion fails
+											});
+										}}
+										size="sm"
+										variant="subtle"
+									>
+										Start conversation
+										<ArrowRight className="h-3.5 w-3.5" />
+									</Button>
 								)}
-							</div>
-							<Badge
-								variant={item.status === "pending" ? "outline" : "secondary"}
-							>
-								{item.status}
-							</Badge>
-						</button>
+								{item.status === "converted" && item.conversationId && (
+									<Button
+										className="w-full"
+										onClick={() =>
+											navigateToConversation(
+												item.conversationId as Id<"conversations">
+											)
+										}
+										size="sm"
+										variant="subtle"
+									>
+										<MessageSquare className="h-3.5 w-3.5" />
+										View conversation
+									</Button>
+								)}
+							</CardContent>
+						</Card>
 					))}
 				</div>
 			)}

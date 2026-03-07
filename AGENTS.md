@@ -2,7 +2,7 @@
 
 ## Task Completion Requirements
 
-- Both `bun check` and `bun check-types` must pass before considering tasks completed.
+- Both `bun check` and `bun check-types` must pass before considering tasks completed. You can run `bun fix` to auto-fix linting and formatting issues
 - NEVER run `bun test`. Always use `bun run test` (runs Vitest).
 
 ## Project Snapshot
