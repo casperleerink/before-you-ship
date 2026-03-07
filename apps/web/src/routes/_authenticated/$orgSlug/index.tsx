@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import Loader from "@/components/loader";
+import { ProjectDot } from "@/components/project-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -194,7 +195,10 @@ function ProjectsTab({
 						>
 							<Card className="cursor-pointer transition-colors hover:bg-muted/50">
 								<CardHeader>
-									<CardTitle>{project.name}</CardTitle>
+									<div className="flex items-center gap-2">
+										<ProjectDot name={project.name} />
+										<CardTitle>{project.name}</CardTitle>
+									</div>
 									<CardDescription>
 										{project.repoUrl ? "Repo connected" : "No repo connected"}
 									</CardDescription>

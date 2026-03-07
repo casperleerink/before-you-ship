@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
+	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
@@ -159,24 +160,26 @@ function CreateOrgForm({
 			<CardHeader>
 				<CardTitle>Create New Organization</CardTitle>
 			</CardHeader>
-			<form className="space-y-4 px-6 pb-6" onSubmit={handleSubmit}>
-				<div className="space-y-2">
-					<Label htmlFor="org-name">Organization Name</Label>
-					<Input
-						id="org-name"
-						onChange={(e) => setName(e.target.value)}
-						placeholder="My Organization"
-						value={name}
-					/>
-				</div>
-				<Button
-					className="w-full"
-					disabled={!name.trim() || isSubmitting}
-					type="submit"
-				>
-					{isSubmitting ? "Creating..." : "Create Organization"}
-				</Button>
-			</form>
+			<CardContent>
+				<form className="space-y-4" onSubmit={handleSubmit}>
+					<div className="space-y-2">
+						<Label htmlFor="org-name">Organization Name</Label>
+						<Input
+							id="org-name"
+							onChange={(e) => setName(e.target.value)}
+							placeholder="My Organization"
+							value={name}
+						/>
+					</div>
+					<Button
+						className="w-full"
+						disabled={!name.trim() || isSubmitting}
+						type="submit"
+					>
+						{isSubmitting ? "Creating..." : "Create Organization"}
+					</Button>
+				</form>
+			</CardContent>
 		</Card>
 	);
 }

@@ -144,6 +144,6 @@
 		@apply font-sans bg-background text-foreground;
 	}
 	html {
-		@apply font-sans;
+		@apply font-sans overscroll-none;
 	}
 }

@@ -2,7 +2,7 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Check, ExternalLink, FileText, Loader2, X } from "lucide-react";
+import { Check, ExternalLink, ListChecks, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 import { LevelBadge } from "@/components/task-fields";
@@ -78,7 +78,7 @@ export function PlanCard({
 		<Card size="sm">
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
-					<FileText className="h-4 w-4" />
+					<ListChecks className="h-4 w-4" />
 					{isApproved ? "Approved Plan" : "Proposed Plan"}
 					{isApproved && <Badge variant="default">Approved</Badge>}
 					{isRejected && <Badge variant="destructive">Rejected</Badge>}
@@ -90,10 +90,10 @@ export function PlanCard({
 					</p>
 				)}
 			</CardHeader>
-			<CardContent className="space-y-3">
+			<CardContent className="divide-y">
 				{plan.tasks.map((task, index) => (
 					<div
-						className="space-y-2 rounded-md border p-3"
+						className="space-y-2 py-3 first:pt-0 last:pb-0"
 						key={`${task.title}-${index}`}
 					>
 						<div className="flex items-center justify-between gap-2">

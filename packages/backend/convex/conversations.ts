@@ -2,11 +2,68 @@ import { createThread } from "@convex-dev/agent";
 import { v } from "convex/values";
 
 import { components } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
 import { sendMessageToThread } from "./chat";
 import { getAppUser, getOrgMembership } from "./helpers";
 import { conversationStatusValidator } from "./schema";
+
+async function getAuthenticatedMember(
+	ctx: MutationCtx,
+	projectId: Id<"projects">
+) {
+	const [appUser, project] = await Promise.all([
+		getAppUser(ctx),
+		ctx.db.get(projectId),
+	]);
+	if (!appUser) {
+		throw new Error("Not authenticated");
+	}
+	if (!project) {
+		throw new Error("Project not found");
+	}
+
+	const membership = await getOrgMembership(
+		ctx,
+		project.organizationId,
+		appUser._id
+	);
+	if (!membership) {
+		throw new Error("Not a member of this organization");
+	}
+
+	return appUser;
+}
+
+async function insertConversation(
+	ctx: MutationCtx,
+	projectId: Id<"projects">,
+	userId: Id<"users">,
+	description?: string
+) {
+	const threadId = await createThread(ctx, components.agent, {});
+
+	const conversationId = await ctx.db.insert("conversations", {
+		projectId,
+		threadId,
+		status: "active",
+		createdBy: userId,
+		createdAt: Date.now(),
+	});
+
+	await logActivity(ctx, {
+		projectId,
+		userId,
+		action: "created",
+		entityType: "conversation",
+		entityId: conversationId,
+		description,
+	});
+
+	return { conversationId, threadId };
+}
 
 export const list = query({
 	args: {
@@ -76,44 +133,12 @@ export const create = mutation({
 		projectId: v.id("projects"),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, project] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.projectId),
-		]);
-		if (!appUser) {
-			throw new Error("Not authenticated");
-		}
-		if (!project) {
-			throw new Error("Project not found");
-		}
-
-		const membership = await getOrgMembership(
+		const appUser = await getAuthenticatedMember(ctx, args.projectId);
+		const { conversationId } = await insertConversation(
 			ctx,
-			project.organizationId,
+			args.projectId,
 			appUser._id
 		);
-		if (!membership) {
-			throw new Error("Not a member of this organization");
-		}
-
-		const threadId = await createThread(ctx, components.agent, {});
-
-		const conversationId = await ctx.db.insert("conversations", {
-			projectId: args.projectId,
-			threadId,
-			status: "active",
-			createdBy: appUser._id,
-			createdAt: Date.now(),
-		});
-
-		await logActivity(ctx, {
-			projectId: args.projectId,
-			userId: appUser._id,
-			action: "created",
-			entityType: "conversation",
-			entityId: conversationId,
-		});
-
 		return conversationId;
 	},
 });
@@ -151,15 +176,12 @@ export const createFromTriageItem = mutation({
 			throw new Error("Not a member of this organization");
 		}
 
-		const threadId = await createThread(ctx, components.agent, {});
-
-		const conversationId = await ctx.db.insert("conversations", {
-			projectId: triageItem.projectId,
-			threadId,
-			status: "active",
-			createdBy: appUser._id,
-			createdAt: Date.now(),
-		});
+		const { conversationId, threadId } = await insertConversation(
+			ctx,
+			triageItem.projectId,
+			appUser._id,
+			`from triage: ${triageItem.content.slice(0, 100)}`
+		);
 
 		await ctx.db.patch(triageItem._id, {
 			status: "converted",
@@ -168,15 +190,23 @@ export const createFromTriageItem = mutation({
 
 		await sendMessageToThread(ctx, threadId, triageItem.content);
 
-		await logActivity(ctx, {
-			projectId: triageItem.projectId,
-			userId: appUser._id,
-			action: "created",
-			entityType: "conversation",
-			entityId: conversationId,
-			description: `from triage: ${triageItem.content.slice(0, 100)}`,
-		});
+		return conversationId;
+	},
+});
 
+export const createWithMessage = mutation({
+	args: {
+		projectId: v.id("projects"),
+		prompt: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const appUser = await getAuthenticatedMember(ctx, args.projectId);
+		const { conversationId, threadId } = await insertConversation(
+			ctx,
+			args.projectId,
+			appUser._id
+		);
+		await sendMessageToThread(ctx, threadId, args.prompt);
 		return conversationId;
 	},
 });
