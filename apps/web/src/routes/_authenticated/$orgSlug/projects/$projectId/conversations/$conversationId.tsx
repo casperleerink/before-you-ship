@@ -3,7 +3,7 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, ArrowUp, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import Loader from "@/components/loader";
@@ -21,7 +21,6 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
 	CONVERSATION_STATUS_OPTIONS,
 	conversationStatusVariant,
@@ -126,6 +125,64 @@ export const Route = createFileRoute(
 	component: ConversationDetailPage,
 });
 
+function ChatComposer({
+	onSubmit,
+	isBusy,
+}: {
+	onSubmit: (text: string) => void;
+	isBusy: boolean;
+}) {
+	const [input, setInput] = useState("");
+	const canSubmit = !!input.trim() && !isBusy;
+
+	const handleSubmit = () => {
+		const text = input.trim();
+		if (!text || isBusy) {
+			return;
+		}
+		onSubmit(text);
+		setInput("");
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			handleSubmit();
+		}
+	};
+
+	return (
+		<div className="px-4 pb-4">
+			<div className="rounded-xl border border-border bg-card shadow-sm">
+				<textarea
+					className="max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-2 text-sm outline-none [field-sizing:content] placeholder:text-muted-foreground"
+					disabled={isBusy}
+					onChange={(e) => setInput(e.target.value)}
+					onKeyDown={handleKeyDown}
+					placeholder="Ask the AI to refine this into a plan..."
+					rows={2}
+					value={input}
+				/>
+				<div className="flex items-center justify-between px-3 pb-2">
+					<Button disabled size="icon-sm" variant="ghost">
+						<Plus className="h-4 w-4" />
+						<span className="sr-only">Attach</span>
+					</Button>
+					<Button
+						className="rounded-full"
+						disabled={!canSubmit}
+						onClick={handleSubmit}
+						size="icon-sm"
+					>
+						<ArrowUp className="h-4 w-4" />
+						<span className="sr-only">Send message</span>
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function ConversationDetailPage() {
 	const {
 		conversationId: conversationIdParam,
@@ -140,7 +197,6 @@ function ConversationDetailPage() {
 	const sendMessage = useMutation(api.chat.sendMessage);
 	const updateStatus = useMutation(api.conversations.updateStatus);
 
-	const [input, setInput] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -178,16 +234,12 @@ function ConversationDetailPage() {
 		);
 	}
 
-	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		const text = input.trim();
-		if (!text || isBusy || !threadId) {
+	const handleSubmit = async (text: string) => {
+		if (!threadId) {
 			return;
 		}
 
 		setIsLoading(true);
-		setInput("");
-
 		try {
 			await sendMessage({ prompt: text, threadId });
 		} finally {
@@ -288,21 +340,7 @@ function ConversationDetailPage() {
 				<div ref={messagesEndRef} />
 			</div>
 
-			<form className="border-t px-6 py-4" onSubmit={handleSubmit}>
-				<div className="flex gap-3">
-					<Input
-						autoComplete="off"
-						className="flex-1"
-						disabled={isBusy}
-						onChange={(event) => setInput(event.target.value)}
-						placeholder="Ask the AI to refine this into a plan..."
-						value={input}
-					/>
-					<Button disabled={!input.trim() || isBusy} type="submit">
-						<Send className="h-4 w-4" />
-					</Button>
-				</div>
-			</form>
+			<ChatComposer isBusy={isBusy} onSubmit={handleSubmit} />
 		</div>
 	);
 }

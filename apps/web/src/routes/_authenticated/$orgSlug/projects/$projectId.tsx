@@ -74,6 +74,11 @@ function ProjectLayout() {
 	const project = useQuery(api.projects.getById, { projectId });
 	const matchRoute = useMatchRoute();
 	const [triageModalOpen, setTriageModalOpen] = useState(false);
+	const isConversationDetail = !!matchRoute({
+		fuzzy: true,
+		params: { orgSlug, projectId: projectIdParam },
+		to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
+	});
 
 	const handleOpenTriageModal = useCallback(() => {
 		setTriageModalOpen(true);
@@ -162,14 +167,16 @@ function ProjectLayout() {
 			<main className="relative flex-1 overflow-auto">
 				<Outlet />
 
-				<Button
-					className="absolute right-6 bottom-6 h-12 w-12 rounded-full shadow-lg"
-					onClick={handleOpenTriageModal}
-					size="icon"
-				>
-					<Plus className="h-5 w-5" />
-					<span className="sr-only">Quick add triage item</span>
-				</Button>
+				{!isConversationDetail && (
+					<Button
+						className="absolute right-6 bottom-6 h-12 w-12 rounded-full shadow-lg"
+						onClick={handleOpenTriageModal}
+						size="icon"
+					>
+						<Plus className="h-5 w-5" />
+						<span className="sr-only">Quick add triage item</span>
+					</Button>
+				)}
 			</main>
 
 			<TriageCaptureModal
