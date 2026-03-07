@@ -9,6 +9,7 @@ Proposed improvements to the codebase, organized by type and priority.
 | 001 | [useMemo unstable deps in tasks page](./001-bug-usememo-unstable-deps.md) | High | Small |
 | 002 | [Full table scan in webhook handler](./002-bug-webhook-full-table-scan.md) | High | Small |
 | 003 | [Webhook signature verified too late](./003-security-webhook-signature-order.md) | High | Small |
+| 011 | [useMemo unstable deps in My Tasks page](./011-bug-usememo-unstable-deps-my-tasks.md) | High | Small |
 
 ## Refactors
 
