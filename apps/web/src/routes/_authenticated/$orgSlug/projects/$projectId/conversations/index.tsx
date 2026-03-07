@@ -1,30 +1,20 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
 
 import { useMemo } from "react";
 import { z } from "zod";
 
+import { ConversationStatusDropdown } from "@/components/conversation-status-dropdown";
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuLabel,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	CONVERSATION_STATUS_OPTIONS,
 	type ConversationStatus,
-	conversationStatusVariant,
 } from "@/lib/conversation-utils";
 
 type StatusFilter = ConversationStatus | "all";
@@ -60,7 +50,6 @@ function ConversationsPage() {
 	const { status } = Route.useSearch();
 	const projectId = projectIdParam as Id<"projects">;
 	const conversations = useQuery(api.conversations.list, { projectId });
-	const updateStatus = useMutation(api.conversations.updateStatus);
 	const navigate = useNavigate({ from: Route.fullPath });
 
 	const filteredConversations = useMemo(() => {
@@ -184,50 +173,10 @@ function ConversationsPage() {
 								onClick={(event) => event.stopPropagation()}
 								role="presentation"
 							>
-								<DropdownMenu>
-									<DropdownMenuTrigger
-										render={
-											<button className="cursor-pointer" type="button">
-												<Badge
-													variant={conversationStatusVariant(
-														conversation.status
-													)}
-												>
-													{conversation.status}
-												</Badge>
-											</button>
-										}
-									/>
-									<DropdownMenuContent>
-										<DropdownMenuGroup>
-											<DropdownMenuLabel>Status</DropdownMenuLabel>
-											<DropdownMenuRadioGroup
-												onValueChange={(value) => {
-													const option = CONVERSATION_STATUS_OPTIONS.find(
-														(entry) => entry.value === value
-													);
-													if (option && option.value !== conversation.status) {
-														updateStatus({
-															conversationId:
-																conversation._id as Id<"conversations">,
-															status: option.value,
-														});
-													}
-												}}
-												value={conversation.status}
-											>
-												{CONVERSATION_STATUS_OPTIONS.map((option) => (
-													<DropdownMenuRadioItem
-														key={option.value}
-														value={option.value}
-													>
-														{option.label}
-													</DropdownMenuRadioItem>
-												))}
-											</DropdownMenuRadioGroup>
-										</DropdownMenuGroup>
-									</DropdownMenuContent>
-								</DropdownMenu>
+								<ConversationStatusDropdown
+									conversationId={conversation._id}
+									status={conversation.status}
+								/>
 							</div>
 						</button>
 					))}
