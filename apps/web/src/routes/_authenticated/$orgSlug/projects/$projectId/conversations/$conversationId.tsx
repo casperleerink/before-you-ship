@@ -25,6 +25,7 @@ import {
 	CONVERSATION_STATUS_OPTIONS,
 	conversationStatusVariant,
 } from "@/lib/conversation-utils";
+import { cn } from "@/lib/utils";
 
 function MessagePartRenderer({
 	part,
@@ -53,7 +54,7 @@ function MessagePartRenderer({
 
 		return (
 			<div
-				className={isUser ? "rounded-lg bg-primary/10 p-3" : ""}
+				className={cn(isUser && "rounded-lg bg-primary/10 p-3")}
 				key={`text-${partIndex}`}
 			>
 				<MessageContent
@@ -310,7 +311,10 @@ function ConversationDetailPage() {
 						const isUser = message.role === "user";
 						return (
 							<div
-								className={`space-y-2 ${isUser ? "ml-auto flex w-[85%] justify-end" : ""}`}
+								className={cn(
+									"space-y-2",
+									isUser && "ml-auto flex w-[85%] justify-end"
+								)}
 								key={message.key}
 							>
 								{message.parts?.map((part, index) => (
