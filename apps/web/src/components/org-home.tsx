@@ -4,7 +4,6 @@ import { useMutation, useQuery } from "convex/react";
 import { Check, Mail } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +14,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import {
+	getOrganizationNameDefaults,
+	organizationNameSchema,
+} from "@/lib/form-schemas";
 
 interface OrgHomeProps {
 	onOpenOrg: (orgSlug: string) => void;
@@ -134,26 +136,23 @@ function CreateOrgForm({
 }: {
 	onOpenOrg: (orgSlug: string) => void;
 }) {
-	const [name, setName] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createOrg = useMutation(api.organizations.create);
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!name.trim()) {
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			const result = await createOrg({ name: name.trim() });
-			onOpenOrg(result.slug);
-		} catch {
-			toast.error("Failed to create organization");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
+	const form = useAppForm({
+		defaultValues: getOrganizationNameDefaults(),
+		onSubmit: async ({ value }) => {
+			try {
+				const result = await createOrg({ name: value.name.trim() });
+				form.reset();
+				onOpenOrg(result.slug);
+			} catch {
+				toast.error("Failed to create organization");
+			}
+		},
+		validators: {
+			onChange: organizationNameSchema,
+			onSubmit: organizationNameSchema,
+		},
+	});
 
 	return (
 		<Card>
@@ -161,24 +160,26 @@ function CreateOrgForm({
 				<CardTitle>Create New Organization</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<form className="space-y-4" onSubmit={handleSubmit}>
-					<div className="space-y-2">
-						<Label htmlFor="org-name">Organization Name</Label>
-						<Input
-							id="org-name"
-							onChange={(e) => setName(e.target.value)}
-							placeholder="My Organization"
-							value={name}
-						/>
-					</div>
-					<Button
-						className="w-full"
-						disabled={!name.trim() || isSubmitting}
-						type="submit"
-					>
-						{isSubmitting ? "Creating..." : "Create Organization"}
-					</Button>
-				</form>
+				<form.AppForm>
+					<form className="space-y-4" onSubmit={getAppFormOnSubmit(form)}>
+						<form.AppField name="name">
+							{(field) => (
+								<field.TextField
+									autoFocus
+									label="Organization Name"
+									placeholder="My Organization"
+								/>
+							)}
+						</form.AppField>
+						<form.SubmitButton
+							className="w-full"
+							submittingText="Creating..."
+							type="submit"
+						>
+							Create Organization
+						</form.SubmitButton>
+					</form>
+				</form.AppForm>
 			</CardContent>
 		</Card>
 	);

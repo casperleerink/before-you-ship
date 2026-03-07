@@ -50,6 +50,15 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import {
+	getInviteMemberDefaults,
+	getOrganizationNameDefaults,
+	getProjectFormDefaults,
+	inviteMemberSchema,
+	organizationNameSchema,
+	projectFormSchema,
+} from "@/lib/form-schemas";
 import { useOrg } from "@/lib/org-context";
 
 const searchSchema = z.object({
@@ -180,13 +189,41 @@ function SettingsTab({
 	const navigate = useNavigate({ from: Route.fullPath });
 	const updateOrganization = useMutation(api.organizations.update);
 	const deleteOrganization = useMutation(api.organizations.deleteOrganization);
-	const [name, setName] = useState(orgName);
-	const [isSaving, setIsSaving] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [deleteConfirmation, setDeleteConfirmation] = useState("");
 	const [isDeleting, setIsDeleting] = useState(false);
+	const form = useAppForm({
+		defaultValues: getOrganizationNameDefaults(orgName),
+		onSubmit: async ({ value }) => {
+			const nextName = value.name.trim();
+			try {
+				const updated = await updateOrganization({
+					name: nextName,
+					orgId,
+				});
+				form.reset({
+					name: updated.name,
+				});
+				toast.success("Organization updated");
+				navigate({
+					params: { orgSlug: updated.slug },
+					search: { tab: "settings" },
+					to: "/$orgSlug",
+				});
+			} catch (error) {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Failed to update organization"
+				);
+			}
+		},
+		validators: {
+			onChange: organizationNameSchema,
+			onSubmit: organizationNameSchema,
+		},
+	});
 
-	const slugPreview = createSlugPreview(name) || orgSlug;
 	const isDeleteConfirmed = deleteConfirmation.trim() === orgName;
 
 	return (
@@ -199,59 +236,32 @@ function SettingsTab({
 						throughout the app.
 					</CardDescription>
 				</CardHeader>
-				<form
-					className="space-y-4 px-6 pb-6"
-					onSubmit={async (event) => {
-						event.preventDefault();
-						const nextName = name.trim();
-						if (!nextName) {
-							return;
-						}
-
-						setIsSaving(true);
-						try {
-							const updated = await updateOrganization({
-								name: nextName,
-								orgId,
-							});
-							toast.success("Organization updated");
-							navigate({
-								params: { orgSlug: updated.slug },
-								search: { tab: "settings" },
-								to: "/$orgSlug",
-							});
-						} catch (error) {
-							toast.error(
-								error instanceof Error
-									? error.message
-									: "Failed to update organization"
-							);
-						} finally {
-							setIsSaving(false);
-						}
-					}}
-				>
-					<div className="space-y-2">
-						<Label htmlFor="org-name">Organization name</Label>
-						<Input
-							id="org-name"
-							onChange={(event) => setName(event.target.value)}
-							value={name}
-						/>
-					</div>
-					<div className="space-y-1">
-						<Label>Slug preview</Label>
-						<p className="rounded-md border bg-muted/40 px-3 py-2 font-mono text-sm">
-							/{slugPreview}
-						</p>
-						<p className="text-muted-foreground text-xs">
-							Renaming the organization updates its URL.
-						</p>
-					</div>
-					<Button disabled={!name.trim() || isSaving} type="submit">
-						{isSaving ? "Saving..." : "Save changes"}
-					</Button>
-				</form>
+				<form.AppForm>
+					<form
+						className="space-y-4 px-6 pb-6"
+						onSubmit={getAppFormOnSubmit(form)}
+					>
+						<form.AppField name="name">
+							{(field) => <field.TextField label="Organization name" />}
+						</form.AppField>
+						<form.Subscribe selector={(state) => state.values.name}>
+							{(name) => (
+								<div className="space-y-1">
+									<Label>Slug preview</Label>
+									<p className="rounded-md border bg-muted/40 px-3 py-2 font-mono text-sm">
+										/{createSlugPreview(name) || orgSlug}
+									</p>
+									<p className="text-muted-foreground text-xs">
+										Renaming the organization updates its URL.
+									</p>
+								</div>
+							)}
+						</form.Subscribe>
+						<form.SubmitButton submittingText="Saving..." type="submit">
+							Save changes
+						</form.SubmitButton>
+					</form>
+				</form.AppForm>
 			</Card>
 
 			<Card className="border-destructive/30">
@@ -600,35 +610,29 @@ function InviteActions({ inviteId }: { inviteId: Id<"organizationInvites"> }) {
 }
 
 function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
-	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<"admin" | "member">("member");
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const inviteMember = useMutation(api.organizations.inviteMember);
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!email.trim()) {
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			await inviteMember({
-				email: email.trim(),
-				orgId,
-				role,
-			});
-			setEmail("");
-			setRole("member");
-			toast.success("Invite sent");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to send invite"
-			);
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
+	const form = useAppForm({
+		defaultValues: getInviteMemberDefaults(),
+		onSubmit: async ({ value }) => {
+			try {
+				await inviteMember({
+					email: value.email.trim(),
+					orgId,
+					role: value.role,
+				});
+				form.reset();
+				toast.success("Invite sent");
+			} catch (error) {
+				toast.error(
+					error instanceof Error ? error.message : "Failed to send invite"
+				);
+			}
+		},
+		validators: {
+			onChange: inviteMemberSchema,
+			onSubmit: inviteMemberSchema,
+		},
+	});
 
 	return (
 		<Card>
@@ -638,33 +642,36 @@ function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
 					Send an invite to add someone to this organization.
 				</CardDescription>
 			</CardHeader>
-			<form className="space-y-4 px-6 pb-6" onSubmit={handleSubmit}>
-				<div className="space-y-2">
-					<Label htmlFor="invite-email">Email</Label>
-					<Input
-						id="invite-email"
-						onChange={(e) => setEmail(e.target.value)}
-						placeholder="person@company.com"
-						type="email"
-						value={email}
-					/>
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="invite-role">Role</Label>
-					<select
-						className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
-						id="invite-role"
-						onChange={(e) => setRole(e.target.value as "admin" | "member")}
-						value={role}
-					>
-						<option value="member">Member</option>
-						<option value="admin">Admin</option>
-					</select>
-				</div>
-				<Button disabled={!email.trim() || isSubmitting} type="submit">
-					{isSubmitting ? "Sending..." : "Send Invite"}
-				</Button>
-			</form>
+			<form.AppForm>
+				<form
+					className="space-y-4 px-6 pb-6"
+					onSubmit={getAppFormOnSubmit(form)}
+				>
+					<form.AppField name="email">
+						{(field) => (
+							<field.TextField
+								label="Email"
+								placeholder="person@company.com"
+								type="email"
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="role">
+						{(field) => (
+							<field.SelectField
+								label="Role"
+								options={[
+									{ label: "Member", value: "member" },
+									{ label: "Admin", value: "admin" },
+								]}
+							/>
+						)}
+					</form.AppField>
+					<form.SubmitButton submittingText="Sending..." type="submit">
+						Send Invite
+					</form.SubmitButton>
+				</form>
+			</form.AppForm>
 		</Card>
 	);
 }
@@ -680,38 +687,33 @@ function CreateProjectForm({
 	onCancel: () => void;
 	onCreated: () => void;
 }) {
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [repoUrl, setRepoUrl] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createProject = useMutation(api.projects.create);
 	const navigate = useNavigate();
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!name.trim()) {
-			return;
-		}
-
-		setIsSubmitting(true);
-		try {
-			const projectId = await createProject({
-				description: description.trim() || undefined,
-				name: name.trim(),
-				orgId,
-				repoUrl: repoUrl.trim() || undefined,
-			});
-			onCreated();
-			navigate({
-				params: { orgSlug, projectId },
-				to: "/$orgSlug/projects/$projectId",
-			});
-		} catch {
-			toast.error("Failed to create project");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
+	const form = useAppForm({
+		defaultValues: getProjectFormDefaults(),
+		onSubmit: async ({ value }) => {
+			try {
+				const projectId = await createProject({
+					description: value.description.trim() || undefined,
+					name: value.name.trim(),
+					orgId,
+					repoUrl: value.repoUrl.trim() || undefined,
+				});
+				form.reset();
+				onCreated();
+				navigate({
+					params: { orgSlug, projectId },
+					to: "/$orgSlug/projects/$projectId",
+				});
+			} catch {
+				toast.error("Failed to create project");
+			}
+		},
+		validators: {
+			onChange: projectFormSchema,
+			onSubmit: projectFormSchema,
+		},
+	});
 
 	return (
 		<Card>
@@ -721,43 +723,43 @@ function CreateProjectForm({
 					Add a project to organize conversations, tasks, and docs.
 				</CardDescription>
 			</CardHeader>
-			<form className="space-y-4 px-6 pb-6" onSubmit={handleSubmit}>
-				<div className="space-y-2">
-					<Label htmlFor="project-name">Project Name</Label>
-					<Input
-						id="project-name"
-						onChange={(e) => setName(e.target.value)}
-						placeholder="Mobile app"
-						value={name}
-					/>
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="project-description">Description</Label>
-					<Input
-						id="project-description"
-						onChange={(e) => setDescription(e.target.value)}
-						placeholder="Optional"
-						value={description}
-					/>
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="project-repo-url">Repository URL</Label>
-					<Input
-						id="project-repo-url"
-						onChange={(e) => setRepoUrl(e.target.value)}
-						placeholder="https://github.com/org/repo"
-						value={repoUrl}
-					/>
-				</div>
-				<div className="flex gap-2">
-					<Button disabled={!name.trim() || isSubmitting} type="submit">
-						{isSubmitting ? "Creating..." : "Create Project"}
-					</Button>
-					<Button onClick={onCancel} type="button" variant="outline">
-						Cancel
-					</Button>
-				</div>
-			</form>
+			<form.AppForm>
+				<form
+					className="space-y-4 px-6 pb-6"
+					onSubmit={getAppFormOnSubmit(form)}
+				>
+					<form.AppField name="name">
+						{(field) => (
+							<field.TextField
+								autoFocus
+								label="Project Name"
+								placeholder="Mobile app"
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="description">
+						{(field) => (
+							<field.TextField label="Description" placeholder="Optional" />
+						)}
+					</form.AppField>
+					<form.AppField name="repoUrl">
+						{(field) => (
+							<field.TextField
+								label="Repository URL"
+								placeholder="https://github.com/org/repo"
+							/>
+						)}
+					</form.AppField>
+					<div className="flex gap-2">
+						<form.SubmitButton submittingText="Creating..." type="submit">
+							Create Project
+						</form.SubmitButton>
+						<Button onClick={onCancel} type="button" variant="outline">
+							Cancel
+						</Button>
+					</div>
+				</form>
+			</form.AppForm>
 		</Card>
 	);
 }

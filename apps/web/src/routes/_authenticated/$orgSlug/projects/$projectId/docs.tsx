@@ -20,6 +20,8 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import { docCreateSchema, getDocCreateDefaults } from "@/lib/form-schemas";
 import { formatDate } from "@/lib/utils";
 
 const searchSchema = z.object({
@@ -155,7 +157,24 @@ function DocsPage() {
 	const docs = useQuery(api.docs.list, { projectId });
 	const createDoc = useMutation(api.docs.create);
 	const [showCreateForm, setShowCreateForm] = useState(false);
-	const [newTitle, setNewTitle] = useState("");
+	const form = useAppForm({
+		defaultValues: getDocCreateDefaults(),
+		onSubmit: async ({ value }) => {
+			const docId = await createDoc({ projectId, title: value.title.trim() });
+			form.reset();
+			setShowCreateForm(false);
+			navigate({
+				search: (prev) => ({
+					...prev,
+					docId,
+				}),
+			});
+		},
+		validators: {
+			onChange: docCreateSchema,
+			onSubmit: docCreateSchema,
+		},
+	});
 
 	const selectedDoc = search.docId
 		? (docs?.find((doc) => doc._id === search.docId) ?? null)
@@ -181,24 +200,6 @@ function DocsPage() {
 		);
 	}
 
-	const handleCreate = async (event: React.FormEvent) => {
-		event.preventDefault();
-		const trimmedTitle = newTitle.trim();
-		if (!trimmedTitle) {
-			return;
-		}
-
-		const docId = await createDoc({ projectId, title: trimmedTitle });
-		setNewTitle("");
-		setShowCreateForm(false);
-		navigate({
-			search: (prev) => ({
-				...prev,
-				docId,
-			}),
-		});
-	};
-
 	return (
 		<div className="p-6">
 			<div className="mb-4 flex items-center justify-between">
@@ -210,30 +211,38 @@ function DocsPage() {
 			</div>
 
 			{showCreateForm && (
-				<form className="mb-4 flex gap-2" onSubmit={handleCreate}>
-					<input
-						autoFocus
-						className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-						onChange={(event) => setNewTitle(event.target.value)}
-						placeholder="Document title..."
-						type="text"
-						value={newTitle}
-					/>
-					<Button disabled={!newTitle.trim()} size="sm" type="submit">
-						Create
-					</Button>
-					<Button
-						onClick={() => {
-							setShowCreateForm(false);
-							setNewTitle("");
-						}}
-						size="sm"
-						type="button"
-						variant="outline"
-					>
-						Cancel
-					</Button>
-				</form>
+				<form.AppForm>
+					<form className="mb-4 flex gap-2" onSubmit={getAppFormOnSubmit(form)}>
+						<div className="flex-1">
+							<form.AppField name="title">
+								{(field) => (
+									<field.TextField
+										autoFocus
+										errorClassName="space-y-0 pt-1"
+										label="Document title"
+										placeholder="Document title..."
+									/>
+								)}
+							</form.AppField>
+						</div>
+						<div className="flex items-start gap-2 pt-6">
+							<form.SubmitButton size="sm" type="submit">
+								Create
+							</form.SubmitButton>
+							<Button
+								onClick={() => {
+									setShowCreateForm(false);
+									form.reset();
+								}}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Cancel
+							</Button>
+						</div>
+					</form>
+				</form.AppForm>
 			)}
 
 			{docs.length === 0 && !showCreateForm ? (
