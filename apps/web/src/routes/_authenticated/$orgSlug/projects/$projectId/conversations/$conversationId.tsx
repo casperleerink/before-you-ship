@@ -92,14 +92,18 @@ function ConversationDetailPage() {
 	return (
 		<div className="flex h-full flex-col">
 			<header className="flex items-center gap-3 border-b px-6 py-3">
-				<Button asChild size="icon-sm" variant="ghost">
-					<Link
-						params={{ orgSlug, projectId }}
-						search={{ status: "active" }}
-						to="/$orgSlug/projects/$projectId/conversations"
-					>
-						<ArrowLeft className="h-4 w-4" />
-					</Link>
+				<Button
+					render={
+						<Link
+							params={{ orgSlug, projectId }}
+							search={{ status: "active" }}
+							to="/$orgSlug/projects/$projectId/conversations"
+						/>
+					}
+					size="icon-sm"
+					variant="ghost"
+				>
+					<ArrowLeft className="h-4 w-4" />
 				</Button>
 				<h1 className="min-w-0 flex-1 truncate font-semibold text-lg">
 					{conversation.title ?? "Untitled conversation"}

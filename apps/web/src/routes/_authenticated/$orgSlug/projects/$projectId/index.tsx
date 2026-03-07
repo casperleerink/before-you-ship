@@ -89,6 +89,7 @@ function ProjectDashboard() {
 
 				<Link
 					params={{ orgSlug, projectId: projectIdParam }}
+					search={{ complexity: [], effort: [], risk: [], status: [] }}
 					to="/$orgSlug/projects/$projectId/tasks"
 				>
 					<Card size="sm">
@@ -113,6 +114,7 @@ function ProjectDashboard() {
 
 				<Link
 					params={{ orgSlug, projectId: projectIdParam }}
+					search={{ status: "active" }}
 					to="/$orgSlug/projects/$projectId/conversations"
 				>
 					<Card size="sm">
