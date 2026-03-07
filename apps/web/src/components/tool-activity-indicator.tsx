@@ -1,4 +1,4 @@
-import { Check, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const TOOL_LABELS: Record<string, { active: string; done: string }> = {
 	searchTasks: {
@@ -49,11 +49,7 @@ export function ToolActivityIndicator({
 
 	return (
 		<div className="flex items-center gap-2 py-1 text-muted-foreground text-sm">
-			{isActive ? (
-				<Loader2 className="h-3.5 w-3.5 animate-spin" />
-			) : (
-				<Check className="h-3.5 w-3.5" />
-			)}
+			{isActive && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
 			<span>{isActive ? label.active : label.done}</span>
 		</div>
 	);

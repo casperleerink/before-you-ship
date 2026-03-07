@@ -53,9 +53,7 @@ function MessagePartRenderer({
 
 		return (
 			<div
-				className={`mb-2 rounded-lg p-3 ${
-					isUser ? "ml-8 bg-primary/10" : "mr-8 bg-secondary/20"
-				}`}
+				className={isUser ? "rounded-lg bg-primary/10 p-3" : ""}
 				key={`text-${partIndex}`}
 			>
 				<MessageContent
@@ -77,7 +75,7 @@ function MessagePartRenderer({
 		};
 
 		return (
-			<div className="mr-8 mb-2" key={toolPart.toolCallId}>
+			<div key={toolPart.toolCallId}>
 				<ToolActivityIndicator
 					state={toolPart.state}
 					toolName={type.replace("tool-", "")}
@@ -97,7 +95,7 @@ function MessagePartRenderer({
 		};
 
 		return (
-			<div className="mt-2 mr-8 mb-2" key={toolPart.toolCallId}>
+			<div className="mt-1" key={toolPart.toolCallId}>
 				<PlanCard
 					onRequestChanges={() => {
 						if (threadId) {
@@ -302,7 +300,7 @@ function ConversationDetailPage() {
 				</DropdownMenu>
 			</header>
 
-			<div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+			<div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
 				{!messages || messages.length === 0 ? (
 					<div className="mt-8 text-center text-muted-foreground">
 						Start the conversation by sending a message.
@@ -311,12 +309,10 @@ function ConversationDetailPage() {
 					messages.map((message: UIMessage) => {
 						const isUser = message.role === "user";
 						return (
-							<div key={message.key}>
-								<p
-									className={`mb-1 font-semibold text-sm ${isUser ? "ml-8" : "mr-8"}`}
-								>
-									{isUser ? "You" : "AI Assistant"}
-								</p>
+							<div
+								className={`space-y-2 ${isUser ? "ml-auto flex w-[85%] justify-end" : ""}`}
+								key={message.key}
+							>
 								{message.parts?.map((part, index) => (
 									<MessagePartRenderer
 										isUser={isUser}
