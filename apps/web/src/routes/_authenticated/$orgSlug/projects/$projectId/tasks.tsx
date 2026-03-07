@@ -359,12 +359,12 @@ function TasksPage() {
 		key: "complexity" | "effort" | "risk" | "status",
 		value: string
 	) => {
+		const nextValues = toggleSearchListValue(search[key], value);
+
 		navigate({
 			search: (prev) => ({
 				...prev,
-				[key]: serializeSearchParamList(
-					toggleSearchListValue(prev[key], value)
-				),
+				[key]: serializeSearchParamList(nextValues),
 			}),
 		});
 	};
