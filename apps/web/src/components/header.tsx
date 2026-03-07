@@ -1,7 +1,6 @@
 import { Link, useMatch } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated } from "convex/react";
 
-import { ModeToggle } from "./mode-toggle";
 import UserMenu from "./user-menu";
 
 export default function Header() {
@@ -25,12 +24,9 @@ export default function Header() {
 						<Link to="/sign-in">Sign In</Link>
 					</Unauthenticated>
 				</nav>
-				<div className="flex items-center gap-2">
-					<Authenticated>
-						<UserMenu />
-					</Authenticated>
-					<ModeToggle />
-				</div>
+				<Authenticated>
+					<UserMenu compact />
+				</Authenticated>
 			</div>
 		</header>
 	);
