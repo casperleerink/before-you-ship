@@ -7,7 +7,11 @@ import { Check, ExternalLink, ListChecks, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 import { AssigneeDropdown } from "@/components/assignee-dropdown";
-import { LevelBadge } from "@/components/task-fields";
+import {
+	LevelBadge,
+	UrgencyBadge,
+	UrgencyDropdown,
+} from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +22,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { useAppMutation } from "@/lib/convex-mutation";
+import { buildProjectTasksSearch } from "@/lib/task-utils";
 
 interface PlanCardProps {
 	onRequestChanges?: () => void;
@@ -42,6 +47,12 @@ export function PlanCard({
 	const { mutateAsync: rejectPlan } = useAppMutation(api.plans.reject);
 	const { mutateAsync: updateTaskAssignee } = useAppMutation(
 		api.plans.updateTaskAssignee
+	);
+	const { mutateAsync: updateTaskUrgency } = useAppMutation(
+		api.plans.updateTaskUrgency
+	);
+	const { mutateAsync: removeTaskBlocker } = useAppMutation(
+		api.plans.removeTaskBlocker
 	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -85,6 +96,20 @@ export function PlanCard({
 		}
 	};
 
+	const getBlockerLabel = (
+		blockerRef: (typeof plan.tasks)[number]["blockedBy"][number]
+	) => {
+		if (blockerRef.kind === "plan_task") {
+			return (
+				plan.tasks.find(
+					(candidate) => candidate.clientId === blockerRef.clientId
+				)?.title ?? "Unknown planned task"
+			);
+		}
+
+		return plan.existingTaskTitles[String(blockerRef.taskId)] ?? "Unknown task";
+	};
+
 	return (
 		<Card size="sm">
 			<CardHeader>
@@ -113,12 +138,7 @@ export function PlanCard({
 								<Link
 									className="inline-flex shrink-0 items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
 									params={{ orgSlug, projectId }}
-									search={{
-										complexity: [],
-										effort: [],
-										risk: [],
-										status: [],
-									}}
+									search={buildProjectTasksSearch(plan.createdTaskIds[index])}
 									to="/$orgSlug/projects/$projectId/tasks"
 								>
 									<ExternalLink className="h-3 w-3" />
@@ -126,6 +146,18 @@ export function PlanCard({
 								</Link>
 							)}
 						</div>
+						{isLocked ? (
+							<div className="text-xs">
+								<UrgencyBadge urgency={task.urgency} />
+							</div>
+						) : (
+							<UrgencyDropdown
+								onUrgencyChange={(urgency) =>
+									updateTaskUrgency({ planId, taskIndex: index, urgency })
+								}
+								urgency={task.urgency}
+							/>
+						)}
 						{isLocked ? (
 							<div className="text-xs">
 								<Badge variant={task.assigneeId ? "outline" : "secondary"}>
@@ -156,6 +188,44 @@ export function PlanCard({
 									})
 								}
 							/>
+						)}
+						{task.blockedBy.length > 0 && (
+							<div className="flex flex-col gap-2">
+								<div className="text-muted-foreground text-xs uppercase tracking-wide">
+									Blocked By
+								</div>
+								<div className="flex flex-wrap gap-1.5">
+									{task.blockedBy.map((blockerRef) => (
+										<Badge
+											className="gap-1"
+											key={
+												blockerRef.kind === "plan_task"
+													? `plan-${blockerRef.clientId}`
+													: `task-${blockerRef.taskId}`
+											}
+											variant="outline"
+										>
+											<span>{getBlockerLabel(blockerRef)}</span>
+											{!isLocked && (
+												<button
+													className="cursor-pointer rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+													onClick={() =>
+														removeTaskBlocker({
+															blockerRef,
+															planId,
+															taskIndex: index,
+														})
+													}
+													type="button"
+												>
+													<X className="size-3" />
+													<span className="sr-only">Remove blocker</span>
+												</button>
+											)}
+										</Badge>
+									))}
+								</div>
+							</div>
 						)}
 						<p className="line-clamp-2 text-muted-foreground text-xs">
 							{task.brief}

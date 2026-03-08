@@ -123,13 +123,7 @@ function OrgDashboardPage() {
 				<div className="flex items-center gap-2">
 					<Link
 						params={{ orgSlug }}
-						search={{
-							complexity: [],
-							effort: [],
-							project: [],
-							risk: [],
-							status: [],
-						}}
+						search={{ project: [] }}
 						to="/$orgSlug/my-tasks"
 					>
 						<Button variant="outline">

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import {
 	internalMutation,
@@ -14,39 +14,152 @@ import {
 	isProjectAssignmentCandidate,
 	requireProjectMember,
 } from "./helpers";
-import { taskLevelValidator } from "./schema";
+import {
+	planTaskDependencyRefValidator,
+	planTaskValidator,
+	taskUrgencyValidator,
+} from "./schema";
 import { insertTask } from "./tasks";
 import { removeTriageForConversation } from "./triageItems";
 
-const proposedTaskValidator = v.object({
-	title: v.string(),
-	brief: v.string(),
-	affectedAreas: v.array(v.string()),
-	risk: taskLevelValidator,
-	complexity: taskLevelValidator,
-	effort: taskLevelValidator,
-	assigneeId: v.optional(v.id("users")),
-});
+type PlanTask = Doc<"plans">["tasks"][number];
+type PlanBlockerRef = PlanTask["blockedBy"][number];
+
+function isSameBlockerRef(
+	left:
+		| { kind: "plan_task"; clientId: string }
+		| { kind: "existing_task"; taskId: Id<"tasks"> },
+	right:
+		| { kind: "plan_task"; clientId: string }
+		| { kind: "existing_task"; taskId: Id<"tasks"> }
+) {
+	if (left.kind === "plan_task" && right.kind === "plan_task") {
+		return left.clientId === right.clientId;
+	}
+
+	if (left.kind === "existing_task" && right.kind === "existing_task") {
+		return left.taskId === right.taskId;
+	}
+
+	return false;
+}
+
+async function validatePlanTasks(
+	ctx: MutationCtx,
+	projectId: Id<"projects">,
+	tasks: PlanTask[]
+) {
+	await validatePlanAssignees(ctx, projectId, tasks);
+	const existingTaskMap = await getExistingBlockerTaskMap(ctx, tasks);
+	validatePlanBlockerRefs(projectId, tasks, existingTaskMap);
+}
+
+async function validatePlanAssignees(
+	ctx: MutationCtx,
+	projectId: Id<"projects">,
+	tasks: PlanTask[]
+) {
+	for (const task of tasks) {
+		if (
+			task.assigneeId &&
+			!(await isProjectAssignmentCandidate(ctx, projectId, task.assigneeId))
+		) {
+			throw new Error("Plan contains an invalid assignee");
+		}
+	}
+}
+
+async function getExistingBlockerTaskMap(ctx: MutationCtx, tasks: PlanTask[]) {
+	const existingTaskIds = [
+		...new Set(
+			tasks.flatMap((task) =>
+				task.blockedBy.flatMap((blockerRef) =>
+					blockerRef.kind === "existing_task" ? [blockerRef.taskId] : []
+				)
+			)
+		),
+	];
+	const existingTasks = await Promise.all(
+		existingTaskIds.map((taskId) => ctx.db.get(taskId))
+	);
+
+	return new Map(
+		existingTasks
+			.filter((task): task is NonNullable<typeof task> => task !== null)
+			.map((task) => [task._id, task])
+	);
+}
+
+function validatePlanBlockerRefs(
+	projectId: Id<"projects">,
+	tasks: PlanTask[],
+	existingTaskMap: Map<Id<"tasks">, Doc<"tasks">>
+) {
+	const clientIds = new Set<string>();
+	const planTaskMap = new Map<string, PlanTask>();
+	for (const task of tasks) {
+		if (clientIds.has(task.clientId)) {
+			throw new Error("Plan contains duplicate task client IDs");
+		}
+		clientIds.add(task.clientId);
+		planTaskMap.set(task.clientId, task);
+	}
+
+	for (const task of tasks) {
+		for (const blockerRef of task.blockedBy) {
+			validatePlanBlockerRef(
+				projectId,
+				task,
+				blockerRef,
+				clientIds,
+				planTaskMap,
+				existingTaskMap
+			);
+		}
+	}
+}
+
+function validatePlanBlockerRef(
+	projectId: Id<"projects">,
+	task: PlanTask,
+	blockerRef: PlanBlockerRef,
+	clientIds: Set<string>,
+	planTaskMap: Map<string, PlanTask>,
+	existingTaskMap: Map<Id<"tasks">, Doc<"tasks">>
+) {
+	if (blockerRef.kind === "plan_task") {
+		if (
+			blockerRef.clientId === task.clientId ||
+			!clientIds.has(blockerRef.clientId)
+		) {
+			throw new Error("Plan contains an invalid internal blocker reference");
+		}
+		const blockerTask = planTaskMap.get(blockerRef.clientId);
+		if (
+			blockerTask?.blockedBy.some(
+				(candidate) =>
+					candidate.kind === "plan_task" && candidate.clientId === task.clientId
+			)
+		) {
+			throw new Error("Plan contains a direct cyclic blocker relationship");
+		}
+		return;
+	}
+
+	const existingTask = existingTaskMap.get(blockerRef.taskId);
+	if (!existingTask || existingTask.projectId !== projectId) {
+		throw new Error("Plan contains an invalid existing blocker reference");
+	}
+}
 
 export const create = internalMutation({
 	args: {
 		conversationId: v.id("conversations"),
 		projectId: v.id("projects"),
-		tasks: v.array(proposedTaskValidator),
+		tasks: v.array(planTaskValidator),
 	},
 	handler: async (ctx, args) => {
-		for (const task of args.tasks) {
-			if (
-				task.assigneeId &&
-				!(await isProjectAssignmentCandidate(
-					ctx,
-					args.projectId,
-					task.assigneeId
-				))
-			) {
-				throw new Error("Plan contains an invalid assignee");
-			}
-		}
+		await validatePlanTasks(ctx, args.projectId, args.tasks);
 
 		const planId = await ctx.db.insert("plans", {
 			conversationId: args.conversationId,
@@ -86,7 +199,27 @@ export const getById = query({
 			return null;
 		}
 
-		return plan;
+		const existingTaskIds = [
+			...new Set(
+				plan.tasks.flatMap((task) =>
+					task.blockedBy.flatMap((blockerRef) =>
+						blockerRef.kind === "existing_task" ? [blockerRef.taskId] : []
+					)
+				)
+			),
+		];
+		const existingTasks = await Promise.all(
+			existingTaskIds.map((taskId) => ctx.db.get(taskId))
+		);
+
+		return {
+			...plan,
+			existingTaskTitles: Object.fromEntries(
+				existingTasks
+					.filter((task): task is NonNullable<typeof task> => task !== null)
+					.map((task) => [task._id, task.title])
+			),
+		};
 	},
 });
 
@@ -148,14 +281,63 @@ export const updateTaskAssignee = mutation({
 	},
 });
 
+export const updateTaskUrgency = mutation({
+	args: {
+		planId: v.id("plans"),
+		taskIndex: v.number(),
+		urgency: taskUrgencyValidator,
+	},
+	handler: async (ctx, args) => {
+		const { plan } = await getProposedPlanWithAuth(ctx, args.planId);
+		if (args.taskIndex < 0 || args.taskIndex >= plan.tasks.length) {
+			throw new Error("Task not found in plan");
+		}
+
+		const nextTasks = plan.tasks.map((task, index) =>
+			index === args.taskIndex ? { ...task, urgency: args.urgency } : task
+		);
+
+		await ctx.db.patch(args.planId, { tasks: nextTasks });
+	},
+});
+
+export const removeTaskBlocker = mutation({
+	args: {
+		planId: v.id("plans"),
+		taskIndex: v.number(),
+		blockerRef: planTaskDependencyRefValidator,
+	},
+	handler: async (ctx, args) => {
+		const { plan } = await getProposedPlanWithAuth(ctx, args.planId);
+		if (args.taskIndex < 0 || args.taskIndex >= plan.tasks.length) {
+			throw new Error("Task not found in plan");
+		}
+
+		const nextTasks = plan.tasks.map((task, index) =>
+			index === args.taskIndex
+				? {
+						...task,
+						blockedBy: task.blockedBy.filter(
+							(blockerRef) => !isSameBlockerRef(blockerRef, args.blockerRef)
+						),
+					}
+				: task
+		);
+
+		await ctx.db.patch(args.planId, { tasks: nextTasks });
+	},
+});
+
 export const approve = mutation({
 	args: {
 		planId: v.id("plans"),
 	},
 	handler: async (ctx, args) => {
 		const { plan, appUser } = await getProposedPlanWithAuth(ctx, args.planId);
+		await validatePlanTasks(ctx, plan.projectId, plan.tasks);
 
 		const taskIds: Id<"tasks">[] = [];
+		const createdTasks: Array<{ clientId: string; taskId: Id<"tasks"> }> = [];
 		const activityEntries: Array<{
 			projectId: Id<"projects">;
 			userId: Id<"users">;
@@ -179,11 +361,22 @@ export const approve = mutation({
 			}
 
 			const taskId = await insertTask(ctx, {
-				projectId: plan.projectId,
+				affectedAreas: task.affectedAreas,
+				assigneeId: task.assigneeId,
+				brief: task.brief,
+				complexity: task.complexity,
 				conversationId: plan.conversationId,
-				...task,
+				effort: task.effort,
+				projectId: plan.projectId,
+				risk: task.risk,
+				title: task.title,
+				urgency: task.urgency,
 			});
 			taskIds.push(taskId);
+			createdTasks.push({
+				clientId: task.clientId,
+				taskId,
+			});
 			activityEntries.push({
 				projectId: plan.projectId,
 				userId: appUser._id,
@@ -193,6 +386,12 @@ export const approve = mutation({
 				description: task.title,
 			});
 		}
+
+		await ctx.runMutation(internal.taskDependencies.createForApprovedPlan, {
+			createdTasks,
+			projectId: plan.projectId,
+			proposedTasks: plan.tasks,
+		});
 
 		await ctx.db.patch(args.planId, {
 			status: "approved",

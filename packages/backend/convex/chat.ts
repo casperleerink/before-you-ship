@@ -138,7 +138,7 @@ function buildSystemPrompt(
 			"",
 			"### Write Tools (unlocked — plan approved)",
 			"- **createTask**: Create a new task in the project. Use for additional tasks that come up during post-approval discussion.",
-			"- **updateTask**: Update an existing task's fields (status, brief, affected areas, risk, complexity, effort). Use to refine tasks based on feedback."
+			"- **updateTask**: Update an existing task's fields (status, brief, affected areas, risk, complexity, effort, urgency). Use to refine tasks based on feedback."
 		);
 	}
 
@@ -162,7 +162,10 @@ function buildSystemPrompt(
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
 		"- Access role in the app is not the same thing as someone's company role or specialty.",
 		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
-		"- Each proposed task should include a title, a brief written in plain language, complexity/risk/effort assessment, affected areas, and an optional `assigneeId`.",
+		"- Each proposed task should include a stable `clientId`, title, brief, urgency, complexity/risk/effort assessment, affected areas, optional hard blocker references in `blockedBy`, and an optional `assigneeId`.",
+		"- Use `blockedBy` only for hard blockers that must be done first.",
+		"- Prefer `plan_task` blocker references for dependencies within the same plan.",
+		"- Use `existing_task` blocker references only for clear same-project dependencies, ideally after checking with `searchTasks`.",
 		"- Before setting `assigneeId`, call `listAssignmentCandidates` and only choose from those candidates.",
 		"- Leave `assigneeId` empty when there is no strong match.",
 		"- Be honest about feasibility and complexity. If something is difficult or risky, say so clearly.",
@@ -297,7 +300,7 @@ export const getConversationWithProject = internalQuery({
 					const assignmentLabel = assigneeName
 						? `Assigned to ${assigneeName}`
 						: "Unassigned";
-					return `${index + 1}. ${task.title} (${assignmentLabel})`;
+					return `${index + 1}. ${task.title} (${task.urgency} urgency, ${assignmentLabel})`;
 				})
 				.join("\n");
 		}

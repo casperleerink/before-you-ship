@@ -31,6 +31,12 @@ export const taskLevelValidator = v.union(
 	v.literal("high")
 );
 
+export const taskUrgencyValidator = v.union(
+	v.literal("low"),
+	v.literal("medium"),
+	v.literal("high")
+);
+
 export const assignmentAvailabilityStatusValidator = v.union(
 	v.literal("available"),
 	v.literal("limited"),
@@ -42,6 +48,13 @@ export const planStatusValidator = v.union(
 	v.literal("approved"),
 	v.literal("rejected")
 );
+
+export const taskDependencyStateValidator = v.union(
+	v.literal("active"),
+	v.literal("dismissed")
+);
+
+export const taskDependencySourceValidator = v.literal("ai");
 
 export const inviteStatusValidator = v.union(
 	v.literal("pending"),
@@ -77,6 +90,30 @@ export const projectMemberAssignmentValidator = v.object({
 	ownedAreas: v.array(v.string()),
 	ownedSystems: v.array(v.string()),
 	notesForAI: v.optional(v.string()),
+});
+
+export const planTaskDependencyRefValidator = v.union(
+	v.object({
+		kind: v.literal("plan_task"),
+		clientId: v.string(),
+	}),
+	v.object({
+		kind: v.literal("existing_task"),
+		taskId: v.id("tasks"),
+	})
+);
+
+export const planTaskValidator = v.object({
+	clientId: v.string(),
+	title: v.string(),
+	brief: v.string(),
+	affectedAreas: v.array(v.string()),
+	risk: taskLevelValidator,
+	complexity: taskLevelValidator,
+	effort: taskLevelValidator,
+	urgency: taskUrgencyValidator,
+	blockedBy: v.array(planTaskDependencyRefValidator),
+	assigneeId: v.optional(v.id("users")),
 });
 
 export default defineSchema({
@@ -164,6 +201,7 @@ export default defineSchema({
 		risk: taskLevelValidator,
 		complexity: taskLevelValidator,
 		effort: taskLevelValidator,
+		urgency: taskUrgencyValidator,
 		status: taskStatusValidator,
 		assigneeId: v.optional(v.id("users")),
 		embedding: v.optional(v.array(v.float64())),
@@ -177,6 +215,21 @@ export default defineSchema({
 			dimensions: 3072,
 			filterFields: ["projectId"],
 		}),
+
+	taskDependencies: defineTable({
+		projectId: v.id("projects"),
+		blockedTaskId: v.id("tasks"),
+		blockerTaskId: v.id("tasks"),
+		source: taskDependencySourceValidator,
+		state: taskDependencyStateValidator,
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_blockedTaskId", ["blockedTaskId"])
+		.index("by_blockerTaskId", ["blockerTaskId"])
+		.index("by_projectId", ["projectId"])
+		.index("by_projectId_blockedTaskId", ["projectId", "blockedTaskId"])
+		.index("by_projectId_blockerTaskId", ["projectId", "blockerTaskId"]),
 
 	triageItems: defineTable({
 		projectId: v.id("projects"),
@@ -194,17 +247,7 @@ export default defineSchema({
 		conversationId: v.id("conversations"),
 		projectId: v.id("projects"),
 		status: planStatusValidator,
-		tasks: v.array(
-			v.object({
-				title: v.string(),
-				brief: v.string(),
-				affectedAreas: v.array(v.string()),
-				risk: taskLevelValidator,
-				complexity: taskLevelValidator,
-				effort: taskLevelValidator,
-				assigneeId: v.optional(v.id("users")),
-			})
-		),
+		tasks: v.array(planTaskValidator),
 		createdTaskIds: v.optional(v.array(v.id("tasks"))),
 		createdAt: v.number(),
 	}).index("by_conversationId", ["conversationId"]),
