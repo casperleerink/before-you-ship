@@ -7,7 +7,12 @@ import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
 import { sendMessageToThread } from "./chat";
-import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
+import {
+	getAppUser,
+	getOrgMembership,
+	requireProjectMember,
+	resolveUserNames,
+} from "./helpers";
 import { conversationStatusValidator } from "./schema";
 
 async function insertConversation(
@@ -60,13 +65,23 @@ export const list = query({
 			return [];
 		}
 
-		return ctx.db
+		const items = await ctx.db
 			.query("conversations")
 			.withIndex("by_projectId_createdAt", (q) =>
 				q.eq("projectId", args.projectId)
 			)
 			.order("desc")
 			.collect();
+
+		const userMap = await resolveUserNames(
+			ctx,
+			items.map((item) => item.createdBy)
+		);
+
+		return items.map((item) => ({
+			...item,
+			createdByUser: userMap.get(item.createdBy) ?? { name: "Unknown" },
+		}));
 	},
 });
 

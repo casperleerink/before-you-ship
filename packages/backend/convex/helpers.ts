@@ -71,3 +71,15 @@ export async function requireProjectMember(
 
 	return { appUser, membership, project };
 }
+
+export async function resolveUserNames(ctx: QueryCtx, userIds: Id<"users">[]) {
+	const uniqueIds = [...new Set(userIds)];
+	const users = await Promise.all(uniqueIds.map((id) => ctx.db.get(id)));
+	const userMap = new Map<Id<"users">, { name: string }>();
+	for (const u of users) {
+		if (u) {
+			userMap.set(u._id, { name: u.name });
+		}
+	}
+	return userMap;
+}

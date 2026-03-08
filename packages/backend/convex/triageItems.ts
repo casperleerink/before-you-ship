@@ -1,8 +1,12 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
-import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
+import {
+	getAppUser,
+	getOrgMembership,
+	requireProjectMember,
+	resolveUserNames,
+} from "./helpers";
 
 export const list = query({
 	args: {
@@ -34,14 +38,10 @@ export const list = query({
 			.order("desc")
 			.collect();
 
-		const userIds = [...new Set(items.map((item) => item.createdBy))];
-		const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
-		const userMap = new Map<Id<"users">, { name: string }>();
-		for (const u of users) {
-			if (u) {
-				userMap.set(u._id, { name: u.name });
-			}
-		}
+		const userMap = await resolveUserNames(
+			ctx,
+			items.map((item) => item.createdBy)
+		);
 
 		return items.map((item) => ({
 			...item,
