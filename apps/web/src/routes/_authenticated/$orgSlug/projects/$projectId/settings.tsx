@@ -23,6 +23,8 @@ import { getAppFormOnSubmit, useAppForm, withForm } from "@/lib/app-form";
 import { useAppActionMutation, useAppMutation } from "@/lib/convex-mutation";
 import { projectByIdQuery } from "@/lib/convex-query-options";
 import {
+	azureDevOpsConnectionSchema,
+	getAzureDevOpsConnectionDefaults,
 	getProjectSettingsDefaults,
 	getSelfHostedRepoDefaults,
 	projectSettingsSchema,
@@ -112,6 +114,48 @@ const SelfHostedRepoFields = withForm({
 					type="submit"
 				>
 					Connect Repository
+				</form.SubmitButton>
+			</>
+		);
+	},
+});
+
+const AzureDevOpsConnectionFields = withForm({
+	defaultValues: getAzureDevOpsConnectionDefaults(),
+	validators: {
+		onChange: azureDevOpsConnectionSchema,
+		onSubmit: azureDevOpsConnectionSchema,
+	},
+	render({ form }) {
+		return (
+			<>
+				<form.AppField name="organizationUrl">
+					{(field) => (
+						<field.TextField
+							errorClassName="space-y-0"
+							label="Organization URL"
+							placeholder="https://dev.azure.com/acme"
+						/>
+					)}
+				</form.AppField>
+
+				<form.AppField name="personalAccessToken">
+					{(field) => (
+						<field.TextField
+							description="Required for private repo clone and webhook registration."
+							label="Personal Access Token"
+							placeholder="Azure DevOps PAT"
+							type="password"
+						/>
+					)}
+				</form.AppField>
+
+				<form.SubmitButton
+					size="sm"
+					submittingText="Connecting..."
+					type="submit"
+				>
+					Connect Azure DevOps
 				</form.SubmitButton>
 			</>
 		);
@@ -319,6 +363,12 @@ function RepositorySection({
 			repoUrl ? "skip" : { provider: "github" }
 		)
 	);
+	const { data: azureDevOpsConnection } = useQuery(
+		convexQuery(
+			api.gitConnections.getByProvider,
+			repoUrl ? "skip" : { provider: "azure_devops" }
+		)
+	);
 	const { mutateAsync: disconnectRepo } = useAppMutation(
 		api.projects.disconnectRepo
 	);
@@ -346,6 +396,10 @@ function RepositorySection({
 				<div className="space-y-6">
 					<GitHubConnectionStatus
 						connection={githubConnection}
+						projectId={projectId}
+					/>
+					<AzureDevOpsConnectionStatus
+						connection={azureDevOpsConnection}
 						projectId={projectId}
 					/>
 					<div className="relative">
@@ -377,12 +431,18 @@ function ConnectedRepo({
 	onDisconnect: () => Promise<void>;
 }) {
 	const [disconnecting, setDisconnecting] = useState(false);
+	let repoIcon = <GitIcon />;
+	if (repoProvider === "github") {
+		repoIcon = <GitHubIcon />;
+	} else if (repoProvider === "azure_devops") {
+		repoIcon = <AzureDevOpsIcon />;
+	}
 
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between rounded-lg border p-4">
 				<div className="flex items-center gap-3">
-					{repoProvider === "github" ? <GitHubIcon /> : <GitIcon />}
+					{repoIcon}
 					<div>
 						<p className="font-medium text-sm">{repoUrl}</p>
 						<div className="mt-1 flex items-center gap-2">
@@ -413,6 +473,106 @@ function ConnectedRepo({
 					{disconnecting ? "Disconnecting..." : "Disconnect"}
 				</Button>
 			</div>
+		</div>
+	);
+}
+
+function AzureDevOpsConnectionStatus({
+	connection,
+	projectId,
+}: {
+	connection:
+		| {
+				_id: Id<"gitConnections">;
+				displayName: string;
+				instanceUrl?: string;
+		  }
+		| null
+		| undefined;
+	projectId: Id<"projects">;
+}) {
+	const { mutateAsync: connectAzureDevOpsPat } = useAppActionMutation(
+		api.azureDevops.connectAzureDevOpsPat
+	);
+	const { mutateAsync: disconnectConnection } = useAppMutation(
+		api.gitConnections.disconnect
+	);
+	const form = useAppForm({
+		defaultValues: getAzureDevOpsConnectionDefaults(),
+		onSubmit: async ({ value }) => {
+			try {
+				await connectAzureDevOpsPat({
+					organizationUrl: value.organizationUrl.trim(),
+					personalAccessToken: value.personalAccessToken.trim(),
+				});
+				toast.success("Azure DevOps connected");
+				form.reset();
+			} catch {
+				toast.error("Failed to connect Azure DevOps");
+			}
+		},
+		validators: {
+			onChange: azureDevOpsConnectionSchema,
+			onSubmit: azureDevOpsConnectionSchema,
+		},
+	});
+
+	if (connection === undefined) {
+		return null;
+	}
+
+	if (!connection) {
+		return (
+			<div className="rounded-lg border border-dashed p-6">
+				<div className="mb-4 flex items-start gap-3">
+					<AzureDevOpsIcon className="mt-0.5 size-6 text-muted-foreground" />
+					<div>
+						<p className="font-medium text-sm">Connect Azure DevOps</p>
+						<p className="text-muted-foreground text-xs">
+							Azure DevOps Services only. This PAT-backed connection is
+							organization-scoped and required for private repo clone.
+						</p>
+					</div>
+				</div>
+				<form.AppForm>
+					<form className="space-y-3" onSubmit={getAppFormOnSubmit(form)}>
+						<AzureDevOpsConnectionFields form={form} />
+					</form>
+				</form.AppForm>
+			</div>
+		);
+	}
+
+	return (
+		<div className="space-y-3">
+			<div className="flex items-center justify-between rounded-lg border p-3">
+				<div className="flex items-center gap-2">
+					<AzureDevOpsIcon className="size-4" />
+					<div>
+						<p className="font-medium text-sm">{connection.displayName}</p>
+						<p className="text-muted-foreground text-xs">
+							{connection.instanceUrl ?? "Azure DevOps Services"}
+						</p>
+					</div>
+					<Badge variant="secondary">Connected</Badge>
+				</div>
+				<Button
+					onClick={async () => {
+						await disconnectConnection({
+							connectionId: connection._id,
+						});
+						toast.success("Azure DevOps disconnected");
+					}}
+					size="sm"
+					variant="ghost"
+				>
+					Disconnect
+				</Button>
+			</div>
+			<AzureDevOpsRepoSelector
+				connectionId={connection._id}
+				projectId={projectId}
+			/>
 		</div>
 	);
 }
@@ -606,6 +766,116 @@ function RepoSelector({
 	);
 }
 
+function AzureDevOpsRepoSelector({
+	connectionId,
+	projectId,
+}: {
+	connectionId: Id<"gitConnections">;
+	projectId: Id<"projects">;
+}) {
+	const { mutateAsync: listRepos } = useAppActionMutation(
+		api.azureDevops.listRepos
+	);
+	const { mutateAsync: connectRepo } = useAppMutation(api.projects.connectRepo);
+	const [repos, setRepos] = useState<
+		Array<{
+			id: string;
+			name: string;
+			projectName: string;
+			remoteUrl: string;
+			webUrl: string;
+		}>
+	>([]);
+	const [loading, setLoading] = useState(false);
+	const [loaded, setLoaded] = useState(false);
+	const [search, setSearch] = useState("");
+
+	const handleLoadRepos = useCallback(async () => {
+		setLoading(true);
+		try {
+			const result = await listRepos({ connectionId, top: 100 });
+			setRepos(result);
+			setLoaded(true);
+		} catch {
+			toast.error("Failed to load Azure DevOps repositories");
+		} finally {
+			setLoading(false);
+		}
+	}, [connectionId, listRepos]);
+
+	const filteredRepos = useMemo(() => {
+		if (!search) {
+			return repos;
+		}
+		const lower = search.toLowerCase();
+		return repos.filter(
+			(repo) =>
+				repo.name.toLowerCase().includes(lower) ||
+				repo.projectName.toLowerCase().includes(lower)
+		);
+	}, [repos, search]);
+
+	if (!loaded) {
+		return (
+			<Button
+				disabled={loading}
+				onClick={() => {
+					handleLoadRepos().catch(() => {
+						// Errors are handled in handleLoadRepos.
+					});
+				}}
+				size="sm"
+				variant="outline"
+			>
+				{loading ? "Loading repositories..." : "Browse Azure Repositories"}
+			</Button>
+		);
+	}
+
+	return (
+		<div className="space-y-2">
+			<Input
+				onChange={(event) => setSearch(event.target.value)}
+				placeholder="Search Azure repositories..."
+				value={search}
+			/>
+			<div className="max-h-64 overflow-y-auto rounded-lg border">
+				{filteredRepos.length === 0 ? (
+					<p className="p-4 text-center text-muted-foreground text-sm">
+						{search ? "No matching repositories" : "No repositories found"}
+					</p>
+				) : (
+					filteredRepos.map((repo) => (
+						<button
+							className="flex w-full items-center justify-between border-b p-3 text-left last:border-b-0 hover:bg-muted/50"
+							key={repo.id}
+							onClick={async () => {
+								await connectRepo({
+									projectId,
+									repoProvider: "azure_devops",
+									repoUrl: repo.remoteUrl,
+								});
+								toast.success(`Connected to ${repo.projectName}/${repo.name}`);
+							}}
+							type="button"
+						>
+							<div>
+								<p className="font-medium text-sm">{repo.name}</p>
+								<p className="text-muted-foreground text-xs">
+									{repo.projectName}
+								</p>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-muted-foreground text-xs">Select</span>
+							</div>
+						</button>
+					))
+				)}
+			</div>
+		</div>
+	);
+}
+
 function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 	const { mutateAsync: connectSelfHosted } = useAppMutation(
 		api.projects.connectSelfHostedRepo
@@ -672,6 +942,21 @@ function GitIcon({ className = "size-5" }: { className?: string }) {
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			<path d="M23.546 10.93L13.067.452a1.55 1.55 0 0 0-2.188 0L8.708 2.627l2.76 2.76a1.838 1.838 0 0 1 2.327 2.341l2.66 2.66a1.838 1.838 0 1 1-1.103 1.033l-2.48-2.48v6.53a1.838 1.838 0 1 1-1.514-.07V8.78a1.838 1.838 0 0 1-.998-2.41L7.629 3.64.452 10.818a1.55 1.55 0 0 0 0 2.187l10.48 10.48a1.55 1.55 0 0 0 2.186 0l10.428-10.43a1.55 1.55 0 0 0 0-2.125z" />
+		</svg>
+	);
+}
+
+function AzureDevOpsIcon({ className = "size-5" }: { className?: string }) {
+	return (
+		<svg
+			aria-label="Azure DevOps"
+			className={className}
+			fill="currentColor"
+			role="img"
+			viewBox="0 0 24 24"
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			<path d="M10.52 2.007 3.523 4.47A1.5 1.5 0 0 0 2.5 5.89v12.22a1.5 1.5 0 0 0 1.023 1.42l6.997 2.463a1.5 1.5 0 0 0 1.998-1.42V3.427a1.5 1.5 0 0 0-1.998-1.42ZM14.5 7.1l5.236 2.198a1.5 1.5 0 0 1 .914 1.382v2.652a1.5 1.5 0 0 1-.914 1.382L14.5 16.912V7.1Zm0-4.087 5.736 2.409A1.5 1.5 0 0 1 21.15 6.8v10.4a1.5 1.5 0 0 1-.914 1.378l-5.736 2.41a1.5 1.5 0 0 1-2.08-1.378V4.39a1.5 1.5 0 0 1 2.08-1.378Z" />
 		</svg>
 	);
 }

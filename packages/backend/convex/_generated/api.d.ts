@@ -12,6 +12,7 @@ import type * as activity from "../activity.js";
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
 import type * as authTriggers from "../authTriggers.js";
+import type * as azureDevops from "../azureDevops.js";
 import type * as backfillSlugs from "../backfillSlugs.js";
 import type * as chat from "../chat.js";
 import type * as conversations from "../conversations.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
   authTriggers: typeof authTriggers;
+  azureDevops: typeof azureDevops;
   backfillSlugs: typeof backfillSlugs;
   chat: typeof chat;
   conversations: typeof conversations;

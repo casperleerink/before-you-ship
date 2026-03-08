@@ -2,7 +2,7 @@ import { httpRouter } from "convex/server";
 
 import { authComponent, createAuth } from "./auth";
 import { githubCallback, githubInitiate } from "./gitConnections";
-import { githubWebhookHandler } from "./webhooks";
+import { azureDevOpsWebhookHandler, githubWebhookHandler } from "./webhooks";
 
 const http = httpRouter();
 
@@ -24,6 +24,12 @@ http.route({
 	path: "/api/webhooks/github",
 	method: "POST",
 	handler: githubWebhookHandler,
+});
+
+http.route({
+	path: "/api/webhooks/azure-devops",
+	method: "POST",
+	handler: azureDevOpsWebhookHandler,
 });
 
 export default http;

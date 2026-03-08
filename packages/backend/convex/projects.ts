@@ -3,7 +3,12 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+} from "./_generated/server";
 import { detectRepoProviderFromUrl } from "./gitUtils";
 import {
 	getAppUser,
@@ -25,6 +30,33 @@ async function deleteRecords<
 		| "webhooks",
 >(ctx: MutationCtx, ids: Id<T>[]) {
 	await Promise.all(ids.map((id) => ctx.db.delete(id)));
+}
+
+async function deleteWebhookRecordForProject(
+	ctx: MutationCtx,
+	projectId: Id<"projects">
+) {
+	const webhook = await ctx.db
+		.query("webhooks")
+		.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+		.first();
+	if (webhook) {
+		await ctx.db.delete(webhook._id);
+	}
+}
+
+async function clearFileTreeCacheForProject(
+	ctx: MutationCtx,
+	projectId: Id<"projects">
+) {
+	const entries = await ctx.db
+		.query("fileTreeCache")
+		.withIndex("by_projectId_path", (q) => q.eq("projectId", projectId))
+		.collect();
+	await deleteRecords(
+		ctx,
+		entries.map((entry) => entry._id)
+	);
 }
 
 async function deleteProjectCascade(
@@ -102,6 +134,26 @@ async function deleteProjectCascade(
 				gitConnectionId: gitConnection._id,
 				providerWebhookId: webhook.providerWebhookId,
 			});
+		}
+	}
+
+	if (project.repoProvider === "azure_devops" && webhook) {
+		const gitConnection = await ctx.db
+			.query("gitConnections")
+			.withIndex("by_userId_provider", (q) =>
+				q.eq("userId", actorUserId).eq("provider", "azure_devops")
+			)
+			.first();
+
+		if (gitConnection) {
+			await ctx.scheduler.runAfter(
+				0,
+				internal.webhooks.deleteAzureDevOpsByDetails,
+				{
+					gitConnectionId: gitConnection._id,
+					providerWebhookId: webhook.providerWebhookId,
+				}
+			);
 		}
 	}
 
@@ -201,6 +253,15 @@ export const getById = query({
 	},
 });
 
+export const getByIdInternal = internalQuery({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: (ctx, args) => {
+		return ctx.db.get(args.projectId);
+	},
+});
+
 export const update = mutation({
 	args: {
 		projectId: v.id("projects"),
@@ -259,6 +320,16 @@ export const create = mutation({
 						repoUrl: args.repoUrl,
 						gitConnectionId: gitConnection._id,
 					});
+				} else if (repoProvider === "azure_devops" && gitConnection) {
+					await ctx.scheduler.runAfter(
+						0,
+						internal.webhooks.registerAzureDevOps,
+						{
+							projectId,
+							repoUrl: args.repoUrl,
+							gitConnectionId: gitConnection._id,
+						}
+					);
 				}
 			}
 
@@ -308,6 +379,12 @@ export const connectRepo = mutation({
 				repoUrl: args.repoUrl,
 				gitConnectionId: gitConnection._id,
 			});
+		} else if (args.repoProvider === "azure_devops" && gitConnection) {
+			await ctx.scheduler.runAfter(0, internal.webhooks.registerAzureDevOps, {
+				projectId: args.projectId,
+				repoUrl: args.repoUrl,
+				gitConnectionId: gitConnection._id,
+			});
 		}
 	},
 });
@@ -341,6 +418,7 @@ export const connectSelfHostedRepo = mutation({
 			if (existingConnection) {
 				await ctx.db.patch(existingConnection._id, {
 					accessToken: args.accessToken,
+					gitUsername: "git",
 					updatedAt: now,
 				});
 				gitConnectionId = existingConnection._id;
@@ -350,6 +428,7 @@ export const connectSelfHostedRepo = mutation({
 					provider: "self_hosted",
 					providerAccountId: "self_hosted",
 					accessToken: args.accessToken,
+					gitUsername: "git",
 					displayName: "Self-hosted Git",
 					createdAt: now,
 					updatedAt: now,
@@ -390,6 +469,30 @@ export const disconnectRepo = mutation({
 					repoUrl: project.repoUrl,
 					gitConnectionId: gitConnection._id,
 				});
+			} else {
+				await deleteWebhookRecordForProject(ctx, args.projectId);
+			}
+		}
+
+		if (project.repoProvider === "azure_devops") {
+			const gitConnection = await ctx.db
+				.query("gitConnections")
+				.withIndex("by_userId_provider", (q) =>
+					q.eq("userId", appUser._id).eq("provider", "azure_devops")
+				)
+				.first();
+
+			if (gitConnection) {
+				await ctx.scheduler.runAfter(
+					0,
+					internal.webhooks.unregisterAzureDevOps,
+					{
+						projectId: args.projectId,
+						gitConnectionId: gitConnection._id,
+					}
+				);
+			} else {
+				await deleteWebhookRecordForProject(ctx, args.projectId);
 			}
 		}
 
@@ -400,9 +503,7 @@ export const disconnectRepo = mutation({
 		}
 
 		// Clear cached file tree
-		await ctx.runMutation(internal.daytona.clearFileTreeCache, {
-			projectId: args.projectId,
-		});
+		await clearFileTreeCacheForProject(ctx, args.projectId);
 
 		await ctx.db.patch(args.projectId, {
 			repoUrl: undefined,

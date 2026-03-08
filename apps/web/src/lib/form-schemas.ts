@@ -99,6 +99,21 @@ export function getSelfHostedRepoDefaults() {
 	};
 }
 
+export const azureDevOpsConnectionSchema = z.object({
+	organizationUrl: z
+		.string()
+		.min(1, "Organization URL is required")
+		.url("Must be a valid URL"),
+	personalAccessToken: z.string().min(1, "Personal access token is required"),
+});
+
+export function getAzureDevOpsConnectionDefaults() {
+	return {
+		organizationUrl: "",
+		personalAccessToken: "",
+	};
+}
+
 export const triageItemSchema = z.object({
 	content: requiredText("Content"),
 });
