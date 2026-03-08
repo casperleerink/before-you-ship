@@ -31,7 +31,7 @@ function DialogClose({ className, ...props }: BaseDialog.Close.Props) {
 	return (
 		<BaseDialog.Close
 			className={cn(
-				"absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
+				"sticky top-0 right-0 float-right rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
 				className
 			)}
 			data-slot="dialog-close"
@@ -53,14 +53,14 @@ function DialogContent({
 			<DialogBackdrop />
 			<BaseDialog.Popup
 				className={cn(
-					"data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-1/2 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-6 shadow-lg duration-200 data-closed:animate-out data-open:animate-in data-closed:fill-mode-forwards",
+					"data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-3rem)] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg duration-200 data-closed:animate-out data-open:animate-in data-closed:fill-mode-forwards",
 					className
 				)}
 				data-slot="dialog-content"
 				{...props}
 			>
-				{children}
 				<DialogClose />
+				{children}
 			</BaseDialog.Popup>
 		</DialogPortal>
 	);

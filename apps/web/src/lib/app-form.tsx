@@ -8,6 +8,14 @@ import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const { fieldContext, formContext, useFieldContext, useFormContext } =
@@ -136,7 +144,7 @@ function TextareaField({
 				{...textareaProps}
 				aria-invalid={showErrors && errors.length > 0}
 				className={cn(
-					"flex min-h-24 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 dark:disabled:bg-input/80",
+					"flex min-h-24 w-full min-w-0 resize-none rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 dark:disabled:bg-input/80",
 					className
 				)}
 				data-slot="textarea"
@@ -159,11 +167,10 @@ function TextareaField({
 }
 
 type SelectFieldProps = SharedFieldProps & {
+	className?: string;
 	options: Array<{ label: string; value: string }>;
-} & Omit<
-		React.ComponentProps<"select">,
-		"id" | "name" | "value" | "onBlur" | "onChange" | "children"
-	>;
+	placeholder?: string;
+};
 
 function SelectField({
 	label,
@@ -172,7 +179,7 @@ function SelectField({
 	errorClassName,
 	hideErrorsUntilTouched = true,
 	options,
-	...selectProps
+	placeholder,
 }: SelectFieldProps) {
 	const field = useFieldContext<string>();
 	const value = useStore(field.store, (state) => state.value);
@@ -182,27 +189,31 @@ function SelectField({
 	const showErrors = !hideErrorsUntilTouched || isTouched || isBlurred;
 
 	return (
-		<div className="space-y-2">
-			<Label htmlFor={field.name}>{label}</Label>
-			<select
-				{...selectProps}
-				aria-invalid={showErrors && errors.length > 0}
-				className={cn(
-					"flex h-9 w-full rounded-md border bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
-					className
-				)}
-				id={field.name}
-				name={field.name}
-				onBlur={field.handleBlur}
-				onChange={(event) => field.handleChange(event.target.value)}
+		<div className={cn("space-y-2", className)}>
+			<Label>{label}</Label>
+			<Select
+				onValueChange={(newValue) => {
+					field.handleChange(newValue as string);
+					field.handleBlur();
+				}}
 				value={value}
 			>
-				{options.map((option) => (
-					<option key={option.value} value={option.value}>
-						{option.label}
-					</option>
-				))}
-			</select>
+				<SelectTrigger
+					aria-invalid={showErrors && errors.length > 0}
+					className="w-full"
+				>
+					<SelectValue placeholder={placeholder} />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectGroup>
+						{options.map((option) => (
+							<SelectItem key={option.value} value={option.value}>
+								{option.label}
+							</SelectItem>
+						))}
+					</SelectGroup>
+				</SelectContent>
+			</Select>
 			{description ? (
 				<p className="text-muted-foreground text-xs">{description}</p>
 			) : null}
