@@ -1,10 +1,11 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type {
 	Doc,
 	Id,
 } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
@@ -21,6 +22,7 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import { useAppMutation } from "@/lib/convex-mutation";
 import { docCreateSchema, getDocCreateDefaults } from "@/lib/form-schemas";
 import { formatDate } from "@/lib/utils";
 
@@ -42,8 +44,8 @@ function DocEditor({
 	doc: Doc<"docs">;
 	onClose: () => void;
 }) {
-	const updateDoc = useMutation(api.docs.update);
-	const removeDoc = useMutation(api.docs.remove);
+	const { mutate: updateDoc } = useAppMutation(api.docs.update);
+	const { mutateAsync: removeDoc } = useAppMutation(api.docs.remove);
 	const [title, setTitle] = useState(doc.title);
 	const [content, setContent] = useState(doc.content);
 	const [isPreview, setIsPreview] = useState(false);
@@ -154,8 +156,8 @@ function DocsPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
 	const projectId = projectIdParam as Id<"projects">;
-	const docs = useQuery(api.docs.list, { projectId });
-	const createDoc = useMutation(api.docs.create);
+	const { data: docs } = useQuery(convexQuery(api.docs.list, { projectId }));
+	const { mutateAsync: createDoc } = useAppMutation(api.docs.create);
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const form = useAppForm({
 		defaultValues: getDocCreateDefaults(),

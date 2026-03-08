@@ -1,7 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Doc } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
 import { ArrowRight, Filter, ListTodo, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
@@ -33,6 +34,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useAppMutation } from "@/lib/convex-mutation";
 import { useOrg } from "@/lib/org-context";
 import { toggleSearchListValue } from "@/lib/router-search";
 import {
@@ -71,7 +73,7 @@ function TaskDetailSheet({
 }) {
 	const { orgSlug } = Route.useParams();
 	const navigate = useNavigate();
-	const updateTask = useMutation(api.tasks.update);
+	const { mutate: updateTask } = useAppMutation(api.tasks.update);
 
 	const handleStatusChange = (status: TaskStatus) => {
 		updateTask({ taskId: task._id, status });
@@ -155,7 +157,9 @@ function MyTasksPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
 	const org = useOrg();
-	const tasks = useQuery(api.tasks.listByAssignee, { orgId: org._id });
+	const { data: tasks } = useQuery(
+		convexQuery(api.tasks.listByAssignee, { orgId: org._id })
+	);
 
 	const projectFilter = new Set(search.project ?? []);
 	const statusFilter = new Set<TaskStatus>(search.status ?? []);

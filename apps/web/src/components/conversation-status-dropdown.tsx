@@ -1,6 +1,5 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +16,7 @@ import {
 	type ConversationStatus,
 	conversationStatusVariant,
 } from "@/lib/conversation-utils";
+import { useAppMutation } from "@/lib/convex-mutation";
 
 export function ConversationStatusDropdown({
 	conversationId,
@@ -25,7 +25,9 @@ export function ConversationStatusDropdown({
 	conversationId: Id<"conversations">;
 	status: ConversationStatus;
 }) {
-	const updateStatus = useMutation(api.conversations.updateStatus);
+	const { mutate: updateStatus } = useAppMutation(
+		api.conversations.updateStatus
+	);
 
 	return (
 		<DropdownMenu>

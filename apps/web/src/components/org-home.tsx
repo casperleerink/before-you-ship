@@ -1,6 +1,7 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
 import { Check, Mail } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import { useAppMutation } from "@/lib/convex-mutation";
 import {
 	getOrganizationNameDefaults,
 	organizationNameSchema,
@@ -25,8 +27,10 @@ interface OrgHomeProps {
 }
 
 export default function OrgHome({ onOpenOrg }: OrgHomeProps) {
-	const orgs = useQuery(api.organizations.list);
-	const pendingInvites = useQuery(api.organizations.listPendingInvitesForUser);
+	const { data: orgs } = useQuery(convexQuery(api.organizations.list));
+	const { data: pendingInvites } = useQuery(
+		convexQuery(api.organizations.listPendingInvitesForUser)
+	);
 
 	if (orgs === undefined || pendingInvites === undefined) {
 		return <Loader />;
@@ -90,7 +94,9 @@ function InviteCard({
 	};
 	onOpenOrg: (orgSlug: string) => void;
 }) {
-	const acceptInvite = useMutation(api.organizations.acceptInvite);
+	const { mutateAsync: acceptInvite } = useAppMutation(
+		api.organizations.acceptInvite
+	);
 	const [isAccepting, setIsAccepting] = useState(false);
 
 	const handleAccept = async () => {
@@ -136,7 +142,7 @@ function CreateOrgForm({
 }: {
 	onOpenOrg: (orgSlug: string) => void;
 }) {
-	const createOrg = useMutation(api.organizations.create);
+	const { mutateAsync: createOrg } = useAppMutation(api.organizations.create);
 	const form = useAppForm({
 		defaultValues: getOrganizationNameDefaults(),
 		onSubmit: async ({ value }) => {

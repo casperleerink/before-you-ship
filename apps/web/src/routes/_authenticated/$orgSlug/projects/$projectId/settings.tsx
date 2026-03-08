@@ -1,8 +1,9 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { env } from "@project-manager/env/web";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -19,6 +20,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getAppFormOnSubmit, useAppForm, withForm } from "@/lib/app-form";
+import { useAppActionMutation, useAppMutation } from "@/lib/convex-mutation";
+import { projectByIdQuery } from "@/lib/convex-query-options";
 import {
 	getProjectSettingsDefaults,
 	getSelfHostedRepoDefaults,
@@ -121,9 +124,11 @@ function SettingsPage() {
 	const navigate = useNavigate({ from: Route.fullPath });
 	const org = useOrg();
 	const projectId = projectIdParam as Id<"projects">;
-	const project = useQuery(api.projects.getById, { projectId });
-	const updateProject = useMutation(api.projects.update);
-	const deleteProject = useMutation(api.projects.deleteProject);
+	const { data: project } = useQuery(projectByIdQuery(projectId));
+	const { mutateAsync: updateProject } = useAppMutation(api.projects.update);
+	const { mutateAsync: deleteProject } = useAppMutation(
+		api.projects.deleteProject
+	);
 
 	useEffect(() => {
 		if (!(github === "connected" || error)) {
@@ -308,11 +313,15 @@ function RepositorySection({
 	repoProvider?: string;
 	sandboxId?: string;
 }) {
-	const githubConnection = useQuery(
-		api.gitConnections.getByProvider,
-		repoUrl ? "skip" : { provider: "github" }
+	const { data: githubConnection } = useQuery(
+		convexQuery(
+			api.gitConnections.getByProvider,
+			repoUrl ? "skip" : { provider: "github" }
+		)
 	);
-	const disconnectRepo = useMutation(api.projects.disconnectRepo);
+	const { mutateAsync: disconnectRepo } = useAppMutation(
+		api.projects.disconnectRepo
+	);
 
 	return (
 		<div className="space-y-4">
@@ -422,8 +431,12 @@ function GitHubConnectionStatus({
 		| undefined;
 	projectId: Id<"projects">;
 }) {
-	const createRequest = useMutation(api.gitConnections.createRequest);
-	const disconnectGitHub = useMutation(api.gitConnections.disconnect);
+	const { mutateAsync: createRequest } = useAppMutation(
+		api.gitConnections.createRequest
+	);
+	const { mutateAsync: disconnectGitHub } = useAppMutation(
+		api.gitConnections.disconnect
+	);
 	const [connecting, setConnecting] = useState(false);
 
 	const handleConnect = useCallback(async () => {
@@ -493,8 +506,8 @@ function RepoSelector({
 	connectionId: Id<"gitConnections">;
 	projectId: Id<"projects">;
 }) {
-	const listRepos = useAction(api.github.listRepos);
-	const connectRepo = useMutation(api.projects.connectRepo);
+	const { mutateAsync: listRepos } = useAppActionMutation(api.github.listRepos);
+	const { mutateAsync: connectRepo } = useAppMutation(api.projects.connectRepo);
 	const [repos, setRepos] = useState<
 		Array<{
 			description: string | null;
@@ -594,7 +607,9 @@ function RepoSelector({
 }
 
 function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
-	const connectSelfHosted = useMutation(api.projects.connectSelfHostedRepo);
+	const { mutateAsync: connectSelfHosted } = useAppMutation(
+		api.projects.connectSelfHostedRepo
+	);
 	const form = useAppForm({
 		defaultValues: getSelfHostedRepoDefaults(),
 		onSubmit: async ({ value }) => {

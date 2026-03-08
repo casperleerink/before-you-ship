@@ -1,7 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
 import { Check, ExternalLink, ListChecks, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +16,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { useAppMutation } from "@/lib/convex-mutation";
 
 interface PlanCardProps {
 	onRequestChanges?: () => void;
@@ -29,9 +31,9 @@ export function PlanCard({
 	projectId,
 	onRequestChanges,
 }: PlanCardProps) {
-	const plan = useQuery(api.plans.getById, { planId });
-	const approvePlan = useMutation(api.plans.approve);
-	const rejectPlan = useMutation(api.plans.reject);
+	const { data: plan } = useQuery(convexQuery(api.plans.getById, { planId }));
+	const { mutateAsync: approvePlan } = useAppMutation(api.plans.approve);
+	const { mutateAsync: rejectPlan } = useAppMutation(api.plans.reject);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	if (plan === undefined) {

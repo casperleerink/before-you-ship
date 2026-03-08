@@ -1,7 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
 import { ArrowRight, Inbox, MessageSquare } from "lucide-react";
 
 import EmptyState from "@/components/empty-state";
@@ -15,6 +16,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { useAppMutation } from "@/lib/convex-mutation";
 import { formatRelativeTime } from "@/lib/utils";
 
 export const Route = createFileRoute(
@@ -26,8 +28,10 @@ export const Route = createFileRoute(
 function TriagePage() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
-	const items = useQuery(api.triageItems.list, { projectId });
-	const createFromTriageItem = useMutation(
+	const { data: items } = useQuery(
+		convexQuery(api.triageItems.list, { projectId })
+	);
+	const { mutateAsync: createFromTriageItem } = useAppMutation(
 		api.conversations.createFromTriageItem
 	);
 	const navigate = useNavigate();

@@ -1,12 +1,11 @@
-import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import {
 	createFileRoute,
 	Link,
 	Outlet,
 	useMatchRoute,
 } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import {
 	ArrowLeft,
 	FileText,
@@ -27,12 +26,18 @@ import { getProjectColor, ProjectDot } from "@/components/project-dot";
 import TriageCaptureModal from "@/components/triage-capture-modal";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
+import { projectByIdQuery } from "@/lib/convex-query-options";
 import { useOrg } from "@/lib/org-context";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId"
 )({
+	loader: async ({ context, params }) => {
+		await context.queryClient.ensureQueryData(
+			projectByIdQuery(params.projectId as Id<"projects">)
+		);
+	},
 	component: ProjectLayout,
 });
 
@@ -74,7 +79,7 @@ function ProjectLayout() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const org = useOrg();
 	const projectId = projectIdParam as Id<"projects">;
-	const project = useQuery(api.projects.getById, { projectId });
+	const { data: project, isPending } = useQuery(projectByIdQuery(projectId));
 	const matchRoute = useMatchRoute();
 	const [triageModalOpen, setTriageModalOpen] = useState(false);
 	const { resolvedTheme } = useTheme();
@@ -113,7 +118,7 @@ function ProjectLayout() {
 		} as React.CSSProperties;
 	}, [project, resolvedTheme]);
 
-	if (project === undefined) {
+	if (isPending) {
 		return <Loader />;
 	}
 

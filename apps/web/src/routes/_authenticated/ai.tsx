@@ -1,13 +1,13 @@
 import { type UIMessage, useUIMessages } from "@convex-dev/agent/react";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
 import { Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import MessageContent from "@/components/message-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAppMutation } from "@/lib/convex-mutation";
 
 export const Route = createFileRoute("/_authenticated/ai")({
 	component: RouteComponent,
@@ -19,8 +19,10 @@ function RouteComponent() {
 	const [isLoading, setIsLoading] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
-	const createThread = useMutation(api.chat.createNewThread);
-	const sendMessage = useMutation(api.chat.sendMessage);
+	const { mutateAsync: createThread } = useAppMutation(
+		api.chat.createNewThread
+	);
+	const { mutateAsync: sendMessage } = useAppMutation(api.chat.sendMessage);
 
 	const { results: messages } = useUIMessages(
 		api.chat.listMessages,
@@ -51,7 +53,7 @@ function RouteComponent() {
 		try {
 			let currentThreadId = threadId;
 			if (!currentThreadId) {
-				currentThreadId = await createThread();
+				currentThreadId = await createThread({});
 				setThreadId(currentThreadId);
 			}
 

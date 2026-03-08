@@ -1,6 +1,5 @@
-import { api } from "@project-manager/backend/convex/_generated/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import { ChevronsUpDown, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -16,6 +15,7 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuthState } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,8 @@ function UserAvatar({ name }: { name: string }) {
 
 export default function UserMenu({ compact }: { compact?: boolean }) {
 	const navigate = useNavigate();
-	const user = useQuery(api.auth.getCurrentUser);
+	const queryClient = useQueryClient();
+	const { user } = useAuthState();
 	const { setTheme } = useTheme();
 
 	return (
@@ -105,6 +106,7 @@ export default function UserMenu({ compact }: { compact?: boolean }) {
 						authClient.signOut({
 							fetchOptions: {
 								onSuccess: () => {
+									queryClient.clear();
 									navigate({
 										to: "/sign-in",
 									});

@@ -1,24 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
 import OrgHome from "@/components/org-home";
+import { useAuthState } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
 	component: HomeComponent,
 });
 
 function HomeComponent() {
-	const { isAuthenticated, isLoading } = useConvexAuth();
+	const { isAuthenticated, isPending } = useAuthState();
 	const navigate = useNavigate();
 
 	useEffect(() => {
-		if (!(isLoading || isAuthenticated)) {
+		if (!(isPending || isAuthenticated)) {
 			navigate({ to: "/sign-in" });
 		}
-	}, [isAuthenticated, isLoading, navigate]);
+	}, [isAuthenticated, isPending, navigate]);
 
-	if (isLoading) {
+	if (isPending) {
 		return <Loader />;
 	}
 

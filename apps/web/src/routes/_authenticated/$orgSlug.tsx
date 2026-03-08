@@ -1,21 +1,26 @@
-import { api } from "@project-manager/backend/convex/_generated/api";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import { TriangleAlert } from "lucide-react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
+import { organizationBySlugQuery } from "@/lib/convex-query-options";
 import { OrgProvider } from "@/lib/org-context";
 
 export const Route = createFileRoute("/_authenticated/$orgSlug")({
+	loader: async ({ context, params }) => {
+		await context.queryClient.ensureQueryData(
+			organizationBySlugQuery(params.orgSlug)
+		);
+	},
 	component: OrgLayout,
 });
 
 function OrgLayout() {
 	const { orgSlug } = Route.useParams();
-	const org = useQuery(api.organizations.getBySlug, { slug: orgSlug });
+	const { data: org, isPending } = useQuery(organizationBySlugQuery(orgSlug));
 
-	if (org === undefined) {
+	if (isPending) {
 		return <Loader />;
 	}
 

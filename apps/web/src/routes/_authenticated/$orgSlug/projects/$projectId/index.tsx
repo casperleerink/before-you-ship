@@ -1,7 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import {
 	FileText,
 	Inbox,
@@ -33,11 +34,17 @@ function ProjectDashboard() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 
-	const activity = useQuery(api.activity.list, { projectId });
-	const triageItems = useQuery(api.triageItems.list, { projectId });
-	const tasks = useQuery(api.tasks.list, { projectId });
-	const conversations = useQuery(api.conversations.list, { projectId });
-	const docs = useQuery(api.docs.list, { projectId });
+	const { data: activity } = useQuery(
+		convexQuery(api.activity.list, { projectId })
+	);
+	const { data: triageItems } = useQuery(
+		convexQuery(api.triageItems.list, { projectId })
+	);
+	const { data: tasks } = useQuery(convexQuery(api.tasks.list, { projectId }));
+	const { data: conversations } = useQuery(
+		convexQuery(api.conversations.list, { projectId })
+	);
+	const { data: docs } = useQuery(convexQuery(api.docs.list, { projectId }));
 
 	const isLoading =
 		activity === undefined ||

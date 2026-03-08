@@ -1,7 +1,6 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useMutation } from "convex/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import { useAppMutation } from "@/lib/convex-mutation";
 import { getTriageItemDefaults, triageItemSchema } from "@/lib/form-schemas";
 
 export default function TriageCaptureModal({
@@ -23,7 +23,7 @@ export default function TriageCaptureModal({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
-	const createItem = useMutation(api.triageItems.create);
+	const { mutateAsync: createItem } = useAppMutation(api.triageItems.create);
 	const form = useAppForm({
 		defaultValues: getTriageItemDefaults(),
 		onSubmit: async ({ value }) => {

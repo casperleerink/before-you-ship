@@ -1,7 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
 import {
 	FolderGit2,
 	ListTodo,
@@ -51,6 +52,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
+import { useAppMutation } from "@/lib/convex-mutation";
 import {
 	getInviteMemberDefaults,
 	getOrganizationNameDefaults,
@@ -75,7 +77,9 @@ function OrgDashboardPage() {
 	const { tab } = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
 	const org = useOrg();
-	const projects = useQuery(api.projects.list, { orgId: org._id });
+	const { data: projects } = useQuery(
+		convexQuery(api.projects.list, { orgId: org._id })
+	);
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const activeTab =
 		tab === "settings" && org.role !== "owner" ? "projects" : tab;
@@ -187,8 +191,12 @@ function SettingsTab({
 	orgSlug: string;
 }) {
 	const navigate = useNavigate({ from: Route.fullPath });
-	const updateOrganization = useMutation(api.organizations.update);
-	const deleteOrganization = useMutation(api.organizations.deleteOrganization);
+	const { mutateAsync: updateOrganization } = useAppMutation(
+		api.organizations.update
+	);
+	const { mutateAsync: deleteOrganization } = useAppMutation(
+		api.organizations.deleteOrganization
+	);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [deleteConfirmation, setDeleteConfirmation] = useState("");
 	const [isDeleting, setIsDeleting] = useState(false);
@@ -429,8 +437,12 @@ function MembersTab({
 	orgId: Id<"organizations">;
 	currentUserRole: string;
 }) {
-	const members = useQuery(api.organizations.listMembers, { orgId });
-	const invites = useQuery(api.organizations.listInvites, { orgId });
+	const { data: members } = useQuery(
+		convexQuery(api.organizations.listMembers, { orgId })
+	);
+	const { data: invites } = useQuery(
+		convexQuery(api.organizations.listInvites, { orgId })
+	);
 	const canManage = currentUserRole === "owner" || currentUserRole === "admin";
 
 	if (members === undefined || invites === undefined) {
@@ -547,7 +559,9 @@ function MemberActions({
 	};
 	currentUserRole: string;
 }) {
-	const removeMember = useMutation(api.organizations.removeMember);
+	const { mutateAsync: removeMember } = useAppMutation(
+		api.organizations.removeMember
+	);
 	const canRemove =
 		member.role !== "owner" &&
 		(currentUserRole === "owner" || member.role === "member");
@@ -582,7 +596,9 @@ function MemberActions({
 }
 
 function InviteActions({ inviteId }: { inviteId: Id<"organizationInvites"> }) {
-	const cancelInvite = useMutation(api.organizations.cancelInvite);
+	const { mutateAsync: cancelInvite } = useAppMutation(
+		api.organizations.cancelInvite
+	);
 
 	return (
 		<DropdownMenu>
@@ -610,7 +626,9 @@ function InviteActions({ inviteId }: { inviteId: Id<"organizationInvites"> }) {
 }
 
 function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
-	const inviteMember = useMutation(api.organizations.inviteMember);
+	const { mutateAsync: inviteMember } = useAppMutation(
+		api.organizations.inviteMember
+	);
 	const form = useAppForm({
 		defaultValues: getInviteMemberDefaults(),
 		onSubmit: async ({ value }) => {
@@ -687,7 +705,7 @@ function CreateProjectForm({
 	onCancel: () => void;
 	onCreated: () => void;
 }) {
-	const createProject = useMutation(api.projects.create);
+	const { mutateAsync: createProject } = useAppMutation(api.projects.create);
 	const navigate = useNavigate();
 	const form = useAppForm({
 		defaultValues: getProjectFormDefaults(),

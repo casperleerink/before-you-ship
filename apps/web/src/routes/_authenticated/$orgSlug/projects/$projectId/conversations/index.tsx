@@ -1,7 +1,8 @@
+import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
 
 import { useMemo } from "react";
@@ -49,7 +50,9 @@ function ConversationsPage() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const { status } = Route.useSearch();
 	const projectId = projectIdParam as Id<"projects">;
-	const conversations = useQuery(api.conversations.list, { projectId });
+	const { data: conversations } = useQuery(
+		convexQuery(api.conversations.list, { projectId })
+	);
 	const navigate = useNavigate({ from: Route.fullPath });
 
 	const filteredConversations = useMemo(() => {

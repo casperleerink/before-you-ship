@@ -1,13 +1,13 @@
 import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 
 import { ChatComposer } from "@/components/chat-composer";
 import { ChatMessageList } from "@/components/chat-message-list";
 import { Button } from "@/components/ui/button";
+import { useAppMutation } from "@/lib/convex-mutation";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/conversations/new"
@@ -18,7 +18,9 @@ export const Route = createFileRoute(
 function NewConversationPage() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
-	const createWithMessage = useMutation(api.conversations.createWithMessage);
+	const { mutateAsync: createWithMessage } = useAppMutation(
+		api.conversations.createWithMessage
+	);
 	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 
