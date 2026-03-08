@@ -19,7 +19,9 @@ import {
 	query,
 } from "./_generated/server";
 import { chatAgent, languageModel } from "./agent";
+import { resolveUserNames } from "./helpers";
 import {
+	createAssignmentTools,
 	createCodebaseTools,
 	createPlanTools,
 	createSearchTools,
@@ -80,7 +82,8 @@ function buildSystemPrompt(
 		repoUrl?: string;
 		sandboxId?: string;
 	},
-	hasApprovedPlan: boolean
+	hasApprovedPlan: boolean,
+	proposedPlanSummary?: string | null
 ): string {
 	const hasCodebase = Boolean(project.sandboxId);
 	const parts = [
@@ -98,13 +101,18 @@ function buildSystemPrompt(
 		parts.push(`**Repository:** ${project.repoUrl}`);
 	}
 
+	if (proposedPlanSummary) {
+		parts.push("", "## Current Proposed Plan", proposedPlanSummary);
+	}
+
 	parts.push(
 		"",
 		"## Available Tools",
 		"",
 		"### Read Tools (always available)",
 		"- **searchTasks**: Search existing tasks in this project by semantic similarity. Use this to check for duplicates or related work before proposing new tasks.",
-		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications."
+		"- **searchDocs**: Search project documentation by semantic similarity. Use this to find relevant context, requirements, or specifications.",
+		"- **listAssignmentCandidates**: List the people currently eligible for task assignment in this project."
 	);
 
 	if (hasCodebase) {
@@ -152,8 +160,11 @@ function buildSystemPrompt(
 
 	parts.push(
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
+		"- Access role in the app is not the same thing as someone's company role or specialty.",
 		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
-		"- Each proposed task should include a title, a brief written in plain language, complexity/risk/effort assessment, and affected areas. Focus on what changes for the user, not how it's implemented.",
+		"- Each proposed task should include a title, a brief written in plain language, complexity/risk/effort assessment, affected areas, and an optional `assigneeId`.",
+		"- Before setting `assigneeId`, call `listAssignmentCandidates` and only choose from those candidates.",
+		"- Leave `assigneeId` empty when there is no strong match.",
 		"- Be honest about feasibility and complexity. If something is difficult or risky, say so clearly.",
 		"- Keep responses concise and focused. Avoid unnecessary filler.",
 		"- After calling `proposePlan`, briefly summarize what you proposed and ask the user to review the plan card.",
@@ -182,17 +193,18 @@ export const generateResponseAsync = internalAction({
 		promptMessageId: v.string(),
 	},
 	handler: async (ctx, { threadId, promptMessageId }) => {
-		const { conversation, project, hasApprovedPlan } = await ctx.runQuery(
-			internal.chat.getConversationWithProject,
-			{ threadId }
-		);
+		const { conversation, project, hasApprovedPlan, proposedPlanSummary } =
+			await ctx.runQuery(internal.chat.getConversationWithProject, {
+				threadId,
+			});
 
 		const systemPrompt = project
-			? buildSystemPrompt(project, hasApprovedPlan)
+			? buildSystemPrompt(project, hasApprovedPlan, proposedPlanSummary)
 			: undefined;
 		const tools = conversation
 			? {
 					...createSearchTools(conversation.projectId),
+					...createAssignmentTools(conversation.projectId),
 					...(project?.sandboxId
 						? createCodebaseTools(project.sandboxId, conversation.projectId)
 						: {}),
@@ -247,19 +259,55 @@ export const getConversationWithProject = internalQuery({
 			.withIndex("by_threadId", (q) => q.eq("threadId", threadId))
 			.unique();
 		if (!conversation) {
-			return { conversation: null, project: null, hasApprovedPlan: false };
+			return {
+				conversation: null,
+				project: null,
+				hasApprovedPlan: false,
+				proposedPlanSummary: null,
+			};
 		}
-		const [project, approvedPlan] = await Promise.all([
+		const [project, plans] = await Promise.all([
 			ctx.db.get(conversation.projectId),
 			ctx.db
 				.query("plans")
 				.withIndex("by_conversationId", (q) =>
 					q.eq("conversationId", conversation._id)
 				)
-				.filter((q) => q.eq(q.field("status"), "approved"))
-				.first(),
+				.collect(),
 		]);
-		return { conversation, project, hasApprovedPlan: approvedPlan !== null };
+
+		const approvedPlan =
+			plans.find((plan) => plan.status === "approved") ?? null;
+		const proposedPlan =
+			plans
+				.filter((plan) => plan.status === "proposed")
+				.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+		let proposedPlanSummary: string | null = null;
+
+		if (proposedPlan) {
+			const assigneeIds = proposedPlan.tasks.flatMap((task) =>
+				task.assigneeId ? [task.assigneeId] : []
+			);
+			const userMap = await resolveUserNames(ctx, assigneeIds);
+			proposedPlanSummary = proposedPlan.tasks
+				.map((task, index) => {
+					const assigneeName = task.assigneeId
+						? (userMap.get(task.assigneeId)?.name ?? "Unknown")
+						: null;
+					const assignmentLabel = assigneeName
+						? `Assigned to ${assigneeName}`
+						: "Unassigned";
+					return `${index + 1}. ${task.title} (${assignmentLabel})`;
+				})
+				.join("\n");
+		}
+
+		return {
+			conversation,
+			project,
+			hasApprovedPlan: approvedPlan !== null,
+			proposedPlanSummary,
+		};
 	},
 });
 

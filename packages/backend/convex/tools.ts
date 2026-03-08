@@ -24,6 +24,12 @@ const proposedTaskSchema = z.object({
 		"Complexity level: low, medium, or high"
 	),
 	effort: taskLevelSchema.describe("Effort level: low, medium, or high"),
+	assigneeId: z
+		.string()
+		.optional()
+		.describe(
+			"Optional user ID for the best assignee. Only set this after checking assignment candidates."
+		),
 });
 
 const MAX_FILE_SIZE = 50_000; // characters
@@ -177,6 +183,26 @@ export function createSearchTools(projectId: Id<"projects">) {
 	return { searchTasks, searchDocs };
 }
 
+export function createAssignmentTools(projectId: Id<"projects">) {
+	const listAssignmentCandidates = createTool({
+		description:
+			"List the project members who are eligible for AI task assignment. Use this before assigning tasks in a proposed plan.",
+		args: z.object({}),
+		handler: async (ctx) => {
+			const candidates = await ctx.runQuery(
+				internal.projects.listAssignmentCandidatesInternal,
+				{ projectId }
+			);
+			if (candidates.length === 0) {
+				return "No assignment candidates configured for this project.";
+			}
+			return candidates;
+		},
+	});
+
+	return { listAssignmentCandidates };
+}
+
 export function createPlanTools(
 	projectId: Id<"projects">,
 	conversationId: Id<"conversations">
@@ -194,7 +220,10 @@ export function createPlanTools(
 			const planId = await ctx.runMutation(internal.plans.create, {
 				conversationId,
 				projectId,
-				tasks: args.tasks,
+				tasks: args.tasks.map((task) => ({
+					...task,
+					assigneeId: task.assigneeId as Id<"users"> | undefined,
+				})),
 			});
 			return { planId, taskCount: args.tasks.length };
 		},
@@ -216,6 +245,7 @@ export function createWriteTools(
 				projectId,
 				conversationId,
 				...args,
+				assigneeId: args.assigneeId as Id<"users"> | undefined,
 			});
 			return { taskId, title: args.title };
 		},

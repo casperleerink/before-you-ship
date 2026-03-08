@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { Check, ExternalLink, ListChecks, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
+import { AssigneeDropdown } from "@/components/assignee-dropdown";
 import { LevelBadge } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,16 @@ export function PlanCard({
 	onRequestChanges,
 }: PlanCardProps) {
 	const { data: plan } = useQuery(convexQuery(api.plans.getById, { planId }));
+	const { data: assignmentCandidates } = useQuery(
+		convexQuery(api.projects.listAssignmentCandidates, {
+			projectId: projectId as Id<"projects">,
+		})
+	);
 	const { mutateAsync: approvePlan } = useAppMutation(api.plans.approve);
 	const { mutateAsync: rejectPlan } = useAppMutation(api.plans.reject);
+	const { mutateAsync: updateTaskAssignee } = useAppMutation(
+		api.plans.updateTaskAssignee
+	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	if (plan === undefined) {
@@ -117,6 +126,37 @@ export function PlanCard({
 								</Link>
 							)}
 						</div>
+						{isLocked ? (
+							<div className="text-xs">
+								<Badge variant={task.assigneeId ? "outline" : "secondary"}>
+									{task.assigneeId
+										? (assignmentCandidates?.find(
+												(candidate) => candidate._id === task.assigneeId
+											)?.name ?? "Assigned")
+										: "Unassigned"}
+								</Badge>
+							</div>
+						) : (
+							<AssigneeDropdown
+								assigneeId={task.assigneeId}
+								label="Planned Assignee"
+								members={assignmentCandidates ?? []}
+								onAssigneeChange={(assigneeId) =>
+									updateTaskAssignee({
+										assigneeId,
+										planId,
+										taskIndex: index,
+									})
+								}
+								onClearAssignee={() =>
+									updateTaskAssignee({
+										assigneeId: null,
+										planId,
+										taskIndex: index,
+									})
+								}
+							/>
+						)}
 						<p className="line-clamp-2 text-muted-foreground text-xs">
 							{task.brief}
 						</p>

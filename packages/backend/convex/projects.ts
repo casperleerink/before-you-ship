@@ -3,15 +3,25 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+} from "./_generated/server";
 import { detectRepoProviderFromUrl } from "./gitUtils";
 import {
 	getAppUser,
 	getOrgMembership,
+	isProjectAssignmentCandidate,
+	listProjectAssignmentCandidates,
 	requireOrgMember,
 	requireProjectMember,
 } from "./helpers";
-import { projectRepoProviderValidator } from "./schema";
+import {
+	projectMemberAssignmentValidator,
+	projectRepoProviderValidator,
+} from "./schema";
 
 async function deleteRecords<
 	T extends
@@ -20,6 +30,7 @@ async function deleteRecords<
 		| "docs"
 		| "fileTreeCache"
 		| "plans"
+		| "projectMembers"
 		| "tasks"
 		| "triageItems"
 		| "webhooks",
@@ -39,6 +50,7 @@ async function deleteProjectCascade(
 		docs,
 		activity,
 		fileTreeEntries,
+		projectMembers,
 		webhook,
 	] = await Promise.all([
 		ctx.db
@@ -66,6 +78,10 @@ async function deleteProjectCascade(
 		ctx.db
 			.query("fileTreeCache")
 			.withIndex("by_projectId_path", (q) => q.eq("projectId", project._id))
+			.collect(),
+		ctx.db
+			.query("projectMembers")
+			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
 			.collect(),
 		ctx.db
 			.query("webhooks")
@@ -141,6 +157,10 @@ async function deleteProjectCascade(
 		ctx,
 		fileTreeEntries.map((entry) => entry._id)
 	);
+	await deleteRecords(
+		ctx,
+		projectMembers.map((member) => member._id)
+	);
 	if (webhook) {
 		await ctx.db.delete(webhook._id);
 	}
@@ -214,6 +234,189 @@ export const update = mutation({
 			name: args.name,
 			description: args.description,
 		});
+	},
+});
+
+export const listProjectMembersForAssignment = query({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		const { project } = await requireProjectMember(ctx, args.projectId);
+		const [orgMemberships, projectMembers] = await Promise.all([
+			ctx.db
+				.query("organizationMembers")
+				.withIndex("by_organizationId", (q) =>
+					q.eq("organizationId", project.organizationId)
+				)
+				.collect(),
+			ctx.db
+				.query("projectMembers")
+				.withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
+				.collect(),
+		]);
+
+		const projectMemberMap = new Map(
+			projectMembers.map((projectMember) => [
+				projectMember.userId,
+				projectMember,
+			])
+		);
+
+		const rows = await Promise.all(
+			orgMemberships.map(async (membership) => {
+				const user = await ctx.db.get(membership.userId);
+				if (!user) {
+					return null;
+				}
+
+				const projectMember = projectMemberMap.get(membership.userId) ?? null;
+				return {
+					_id: user._id,
+					assignment: projectMember?.assignment,
+					avatarUrl: user.avatarUrl,
+					email: user.email,
+					isEligibleForAssignment:
+						projectMember?.assignment?.eligibleForAssignment === true &&
+						membership.profile?.assignmentEnabled !== false &&
+						membership.profile?.availabilityStatus !== "unavailable",
+					isProjectMember: projectMember !== null,
+					name: user.name,
+					profile: membership.profile,
+					projectMemberId: projectMember?._id,
+					role: membership.role,
+				};
+			})
+		);
+
+		return rows
+			.filter((row): row is NonNullable<typeof row> => row !== null)
+			.sort((a, b) => a.name.localeCompare(b.name));
+	},
+});
+
+export const listAssignmentCandidates = query({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		await requireProjectMember(ctx, args.projectId);
+		const candidates = await listProjectAssignmentCandidates(
+			ctx,
+			args.projectId
+		);
+
+		return candidates.map((candidate) => ({
+			_id: candidate.user._id,
+			name: candidate.user.name,
+		}));
+	},
+});
+
+export const listAssignmentCandidatesInternal = internalQuery({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		const candidates = await listProjectAssignmentCandidates(
+			ctx,
+			args.projectId
+		);
+
+		return candidates.map((candidate) => ({
+			availabilityNotes: candidate.orgMembership.profile?.availabilityNotes,
+			availabilityStatus:
+				candidate.orgMembership.profile?.availabilityStatus ?? "available",
+			department: candidate.orgMembership.profile?.department,
+			jobTitle: candidate.orgMembership.profile?.jobTitle,
+			name: candidate.user.name,
+			notesForAI: candidate.assignment.notesForAI,
+			ownedAreas: candidate.assignment.ownedAreas,
+			ownedDomains: candidate.orgMembership.profile?.ownedDomains ?? [],
+			ownedSystems: candidate.assignment.ownedSystems,
+			preferredTaskTypes:
+				candidate.orgMembership.profile?.preferredTaskTypes ?? [],
+			projectRoleLabel: candidate.assignment.projectRoleLabel,
+			strengths: candidate.orgMembership.profile?.strengths ?? [],
+			userId: candidate.user._id,
+			workDescription: candidate.orgMembership.profile?.workDescription,
+		}));
+	},
+});
+
+export const upsertProjectMember = mutation({
+	args: {
+		projectId: v.id("projects"),
+		userId: v.id("users"),
+		assignment: v.optional(projectMemberAssignmentValidator),
+	},
+	handler: async (ctx, args) => {
+		const { membership, project } = await requireProjectMember(
+			ctx,
+			args.projectId
+		);
+		if (membership.role === "member") {
+			throw new Error("Only owners and admins can manage assignment members");
+		}
+
+		const orgMembership = await getOrgMembership(
+			ctx,
+			project.organizationId,
+			args.userId
+		);
+		if (!orgMembership) {
+			throw new Error("User is not a member of this organization");
+		}
+
+		const existing = await ctx.db
+			.query("projectMembers")
+			.withIndex("by_projectId_userId", (q) =>
+				q.eq("projectId", args.projectId).eq("userId", args.userId)
+			)
+			.unique();
+		const now = Date.now();
+
+		if (existing) {
+			await ctx.db.patch(existing._id, {
+				assignment: args.assignment,
+				updatedAt: now,
+			});
+			return existing._id;
+		}
+
+		return ctx.db.insert("projectMembers", {
+			assignment: args.assignment,
+			createdAt: now,
+			projectId: args.projectId,
+			updatedAt: now,
+			userId: args.userId,
+		});
+	},
+});
+
+export const removeProjectMember = mutation({
+	args: {
+		projectId: v.id("projects"),
+		userId: v.id("users"),
+	},
+	handler: async (ctx, args) => {
+		const { membership } = await requireProjectMember(ctx, args.projectId);
+		if (membership.role === "member") {
+			throw new Error("Only owners and admins can manage assignment members");
+		}
+
+		const existing = await ctx.db
+			.query("projectMembers")
+			.withIndex("by_projectId_userId", (q) =>
+				q.eq("projectId", args.projectId).eq("userId", args.userId)
+			)
+			.unique();
+		if (!existing) {
+			return null;
+		}
+
+		await ctx.db.delete(existing._id);
+		return existing._id;
 	},
 });
 
@@ -442,4 +645,13 @@ export const deleteProjectCascadeInternal = internalMutation({
 
 		await deleteProjectCascade(ctx, project, args.actorUserId);
 	},
+});
+
+export const validateAssignmentCandidateInternal = internalQuery({
+	args: {
+		projectId: v.id("projects"),
+		userId: v.id("users"),
+	},
+	handler: (ctx, args) =>
+		isProjectAssignmentCandidate(ctx, args.projectId, args.userId),
 });
