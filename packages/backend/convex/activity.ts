@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
@@ -39,6 +40,7 @@ export async function hasRecentActivity(
 export const list = query({
 	args: {
 		projectId: v.id("projects"),
+		paginationOpts: paginationOptsValidator,
 	},
 	handler: async (ctx, args) => {
 		const [appUser, project] = await Promise.all([
@@ -46,7 +48,7 @@ export const list = query({
 			ctx.db.get(args.projectId),
 		]);
 		if (!(appUser && project)) {
-			return [];
+			return emptyActivityPage();
 		}
 
 		const membership = await getOrgMembership(
@@ -55,18 +57,18 @@ export const list = query({
 			appUser._id
 		);
 		if (!membership) {
-			return [];
+			return emptyActivityPage();
 		}
 
-		const items = await ctx.db
+		const page = await ctx.db
 			.query("activity")
 			.withIndex("by_projectId_createdAt", (q) =>
 				q.eq("projectId", args.projectId)
 			)
 			.order("desc")
-			.take(30);
+			.paginate(args.paginationOpts);
 
-		const userIds = [...new Set(items.map((i) => i.userId))];
+		const userIds = [...new Set(page.page.map((item) => item.userId))];
 		const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
 		const userMap = new Map(
 			users
@@ -74,9 +76,20 @@ export const list = query({
 				.map((u) => [u._id, { name: u.name, avatarUrl: u.avatarUrl }])
 		);
 
-		return items.map((item) => ({
-			...item,
-			user: userMap.get(item.userId) ?? { name: "Unknown" },
-		}));
+		return {
+			...page,
+			page: page.page.map((item) => ({
+				...item,
+				user: userMap.get(item.userId) ?? { name: "Unknown" },
+			})),
+		};
 	},
 });
+
+function emptyActivityPage() {
+	return {
+		continueCursor: "",
+		isDone: true,
+		page: [],
+	};
+}

@@ -3,18 +3,11 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-	FileText,
-	Inbox,
-	ListTodo,
-	Map as MapIcon,
-	MessageSquare,
-} from "lucide-react";
+import { FileText, Inbox, ListTodo, MessageSquare } from "lucide-react";
 
-import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
+import { ProjectActivityList } from "@/components/project-activity-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatRelativeTime } from "@/lib/utils";
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/"
@@ -22,21 +15,10 @@ export const Route = createFileRoute(
 	component: ProjectDashboard,
 });
 
-const entityIconMap = {
-	triage: Inbox,
-	conversation: MessageSquare,
-	task: ListTodo,
-	doc: FileText,
-	plan: MapIcon,
-} as const;
-
 function ProjectDashboard() {
 	const { orgSlug, projectId: projectIdParam } = Route.useParams();
 	const projectId = projectIdParam as Id<"projects">;
 
-	const { data: activity } = useQuery(
-		convexQuery(api.activity.list, { projectId })
-	);
 	const { data: triageItems } = useQuery(
 		convexQuery(api.triageItems.list, { projectId })
 	);
@@ -47,7 +29,6 @@ function ProjectDashboard() {
 	const { data: docs } = useQuery(convexQuery(api.docs.list, { projectId }));
 
 	const isLoading =
-		activity === undefined ||
 		triageItems === undefined ||
 		tasks === undefined ||
 		conversations === undefined ||
@@ -163,103 +144,11 @@ function ProjectDashboard() {
 			{/* Activity timeline */}
 			<h2 className="mb-4 font-semibold text-lg">Recent Activity</h2>
 
-			{activity.length === 0 ? (
-				<EmptyState
-					description="Activity from triage items, conversations, tasks, docs, and plans will appear here."
-					icon={Inbox}
-					title="No activity yet"
-				/>
-			) : (
-				<div>
-					<div className="space-y-0">
-						{activity.map((item, index) => {
-							const EntityIcon = entityIconMap[item.entityType];
-							const link = linkFor(item, orgSlug, projectIdParam);
-							const isLast = index === activity.length - 1;
-
-							return (
-								<div className="relative flex gap-4" key={item._id}>
-									{/* Per-item connector line */}
-									{!isLast && (
-										<div className="absolute top-6 bottom-0 left-3 w-px bg-border" />
-									)}
-
-									{/* Timeline dot */}
-									<div className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background">
-										<EntityIcon className="h-3 w-3 text-muted-foreground" />
-									</div>
-
-									{/* Content */}
-									<div className="flex min-w-0 flex-1 flex-col gap-0.5 pb-4">
-										<div className="flex items-center gap-2">
-											{item.description ? (
-												<Link
-													className="truncate font-medium text-sm transition-colors hover:text-muted-foreground"
-													{...link}
-												>
-													{item.description}
-												</Link>
-											) : (
-												<span className="truncate font-medium text-sm">
-													{item.entityType}
-												</span>
-											)}
-											<span className="ml-auto shrink-0 text-muted-foreground text-xs">
-												{formatRelativeTime(item.createdAt)}
-											</span>
-										</div>
-										<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-											<span>{item.user.name}</span>
-											<span>&middot;</span>
-											<span>{item.action}</span>
-											<span>&middot;</span>
-											<span>{item.entityType}</span>
-										</div>
-									</div>
-								</div>
-							);
-						})}
-					</div>
-				</div>
-			)}
+			<ProjectActivityList
+				orgSlug={orgSlug}
+				projectId={projectId}
+				projectIdParam={projectIdParam}
+			/>
 		</div>
 	);
-}
-
-function linkFor(
-	item: { entityType: string; entityId: string },
-	orgSlug: string,
-	projectIdParam: string
-) {
-	switch (item.entityType) {
-		case "triage":
-			return {
-				to: "/$orgSlug/projects/$projectId/triage" as const,
-				params: { orgSlug, projectId: projectIdParam },
-			};
-		case "conversation":
-			return {
-				to: "/$orgSlug/projects/$projectId/conversations/$conversationId" as const,
-				params: {
-					orgSlug,
-					projectId: projectIdParam,
-					conversationId: item.entityId,
-				},
-			};
-		case "task":
-			return {
-				to: "/$orgSlug/projects/$projectId/tasks" as const,
-				params: { orgSlug, projectId: projectIdParam },
-			};
-		case "doc":
-			return {
-				to: "/$orgSlug/projects/$projectId/docs" as const,
-				params: { orgSlug, projectId: projectIdParam },
-			};
-		default:
-			return {
-				to: "/$orgSlug/projects/$projectId" as const,
-				params: { orgSlug, projectId: projectIdParam },
-			};
-	}
 }
