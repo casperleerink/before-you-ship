@@ -164,7 +164,7 @@ export const listForTask = query({
 		return activeDependencies
 			.map((dependency, index) => {
 				const blockerTask = blockerTasks[index];
-				if (!blockerTask) {
+				if (!blockerTask || blockerTask.status === "done") {
 					return null;
 				}
 

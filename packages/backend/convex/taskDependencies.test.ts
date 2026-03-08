@@ -116,3 +116,48 @@ test("dismissing a dependency removes the blocked state from task detail and que
 		title: "Implement frontend form",
 	});
 });
+
+test("completed blockers are excluded from task detail dependencies", async () => {
+	const t = initConvexTest();
+	const owner = await createActor(t, {
+		email: "owner@example.com",
+		name: "Owner",
+	});
+	const { conversationId, organizationId, projectId } =
+		await createConversationGraph(t, owner);
+
+	const blockerTaskId = await createTask(t, owner, {
+		assigneeId: owner.appUser._id,
+		conversationId,
+		projectId,
+		status: "done",
+		title: "Finalize backend schema",
+		urgency: "medium",
+	});
+	const blockedTaskId = await createTask(t, owner, {
+		assigneeId: owner.appUser._id,
+		conversationId,
+		projectId,
+		title: "Build reporting UI",
+		urgency: "high",
+	});
+	await createTaskDependency(t, {
+		blockedTaskId,
+		blockerTaskId,
+		projectId,
+	});
+
+	const [dependencies, queue] = await Promise.all([
+		owner.as.query(api.taskDependencies.listForTask, {
+			taskId: blockedTaskId,
+		}),
+		owner.as.query(api.tasks.listMyRankedQueue, {
+			orgId: organizationId,
+		}),
+	]);
+
+	expect(dependencies).toEqual([]);
+	expect(queue.find((task) => task._id === blockedTaskId)).toMatchObject({
+		isBlocked: false,
+	});
+});

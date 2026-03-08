@@ -22,6 +22,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { useAppMutation } from "@/lib/convex-mutation";
+import { buildProjectTasksSearch } from "@/lib/task-utils";
 
 interface PlanCardProps {
 	onRequestChanges?: () => void;
@@ -137,12 +138,7 @@ export function PlanCard({
 								<Link
 									className="inline-flex shrink-0 items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
 									params={{ orgSlug, projectId }}
-									search={{
-										complexity: [],
-										effort: [],
-										risk: [],
-										status: [],
-									}}
+									search={buildProjectTasksSearch(plan.createdTaskIds[index])}
 									to="/$orgSlug/projects/$projectId/tasks"
 								>
 									<ExternalLink className="h-3 w-3" />

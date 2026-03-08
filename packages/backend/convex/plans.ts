@@ -96,11 +96,13 @@ function validatePlanBlockerRefs(
 	existingTaskMap: Map<Id<"tasks">, Doc<"tasks">>
 ) {
 	const clientIds = new Set<string>();
+	const planTaskMap = new Map<string, PlanTask>();
 	for (const task of tasks) {
 		if (clientIds.has(task.clientId)) {
 			throw new Error("Plan contains duplicate task client IDs");
 		}
 		clientIds.add(task.clientId);
+		planTaskMap.set(task.clientId, task);
 	}
 
 	for (const task of tasks) {
@@ -110,6 +112,7 @@ function validatePlanBlockerRefs(
 				task,
 				blockerRef,
 				clientIds,
+				planTaskMap,
 				existingTaskMap
 			);
 		}
@@ -121,6 +124,7 @@ function validatePlanBlockerRef(
 	task: PlanTask,
 	blockerRef: PlanBlockerRef,
 	clientIds: Set<string>,
+	planTaskMap: Map<string, PlanTask>,
 	existingTaskMap: Map<Id<"tasks">, Doc<"tasks">>
 ) {
 	if (blockerRef.kind === "plan_task") {
@@ -129,6 +133,15 @@ function validatePlanBlockerRef(
 			!clientIds.has(blockerRef.clientId)
 		) {
 			throw new Error("Plan contains an invalid internal blocker reference");
+		}
+		const blockerTask = planTaskMap.get(blockerRef.clientId);
+		if (
+			blockerTask?.blockedBy.some(
+				(candidate) =>
+					candidate.kind === "plan_task" && candidate.clientId === task.clientId
+			)
+		) {
+			throw new Error("Plan contains a direct cyclic blocker relationship");
 		}
 		return;
 	}
@@ -321,6 +334,7 @@ export const approve = mutation({
 	},
 	handler: async (ctx, args) => {
 		const { plan, appUser } = await getProposedPlanWithAuth(ctx, args.planId);
+		await validatePlanTasks(ctx, plan.projectId, plan.tasks);
 
 		const taskIds: Id<"tasks">[] = [];
 		const createdTasks: Array<{ clientId: string; taskId: Id<"tasks"> }> = [];

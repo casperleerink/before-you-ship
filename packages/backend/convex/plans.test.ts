@@ -231,3 +231,38 @@ test("plans draft edits update urgency and blockers before approval", async () =
 
 	vi.useRealTimers();
 });
+
+test("plans.approve rejects direct cyclic blockers", async () => {
+	vi.useFakeTimers();
+	const t = initConvexTest();
+	const owner = await createActor(t, {
+		email: "owner@example.com",
+		name: "Owner",
+	});
+	const { conversationId, projectId } = await createConversationGraph(t, owner);
+	const planId = await createPlan(t, { conversationId, projectId });
+
+	await t.run(async (ctx) => {
+		const plan = await ctx.db.get(planId);
+		if (!plan) {
+			throw new Error("Plan not found");
+		}
+
+		await ctx.db.patch(planId, {
+			tasks: plan.tasks.map((task, index) =>
+				index === 0
+					? {
+							...task,
+							blockedBy: [{ clientId: "task-2", kind: "plan_task" as const }],
+						}
+					: task
+			),
+		});
+	});
+
+	await expect(
+		owner.as.mutation(api.plans.approve, { planId })
+	).rejects.toThrow("Plan contains a direct cyclic blocker relationship");
+
+	vi.useRealTimers();
+});

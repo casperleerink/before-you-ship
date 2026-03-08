@@ -58,3 +58,13 @@ export function urgencyVariant(urgency: TaskUrgency): BadgeVariant {
 export function urgencyLabel(urgency: TaskUrgency): string {
 	return URGENCY_OPTIONS.find((opt) => opt.value === urgency)?.label ?? urgency;
 }
+
+export function buildProjectTasksSearch(taskId?: string) {
+	return {
+		complexity: [],
+		effort: [],
+		risk: [],
+		status: [],
+		taskId,
+	};
+}
