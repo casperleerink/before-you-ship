@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { Id } from "./_generated/dataModel";
 
 import { generateUniqueSlug, slugify } from "./slugUtils";
 import { initConvexTest } from "./test.setup";
@@ -13,15 +14,16 @@ describe("slugUtils", () => {
 		const t = initConvexTest();
 
 		const slug = await t.run(async (ctx) => {
+			const fakeUserId = "10000;users" as Id<"users">;
 			await ctx.db.insert("organizations", {
 				createdAt: Date.now(),
-				createdBy: "10000;users",
+				createdBy: fakeUserId,
 				name: "Acme",
 				slug: "acme",
 			});
 			await ctx.db.insert("organizations", {
 				createdAt: Date.now(),
-				createdBy: "10000;users",
+				createdBy: fakeUserId,
 				name: "Acme Two",
 				slug: "acme-2",
 			});
