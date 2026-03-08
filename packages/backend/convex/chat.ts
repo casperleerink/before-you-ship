@@ -326,7 +326,9 @@ export const generateTitleAsync = internalAction({
 				return;
 			}
 
-			const transcript = messages.map((m) => `${m.role}: ${m.text}`).join("\n");
+			const transcript = messages
+				.map((m: { role: string; text: string }) => `${m.role}: ${m.text}`)
+				.join("\n");
 
 			const { text: title } = await generateText({
 				model: languageModel,

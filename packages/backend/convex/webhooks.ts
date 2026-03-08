@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
 	type ActionCtx,
 	httpAction,
@@ -8,7 +8,15 @@ import {
 	internalMutation,
 	internalQuery,
 } from "./_generated/server";
-import { parseGitHubRepoUrl, stripGitSuffix } from "./gitUtils";
+import {
+	createAzureDevOpsPushSubscription,
+	deleteAzureDevOpsSubscription,
+} from "./azureDevops";
+import {
+	parseAzureDevOpsRepoUrl,
+	parseGitHubRepoUrl,
+	stripGitSuffix,
+} from "./gitUtils";
 import { projectRepoProviderValidator } from "./schema";
 import { GITHUB_API_URL, generateRandomHex, getConvexSiteUrl } from "./shared";
 
@@ -54,6 +62,33 @@ export const deleteByProjectId = internalMutation({
 		}
 	},
 });
+
+async function deleteRemoteGithubWebhook(
+	repoUrl: string,
+	accessToken: string,
+	providerWebhookId: string
+) {
+	const parsed = parseGitHubRepoUrl(repoUrl);
+	if (!parsed) {
+		return;
+	}
+
+	const res = await fetch(
+		`${GITHUB_API_URL}/repos/${parsed.owner}/${parsed.repo}/hooks/${providerWebhookId}`,
+		{
+			method: "DELETE",
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				Accept: "application/vnd.github+json",
+			},
+		}
+	);
+
+	if (!res.ok && res.status !== 404) {
+		const text = await res.text();
+		throw new Error(`GitHub webhook deletion failed (${res.status}): ${text}`);
+	}
+}
 
 // --- GitHub webhook registration ---
 
@@ -162,22 +197,11 @@ export const unregisterGithub = internalAction({
 
 		if (connection?.accessToken) {
 			try {
-				const res = await fetch(
-					`${GITHUB_API_URL}/repos/${parsed.owner}/${parsed.repo}/hooks/${webhook.providerWebhookId}`,
-					{
-						method: "DELETE",
-						headers: {
-							Authorization: `Bearer ${connection.accessToken}`,
-							Accept: "application/vnd.github+json",
-						},
-					}
+				await deleteRemoteGithubWebhook(
+					args.repoUrl,
+					connection.accessToken,
+					webhook.providerWebhookId
 				);
-				if (!res.ok && res.status !== 404) {
-					const text = await res.text();
-					console.error(
-						`GitHub webhook deletion failed (${res.status}): ${text}`
-					);
-				}
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : "Unknown error";
@@ -212,25 +236,137 @@ export const deleteGithubByDetails = internalAction({
 		}
 
 		try {
-			const res = await fetch(
-				`${GITHUB_API_URL}/repos/${parsed.owner}/${parsed.repo}/hooks/${args.providerWebhookId}`,
-				{
-					method: "DELETE",
-					headers: {
-						Authorization: `Bearer ${connection.accessToken}`,
-						Accept: "application/vnd.github+json",
-					},
-				}
+			await deleteRemoteGithubWebhook(
+				args.repoUrl,
+				connection.accessToken,
+				args.providerWebhookId
 			);
-			if (!res.ok && res.status !== 404) {
-				const text = await res.text();
-				console.error(
-					`GitHub webhook deletion failed (${res.status}): ${text}`
-				);
-			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
 			console.error(`Failed to delete GitHub webhook: ${message}`);
+		}
+	},
+});
+
+export const registerAzureDevOps = internalAction({
+	args: {
+		projectId: v.id("projects"),
+		repoUrl: v.string(),
+		gitConnectionId: v.id("gitConnections"),
+	},
+	handler: async (ctx, args) => {
+		const parsed = parseAzureDevOpsRepoUrl(args.repoUrl);
+		if (!parsed) {
+			console.error(
+				`Cannot register Azure DevOps webhook: invalid repo URL ${args.repoUrl}`
+			);
+			return;
+		}
+
+		const connection = await ctx.runQuery(
+			internal.gitConnections.getConnectionById,
+			{ connectionId: args.gitConnectionId }
+		);
+		if (
+			!connection?.accessToken ||
+			connection.provider !== "azure_devops" ||
+			!connection.instanceUrl
+		) {
+			console.error(
+				"Cannot register Azure DevOps webhook: no valid connection"
+			);
+			return;
+		}
+
+		const secret = generateRandomHex();
+		const webhookUrl = `${getConvexSiteUrl()}/api/webhooks/azure-devops`;
+
+		try {
+			const subscriptionId = await createAzureDevOpsPushSubscription({
+				connection,
+				projectId: args.projectId,
+				repoUrl: args.repoUrl,
+				secret,
+				webhookBaseUrl: webhookUrl,
+			});
+
+			await ctx.runMutation(internal.webhooks.store, {
+				projectId: args.projectId,
+				provider: "azure_devops",
+				providerWebhookId: subscriptionId,
+				secret,
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			console.error(`Failed to register Azure DevOps webhook: ${message}`);
+		}
+	},
+});
+
+export const unregisterAzureDevOps = internalAction({
+	args: {
+		projectId: v.id("projects"),
+		gitConnectionId: v.id("gitConnections"),
+	},
+	handler: async (ctx, args) => {
+		const webhook = await ctx.runQuery(internal.webhooks.getByProjectId, {
+			projectId: args.projectId,
+		});
+		if (!webhook) {
+			return;
+		}
+
+		const connection = await ctx.runQuery(
+			internal.gitConnections.getConnectionById,
+			{ connectionId: args.gitConnectionId }
+		);
+
+		if (
+			connection?.accessToken &&
+			connection.provider === "azure_devops" &&
+			connection.instanceUrl
+		) {
+			try {
+				await deleteAzureDevOpsSubscription(
+					connection,
+					webhook.providerWebhookId
+				);
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : "Unknown error";
+				console.error(`Failed to delete Azure DevOps webhook: ${message}`);
+			}
+		}
+
+		await ctx.runMutation(internal.webhooks.deleteByProjectId, {
+			projectId: args.projectId,
+		});
+	},
+});
+
+export const deleteAzureDevOpsByDetails = internalAction({
+	args: {
+		gitConnectionId: v.id("gitConnections"),
+		providerWebhookId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const connection = await ctx.runQuery(
+			internal.gitConnections.getConnectionById,
+			{ connectionId: args.gitConnectionId }
+		);
+		if (
+			!connection?.accessToken ||
+			connection.provider !== "azure_devops" ||
+			!connection.instanceUrl
+		) {
+			return;
+		}
+
+		try {
+			await deleteAzureDevOpsSubscription(connection, args.providerWebhookId);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			console.error(`Failed to delete Azure DevOps webhook: ${message}`);
 		}
 	},
 });
@@ -322,6 +458,58 @@ export const githubWebhookHandler = httpAction(
 				sandboxId: project.sandboxId,
 			});
 		}
+
+		return new Response("OK", { status: 200 });
+	}
+);
+
+function isValidProjectId(projectId: string): projectId is Id<"projects"> {
+	return projectId.length > 0;
+}
+
+export const azureDevOpsWebhookHandler = httpAction(
+	async (ctx: ActionCtx, request) => {
+		const url = new URL(request.url);
+		const projectId = url.searchParams.get("projectId");
+		const secret = url.searchParams.get("secret");
+
+		if (!(projectId && secret && isValidProjectId(projectId))) {
+			return new Response("Missing project or secret", { status: 400 });
+		}
+
+		const webhook = await ctx.runQuery(internal.webhooks.getByProjectId, {
+			projectId,
+		});
+		if (
+			!webhook ||
+			webhook.provider !== "azure_devops" ||
+			webhook.secret !== secret
+		) {
+			return new Response("Unauthorized", { status: 401 });
+		}
+
+		let payload: { eventType?: string } | undefined;
+		try {
+			payload = (await request.json()) as { eventType?: string };
+		} catch {
+			return new Response("Invalid JSON", { status: 400 });
+		}
+
+		if (payload?.eventType && payload.eventType !== "git.push") {
+			return new Response("Ignored event", { status: 200 });
+		}
+
+		const project = await ctx.runQuery(internal.projects.getByIdInternal, {
+			projectId,
+		});
+		if (!project?.sandboxId) {
+			return new Response("OK", { status: 200 });
+		}
+
+		await ctx.scheduler.runAfter(0, internal.webhooks.syncSandbox, {
+			projectId: project._id,
+			sandboxId: project.sandboxId,
+		});
 
 		return new Response("OK", { status: 200 });
 	}

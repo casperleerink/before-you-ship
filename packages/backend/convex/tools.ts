@@ -69,11 +69,13 @@ export function createCodebaseTools(
 			});
 
 			// Strip extra fields before caching
-			const entries = files.map((f) => ({
-				name: f.name,
-				isDir: f.isDir,
-				size: f.size,
-			}));
+			const entries = files.map(
+				(f: { isDir: boolean; name: string; size: number }) => ({
+					name: f.name,
+					isDir: f.isDir,
+					size: f.size,
+				})
+			);
 
 			// Store in cache for future calls
 			await ctx.runMutation(internal.daytona.setFileTreeCache, {

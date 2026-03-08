@@ -1,5 +1,10 @@
+import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import {
+	internalQuery,
+	type MutationCtx,
+	type QueryCtx,
+} from "./_generated/server";
 import { authComponent } from "./auth";
 
 type AuthCtx = QueryCtx | MutationCtx;
@@ -221,3 +226,17 @@ export async function isProjectAssignmentCandidate(
 
 	return orgMembership.profile?.availabilityStatus !== "unavailable";
 }
+
+export const getUserByBetterAuthId = internalQuery({
+	args: {
+		betterAuthId: v.string(),
+	},
+	handler: (ctx, args) => {
+		return ctx.db
+			.query("users")
+			.withIndex("by_betterAuthId", (q) =>
+				q.eq("betterAuthId", args.betterAuthId)
+			)
+			.first();
+	},
+});

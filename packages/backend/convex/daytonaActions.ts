@@ -6,6 +6,7 @@ import { generateText } from "ai";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
 import { languageModel } from "./agent";
 import { REPO_ROOT } from "./daytona";
@@ -29,6 +30,31 @@ function getSandbox(sandboxId: string): Promise<Sandbox> {
 	return daytona.get(sandboxId);
 }
 
+export function resolveGitCloneCredentials(
+	connection?: Pick<
+		Doc<"gitConnections">,
+		"accessToken" | "gitUsername" | "provider"
+	> | null
+): { username: string; password: string } | undefined {
+	if (!connection?.accessToken) {
+		return undefined;
+	}
+
+	if (connection.provider === "self_hosted") {
+		return {
+			username: connection.gitUsername ?? "git",
+			password: connection.accessToken,
+		};
+	}
+
+	return {
+		username:
+			connection.gitUsername ??
+			(connection.provider === "github" ? "x-access-token" : "git"),
+		password: connection.accessToken,
+	};
+}
+
 export const createSandbox = internalAction({
 	args: {
 		projectId: v.id("projects"),
@@ -42,12 +68,7 @@ export const createSandbox = internalAction({
 				internal.gitConnections.getConnectionById,
 				{ connectionId: args.gitConnectionId }
 			);
-			if (connection?.accessToken) {
-				gitCredentials = {
-					username: "x-access-token",
-					password: connection.accessToken,
-				};
-			}
+			gitCredentials = resolveGitCloneCredentials(connection);
 		}
 
 		try {

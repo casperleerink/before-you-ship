@@ -214,6 +214,8 @@ export default defineSchema({
 		provider: projectRepoProviderValidator,
 		providerAccountId: v.string(),
 		accessToken: v.string(),
+		instanceUrl: v.optional(v.string()),
+		gitUsername: v.optional(v.string()),
 		displayName: v.string(),
 		avatarUrl: v.optional(v.string()),
 		createdAt: v.number(),
