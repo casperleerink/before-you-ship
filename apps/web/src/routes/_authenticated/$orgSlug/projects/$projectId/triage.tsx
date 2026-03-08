@@ -105,12 +105,7 @@ function TriagePage() {
 								<CardAction>
 									<DropdownMenu>
 										<DropdownMenuTrigger
-											render={
-												<Button
-													size="icon-xs"
-													variant="ghost"
-												/>
-											}
+											render={<Button size="icon-xs" variant="ghost" />}
 										>
 											<MoreVertical className="h-3.5 w-3.5" />
 										</DropdownMenuTrigger>
