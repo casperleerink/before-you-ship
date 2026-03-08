@@ -6,7 +6,7 @@ import type {
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Filter, ListTodo, User, X } from "lucide-react";
+import { ArrowRight, ListTodo, User, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { z } from "zod";
@@ -398,7 +398,6 @@ function TasksPage() {
 							placeholder="Search tasks"
 							value={search.q ?? ""}
 						/>
-						<Filter className="size-4 text-muted-foreground" />
 						<FilterDropdown
 							label="Status"
 							onToggle={(value) => toggleFilter("status", value)}
