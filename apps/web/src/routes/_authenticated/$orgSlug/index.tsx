@@ -396,7 +396,7 @@ function ProjectsTab({
 					</p>
 				</div>
 			) : (
-				<div className="space-y-3">
+				<div className="grid gap-3">
 					{projects.map((project) => (
 						<Link
 							key={project._id}
