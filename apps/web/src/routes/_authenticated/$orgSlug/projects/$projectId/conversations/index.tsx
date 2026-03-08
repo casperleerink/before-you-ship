@@ -11,12 +11,19 @@ import { ConversationStatusDropdown } from "@/components/conversation-status-dro
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardAction,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	CONVERSATION_STATUS_OPTIONS,
 	type ConversationStatus,
 } from "@/lib/conversation-utils";
-import { formatDate } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils";
 
 type StatusFilter = ConversationStatus | "all";
 
@@ -136,10 +143,10 @@ function ConversationsPage() {
 					}
 				/>
 			) : (
-				<div className="space-y-2">
+				<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 					{filteredConversations.map((conversation) => (
-						<button
-							className="flex w-full items-center justify-between gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-accent/50"
+						<Card
+							className="cursor-pointer transition-colors hover:bg-muted/50"
 							key={conversation._id}
 							onClick={() =>
 								navigate({
@@ -151,27 +158,32 @@ function ConversationsPage() {
 									to: "/$orgSlug/projects/$projectId/conversations/$conversationId",
 								})
 							}
-							type="button"
+							size="sm"
 						>
-							<div className="min-w-0 flex-1">
-								<p className="truncate font-medium text-sm">
+							<CardHeader>
+								<CardTitle className="line-clamp-2 text-sm">
 									{conversation.title ?? "Untitled conversation"}
-								</p>
+								</CardTitle>
+								<CardAction>
+									{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper to stop propagation */}
+									<div
+										onClick={(event) => event.stopPropagation()}
+										role="presentation"
+									>
+										<ConversationStatusDropdown
+											conversationId={conversation._id}
+											status={conversation.status}
+										/>
+									</div>
+								</CardAction>
+							</CardHeader>
+							<CardContent>
 								<p className="text-muted-foreground text-xs">
-									{formatDate(conversation.createdAt)}
+									{conversation.createdByUser.name} &middot;{" "}
+									{formatRelativeTime(conversation.createdAt)}
 								</p>
-							</div>
-							{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper to stop propagation */}
-							<div
-								onClick={(event) => event.stopPropagation()}
-								role="presentation"
-							>
-								<ConversationStatusDropdown
-									conversationId={conversation._id}
-									status={conversation.status}
-								/>
-							</div>
-						</button>
+							</CardContent>
+						</Card>
 					))}
 				</div>
 			)}
