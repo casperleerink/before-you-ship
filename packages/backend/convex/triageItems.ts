@@ -108,3 +108,29 @@ export const create = mutation({
 		return triageId;
 	},
 });
+
+export const update = mutation({
+	args: {
+		id: v.id("triageItems"),
+		content: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const triageItem = await ctx.db.get(args.id);
+		if (!triageItem) {
+			throw new Error("Triage item not found");
+		}
+
+		const { appUser } = await requireProjectMember(ctx, triageItem.projectId);
+
+		await ctx.db.patch(args.id, { content: args.content });
+
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
+			projectId: triageItem.projectId,
+			userId: appUser._id,
+			action: "updated",
+			entityType: "triage",
+			entityId: args.id,
+			description: args.content.slice(0, 100),
+		});
+	},
+});
