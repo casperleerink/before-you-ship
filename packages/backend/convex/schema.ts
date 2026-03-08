@@ -9,7 +9,8 @@ export const orgRoleValidator = v.union(
 
 export const triageStatusValidator = v.union(
 	v.literal("pending"),
-	v.literal("converted")
+	v.literal("converted"),
+	v.literal("archived")
 );
 
 export const conversationStatusValidator = v.union(

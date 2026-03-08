@@ -4,6 +4,7 @@ import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+	Archive,
 	ArrowRight,
 	Inbox,
 	MessageSquare,
@@ -28,6 +29,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAppMutation } from "@/lib/convex-mutation";
@@ -48,6 +50,7 @@ function TriagePage() {
 	const { mutateAsync: createFromTriageItem } = useAppMutation(
 		api.conversations.createFromTriageItem
 	);
+	const { mutate: archiveTriageItem } = useAppMutation(api.triageItems.archive);
 	const navigate = useNavigate();
 
 	const [editingItem, setEditingItem] = useState<{
@@ -95,50 +98,55 @@ function TriagePage() {
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 					{items.map((item) => (
 						<Card key={item._id} size="sm">
-							<CardHeader>
+							<CardHeader className="gap-x-3">
 								<CardTitle className="line-clamp-3 text-sm">
 									{item.content}
 								</CardTitle>
 								<CardAction>
-									<div className="flex items-center gap-1">
-										<Badge
-											variant={
-												item.status === "pending" ? "outline" : "secondary"
+									<DropdownMenu>
+										<DropdownMenuTrigger
+											render={
+												<Button
+													size="icon-xs"
+													variant="ghost"
+												/>
 											}
 										>
-											{item.status}
-										</Badge>
-										<DropdownMenu>
-											<DropdownMenuTrigger
-												render={
-													<Button
-														className="h-6 w-6"
-														size="icon"
-														variant="ghost"
-													/>
+											<MoreVertical className="h-3.5 w-3.5" />
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											<DropdownMenuItem
+												onClick={() =>
+													setEditingItem({
+														id: item._id,
+														content: item.content,
+													})
 												}
 											>
-												<MoreVertical className="h-3.5 w-3.5" />
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end">
-												<DropdownMenuItem
-													onClick={() =>
-														setEditingItem({
-															id: item._id,
-															content: item.content,
-														})
-													}
-												>
-													<Pencil className="mr-2 h-3.5 w-3.5" />
-													Edit
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</div>
+												<Pencil className="mr-2 h-3.5 w-3.5" />
+												Edit
+											</DropdownMenuItem>
+											<DropdownMenuSeparator />
+											<DropdownMenuItem
+												onClick={() => archiveTriageItem({ id: item._id })}
+												variant="destructive"
+											>
+												<Archive className="mr-2 h-3.5 w-3.5" />
+												Archive
+											</DropdownMenuItem>
+										</DropdownMenuContent>
+									</DropdownMenu>
 								</CardAction>
 							</CardHeader>
 							<CardContent className="mt-auto space-y-3">
-								<p className="text-muted-foreground text-xs">
+								<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+									<Badge
+										variant={
+											item.status === "pending" ? "outline" : "secondary"
+										}
+									>
+										{item.status}
+									</Badge>
 									{item.createdByUser.name} &middot;{" "}
 									{formatRelativeTime(item.createdAt)}
 								</p>

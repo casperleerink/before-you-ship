@@ -60,13 +60,15 @@ export const list = query({
 			return [];
 		}
 
-		const items = await ctx.db
-			.query("triageItems")
-			.withIndex("by_projectId_createdAt", (q) =>
-				q.eq("projectId", args.projectId)
-			)
-			.order("desc")
-			.collect();
+		const items = (
+			await ctx.db
+				.query("triageItems")
+				.withIndex("by_projectId_createdAt", (q) =>
+					q.eq("projectId", args.projectId)
+				)
+				.order("desc")
+				.collect()
+		).filter((item) => item.status !== "archived");
 
 		const userMap = await resolveUserNames(
 			ctx,
@@ -131,6 +133,31 @@ export const update = mutation({
 			entityType: "triage",
 			entityId: args.id,
 			description: args.content.slice(0, 100),
+		});
+	},
+});
+
+export const archive = mutation({
+	args: {
+		id: v.id("triageItems"),
+	},
+	handler: async (ctx, args) => {
+		const triageItem = await ctx.db.get(args.id);
+		if (!triageItem) {
+			throw new Error("Triage item not found");
+		}
+
+		const { appUser } = await requireProjectMember(ctx, triageItem.projectId);
+
+		await ctx.db.patch(args.id, { status: "archived" });
+
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
+			projectId: triageItem.projectId,
+			userId: appUser._id,
+			action: "deleted",
+			entityType: "triage",
+			entityId: args.id,
+			description: triageItem.content.slice(0, 100),
 		});
 	},
 });
