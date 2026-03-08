@@ -3,10 +3,18 @@ import { api } from "@project-manager/backend/convex/_generated/api";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Inbox, MessageSquare } from "lucide-react";
+import {
+	ArrowRight,
+	Inbox,
+	MessageSquare,
+	MoreVertical,
+	Pencil,
+} from "lucide-react";
+import { useState } from "react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
+import TriageCaptureModal from "@/components/triage-capture-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +24,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -35,6 +49,11 @@ function TriagePage() {
 		api.conversations.createFromTriageItem
 	);
 	const navigate = useNavigate();
+
+	const [editingItem, setEditingItem] = useState<{
+		id: Id<"triageItems">;
+		content: string;
+	} | null>(null);
 
 	if (items === undefined) {
 		return (
@@ -81,13 +100,41 @@ function TriagePage() {
 									{item.content}
 								</CardTitle>
 								<CardAction>
-									<Badge
-										variant={
-											item.status === "pending" ? "outline" : "secondary"
-										}
-									>
-										{item.status}
-									</Badge>
+									<div className="flex items-center gap-1">
+										<Badge
+											variant={
+												item.status === "pending" ? "outline" : "secondary"
+											}
+										>
+											{item.status}
+										</Badge>
+										<DropdownMenu>
+											<DropdownMenuTrigger
+												render={
+													<Button
+														className="h-6 w-6"
+														size="icon"
+														variant="ghost"
+													/>
+												}
+											>
+												<MoreVertical className="h-3.5 w-3.5" />
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end">
+												<DropdownMenuItem
+													onClick={() =>
+														setEditingItem({
+															id: item._id,
+															content: item.content,
+														})
+													}
+												>
+													<Pencil className="mr-2 h-3.5 w-3.5" />
+													Edit
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
 								</CardAction>
 							</CardHeader>
 							<CardContent className="space-y-3">
@@ -129,6 +176,21 @@ function TriagePage() {
 						</Card>
 					))}
 				</div>
+			)}
+
+			{editingItem && (
+				<TriageCaptureModal
+					initialContent={editingItem.content}
+					itemId={editingItem.id}
+					mode="edit"
+					onOpenChange={(open) => {
+						if (!open) {
+							setEditingItem(null);
+						}
+					}}
+					open
+					projectId={projectId}
+				/>
 			)}
 		</div>
 	);

@@ -14,26 +14,42 @@ import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { getTriageItemDefaults, triageItemSchema } from "@/lib/form-schemas";
 
-export default function TriageCaptureModal({
-	projectId,
-	open,
-	onOpenChange,
-}: {
+type TriageCaptureModalProps = {
 	projectId: Id<"projects">;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-}) {
+} & (
+	| { mode?: "create" }
+	| { mode: "edit"; itemId: Id<"triageItems">; initialContent: string }
+);
+
+export default function TriageCaptureModal(props: TriageCaptureModalProps) {
+	const { projectId, open, onOpenChange } = props;
+	const isEdit = "mode" in props && props.mode === "edit";
+
 	const { mutateAsync: createItem } = useAppMutation(api.triageItems.create);
+	const { mutateAsync: updateItem } = useAppMutation(api.triageItems.update);
+
 	const form = useAppForm({
-		defaultValues: getTriageItemDefaults(),
+		defaultValues: isEdit
+			? { content: props.initialContent }
+			: getTriageItemDefaults(),
 		onSubmit: async ({ value }) => {
 			try {
-				await createItem({ projectId, content: value.content.trim() });
-				toast.success("Triage item added");
+				const content = value.content.trim();
+				if (isEdit) {
+					await updateItem({ id: props.itemId, content });
+					toast.success("Triage item updated");
+				} else {
+					await createItem({ projectId, content });
+					toast.success("Triage item added");
+				}
 				form.reset();
 				onOpenChange(false);
 			} catch {
-				toast.error("Failed to add triage item");
+				toast.error(
+					isEdit ? "Failed to update triage item" : "Failed to add triage item"
+				);
 			}
 		},
 		validators: {
@@ -59,9 +75,13 @@ export default function TriageCaptureModal({
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent>
-				<DialogTitle>Quick Add Triage</DialogTitle>
+				<DialogTitle>
+					{isEdit ? "Edit Triage Item" : "Quick Add Triage"}
+				</DialogTitle>
 				<DialogDescription>
-					Submit an idea or bug report to be refined by AI.
+					{isEdit
+						? "Update the triage item content."
+						: "Submit an idea or bug report to be refined by AI."}
 				</DialogDescription>
 				<form.AppForm>
 					<form className="mt-4 space-y-4" onSubmit={getAppFormOnSubmit(form)}>
@@ -86,10 +106,10 @@ export default function TriageCaptureModal({
 							</Button>
 							<form.SubmitButton
 								size="sm"
-								submittingText="Adding..."
+								submittingText={isEdit ? "Saving..." : "Adding..."}
 								type="submit"
 							>
-								Add Item
+								{isEdit ? "Save Changes" : "Add Item"}
 							</form.SubmitButton>
 						</div>
 					</form>
