@@ -18,11 +18,12 @@ import {
 	Settings,
 	TriangleAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useTheme } from "next-themes";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
-import { ProjectDot } from "@/components/project-dot";
+import { getProjectColor, ProjectDot } from "@/components/project-dot";
 import TriageCaptureModal from "@/components/triage-capture-modal";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
@@ -76,6 +77,7 @@ function ProjectLayout() {
 	const project = useQuery(api.projects.getById, { projectId });
 	const matchRoute = useMatchRoute();
 	const [triageModalOpen, setTriageModalOpen] = useState(false);
+	const { resolvedTheme } = useTheme();
 	const isConversationDetail = !!matchRoute({
 		fuzzy: true,
 		params: { orgSlug, projectId: projectIdParam },
@@ -97,6 +99,20 @@ function ProjectLayout() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [handleOpenTriageModal]);
 
+	const projectThemeStyle = useMemo(() => {
+		if (!project) {
+			return undefined;
+		}
+		const color = getProjectColor(project.name);
+		const primary = resolvedTheme === "dark" ? color.dark : color.light;
+		return {
+			"--primary": primary,
+			"--primary-foreground": "oklch(1 0 0)",
+			"--sidebar-primary": primary,
+			"--sidebar-primary-foreground": "oklch(1 0 0)",
+		} as React.CSSProperties;
+	}, [project, resolvedTheme]);
+
 	if (project === undefined) {
 		return <Loader />;
 	}
@@ -114,7 +130,7 @@ function ProjectLayout() {
 	}
 
 	return (
-		<div className="flex h-svh">
+		<div className="flex h-svh" style={projectThemeStyle}>
 			<aside className="flex w-60 flex-col border-r">
 				<div className="flex items-center gap-2 p-3">
 					<Link
