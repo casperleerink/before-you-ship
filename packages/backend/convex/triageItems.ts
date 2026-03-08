@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { logActivity } from "./activity";
 import {
@@ -7,6 +9,34 @@ import {
 	requireProjectMember,
 	resolveUserNames,
 } from "./helpers";
+
+/**
+ * Remove the triage item connected to a conversation, if any.
+ */
+export async function removeTriageForConversation(
+	ctx: MutationCtx,
+	conversationId: Id<"conversations">,
+	userId: Id<"users">
+) {
+	const triageItem = await ctx.db
+		.query("triageItems")
+		.withIndex("by_conversationId", (q) =>
+			q.eq("conversationId", conversationId)
+		)
+		.unique();
+
+	if (triageItem) {
+		await ctx.db.delete(triageItem._id);
+		await logActivity(ctx, {
+			projectId: triageItem.projectId,
+			userId,
+			action: "deleted",
+			entityType: "triage",
+			entityId: triageItem._id,
+			description: triageItem.content.slice(0, 100),
+		});
+	}
+}
 
 export const list = query({
 	args: {

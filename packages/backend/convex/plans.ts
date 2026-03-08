@@ -11,6 +11,7 @@ import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 import { taskLevelValidator } from "./schema";
 import { insertTask } from "./tasks";
+import { removeTriageForConversation } from "./triageItems";
 
 const proposedTaskValidator = v.object({
 	title: v.string(),
@@ -126,6 +127,8 @@ export const approve = mutation({
 		await ctx.db.patch(plan.conversationId, {
 			status: "completed",
 		});
+
+		await removeTriageForConversation(ctx, plan.conversationId, appUser._id);
 
 		await logActivity(ctx, {
 			projectId: plan.projectId,

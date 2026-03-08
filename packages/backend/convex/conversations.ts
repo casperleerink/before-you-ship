@@ -14,6 +14,7 @@ import {
 	resolveUserNames,
 } from "./helpers";
 import { conversationStatusValidator } from "./schema";
+import { removeTriageForConversation } from "./triageItems";
 
 async function insertConversation(
 	ctx: MutationCtx,
@@ -194,6 +195,10 @@ export const updateStatus = mutation({
 		const { appUser } = await requireProjectMember(ctx, conversation.projectId);
 
 		await ctx.db.patch(conversation._id, { status: args.status });
+
+		if (args.status === "completed" || args.status === "abandoned") {
+			await removeTriageForConversation(ctx, conversation._id, appUser._id);
+		}
 
 		await logActivity(ctx, {
 			projectId: conversation.projectId,
