@@ -90,7 +90,7 @@ function TriagePage() {
 									</Badge>
 								</CardAction>
 							</CardHeader>
-							<CardContent className="space-y-3">
+							<CardContent className="mt-auto space-y-3">
 								<p className="text-muted-foreground text-xs">
 									{item.createdByUser.name} &middot;{" "}
 									{formatRelativeTime(item.createdAt)}
