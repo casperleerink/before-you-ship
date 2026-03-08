@@ -1,14 +1,16 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
 	createActor,
 	createConversationGraph,
 	createPlan,
 	createTriageItem,
+	scheduledJobNames,
 } from "../test/fixtures";
 import { api } from "./_generated/api";
 import { initConvexTest } from "./test.setup";
 
 test("plans.approve creates tasks, updates state, removes triage, and schedules follow-up work", async () => {
+	vi.useFakeTimers();
 	const t = initConvexTest();
 	const actor = await createActor(t, {
 		email: "owner@example.com",
@@ -55,9 +57,21 @@ test("plans.approve creates tasks, updates state, removes triage, and schedules 
 	expect(state.conversation).toMatchObject({ status: "completed" });
 	expect(state.tasks).toHaveLength(2);
 	expect(state.triageItems).toEqual([]);
+
+	const jobs = await scheduledJobNames(t);
+	expect(jobs).toEqual(
+		expect.arrayContaining([
+			"activity:recordMany",
+			"activity:record",
+			"embeddings:generateTaskEmbedding",
+		])
+	);
+
+	vi.useRealTimers();
 });
 
 test("plans.updateTaskAssignee persists a draft assignee and approval carries it to tasks", async () => {
+	vi.useFakeTimers();
 	const t = initConvexTest();
 	const owner = await createActor(t, {
 		email: "owner@example.com",
@@ -123,4 +137,6 @@ test("plans.updateTaskAssignee persists a draft assignee and approval carries it
 	).toMatchObject({
 		assigneeId: assignee.appUser._id,
 	});
+
+	vi.useRealTimers();
 });
