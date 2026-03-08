@@ -14,12 +14,15 @@ import { z } from "zod";
 import { AssigneeDropdown } from "@/components/assignee-dropdown";
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
+import { TaskDependencySection } from "@/components/task-dependency-section";
 import {
 	FieldLabel,
 	FilterDropdown,
 	LevelBadge,
 	LevelBadgeField,
 	StatusDropdown,
+	UrgencyBadge,
+	UrgencyDropdown,
 } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +53,7 @@ import {
 	TASK_STATUS_VALUES,
 	type TaskLevel,
 	type TaskStatus,
+	type TaskUrgency,
 } from "@/lib/task-utils";
 
 const searchSchema = z.object({
@@ -119,6 +123,9 @@ function TaskDetailSheet({
 	const handleStatusChange = (status: TaskStatus) => {
 		updateTask({ taskId: task._id, status });
 	};
+	const handleUrgencyChange = (urgency: TaskUrgency) => {
+		updateTask({ taskId: task._id, urgency });
+	};
 
 	const handleAssigneeChange = (userId: Id<"users">) => {
 		updateTask({ assigneeId: userId, taskId: task._id });
@@ -140,11 +147,15 @@ function TaskDetailSheet({
 							onStatusChange={handleStatusChange}
 							status={task.status}
 						/>
+						<UrgencyDropdown
+							onUrgencyChange={handleUrgencyChange}
+							urgency={task.urgency}
+						/>
 						<LevelBadgeField level={task.risk} type="risk" />
-						<LevelBadgeField level={task.complexity} type="complexity" />
 					</div>
 
 					<div className="grid grid-cols-3 gap-4">
+						<LevelBadgeField level={task.complexity} type="complexity" />
 						<LevelBadgeField level={task.effort} type="effort" />
 						<AssigneeDropdown
 							assigneeId={task.assigneeId}
@@ -153,6 +164,8 @@ function TaskDetailSheet({
 							onClearAssignee={handleClearAssignee}
 						/>
 					</div>
+
+					<TaskDependencySection taskId={task._id} />
 
 					{task.affectedAreas.length > 0 && (
 						<div className="flex flex-col gap-2">
@@ -380,6 +393,7 @@ function TasksPage() {
 									<TableRow>
 										<TableHead>Title</TableHead>
 										<TableHead className="w-[100px]">Status</TableHead>
+										<TableHead className="w-[100px]">Urgency</TableHead>
 										<TableHead className="w-[80px]">Risk</TableHead>
 										<TableHead className="w-[100px]">Complexity</TableHead>
 										<TableHead className="w-[80px]">Effort</TableHead>
@@ -406,6 +420,9 @@ function TasksPage() {
 												<Badge variant={statusVariant(task.status)}>
 													{statusLabel(task.status)}
 												</Badge>
+											</TableCell>
+											<TableCell>
+												<UrgencyBadge urgency={task.urgency} />
 											</TableCell>
 											<TableCell>
 												<LevelBadge level={task.risk} type="risk" />

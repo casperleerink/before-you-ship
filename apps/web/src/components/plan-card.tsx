@@ -7,7 +7,11 @@ import { Check, ExternalLink, ListChecks, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 import { AssigneeDropdown } from "@/components/assignee-dropdown";
-import { LevelBadge } from "@/components/task-fields";
+import {
+	LevelBadge,
+	UrgencyBadge,
+	UrgencyDropdown,
+} from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +46,12 @@ export function PlanCard({
 	const { mutateAsync: rejectPlan } = useAppMutation(api.plans.reject);
 	const { mutateAsync: updateTaskAssignee } = useAppMutation(
 		api.plans.updateTaskAssignee
+	);
+	const { mutateAsync: updateTaskUrgency } = useAppMutation(
+		api.plans.updateTaskUrgency
+	);
+	const { mutateAsync: removeTaskBlocker } = useAppMutation(
+		api.plans.removeTaskBlocker
 	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -83,6 +93,20 @@ export function PlanCard({
 		} finally {
 			setIsSubmitting(false);
 		}
+	};
+
+	const getBlockerLabel = (
+		blockerRef: (typeof plan.tasks)[number]["blockedBy"][number]
+	) => {
+		if (blockerRef.kind === "plan_task") {
+			return (
+				plan.tasks.find(
+					(candidate) => candidate.clientId === blockerRef.clientId
+				)?.title ?? "Unknown planned task"
+			);
+		}
+
+		return plan.existingTaskTitles[String(blockerRef.taskId)] ?? "Unknown task";
 	};
 
 	return (
@@ -128,6 +152,18 @@ export function PlanCard({
 						</div>
 						{isLocked ? (
 							<div className="text-xs">
+								<UrgencyBadge urgency={task.urgency} />
+							</div>
+						) : (
+							<UrgencyDropdown
+								onUrgencyChange={(urgency) =>
+									updateTaskUrgency({ planId, taskIndex: index, urgency })
+								}
+								urgency={task.urgency}
+							/>
+						)}
+						{isLocked ? (
+							<div className="text-xs">
 								<Badge variant={task.assigneeId ? "outline" : "secondary"}>
 									{task.assigneeId
 										? (assignmentCandidates?.find(
@@ -156,6 +192,44 @@ export function PlanCard({
 									})
 								}
 							/>
+						)}
+						{task.blockedBy.length > 0 && (
+							<div className="flex flex-col gap-2">
+								<div className="text-muted-foreground text-xs uppercase tracking-wide">
+									Blocked By
+								</div>
+								<div className="flex flex-wrap gap-1.5">
+									{task.blockedBy.map((blockerRef) => (
+										<Badge
+											className="gap-1"
+											key={
+												blockerRef.kind === "plan_task"
+													? `plan-${blockerRef.clientId}`
+													: `task-${blockerRef.taskId}`
+											}
+											variant="outline"
+										>
+											<span>{getBlockerLabel(blockerRef)}</span>
+											{!isLocked && (
+												<button
+													className="cursor-pointer rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+													onClick={() =>
+														removeTaskBlocker({
+															blockerRef,
+															planId,
+															taskIndex: index,
+														})
+													}
+													type="button"
+												>
+													<X className="size-3" />
+													<span className="sr-only">Remove blocker</span>
+												</button>
+											)}
+										</Badge>
+									))}
+								</div>
+							</div>
 						)}
 						<p className="line-clamp-2 text-muted-foreground text-xs">
 							{task.brief}

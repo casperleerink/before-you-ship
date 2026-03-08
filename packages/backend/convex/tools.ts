@@ -6,8 +6,29 @@ import type { Id } from "./_generated/dataModel";
 import { REPO_ROOT } from "./daytona";
 
 const taskLevelSchema = z.enum(["low", "medium", "high"]);
+const taskUrgencySchema = z.enum(["low", "medium", "high"]);
+
+const blockerRefSchema = z.union([
+	z.object({
+		clientId: z
+			.string()
+			.describe("The clientId of another task in this same proposed plan"),
+		kind: z.literal("plan_task"),
+	}),
+	z.object({
+		kind: z.literal("existing_task"),
+		taskId: z
+			.string()
+			.describe("The existing same-project task ID that blocks this task"),
+	}),
+]);
 
 const proposedTaskSchema = z.object({
+	clientId: z
+		.string()
+		.describe(
+			"A stable unique identifier for this proposed task within the plan, used for cross-task blocker references."
+		),
 	title: z.string().describe("Short, descriptive title for the task"),
 	brief: z
 		.string()
@@ -24,6 +45,39 @@ const proposedTaskSchema = z.object({
 		"Complexity level: low, medium, or high"
 	),
 	effort: taskLevelSchema.describe("Effort level: low, medium, or high"),
+	urgency: taskUrgencySchema.describe("Urgency level: low, medium, or high"),
+	blockedBy: z
+		.array(blockerRefSchema)
+		.default([])
+		.describe(
+			"Optional hard blockers for this task. Use plan_task refs for blockers in the same proposal and existing_task refs only for clear same-project dependencies."
+		),
+	assigneeId: z
+		.string()
+		.optional()
+		.describe(
+			"Optional user ID for the best assignee. Only set this after checking assignment candidates."
+		),
+});
+
+const writeTaskSchema = z.object({
+	title: z.string().describe("Short, descriptive title for the task"),
+	brief: z
+		.string()
+		.describe(
+			"Plain-language description of what needs to be done, written for non-technical stakeholders. Focus on the user-facing outcome, not implementation details."
+		),
+	affectedAreas: z
+		.array(z.string())
+		.describe(
+			"High-level areas of the product affected (e.g. 'Login page', 'Checkout flow'), not specific file paths"
+		),
+	risk: taskLevelSchema.describe("Risk level: low, medium, or high"),
+	complexity: taskLevelSchema.describe(
+		"Complexity level: low, medium, or high"
+	),
+	effort: taskLevelSchema.describe("Effort level: low, medium, or high"),
+	urgency: taskUrgencySchema.describe("Urgency level: low, medium, or high"),
 	assigneeId: z
 		.string()
 		.optional()
@@ -223,6 +277,14 @@ export function createPlanTools(
 				tasks: args.tasks.map((task) => ({
 					...task,
 					assigneeId: task.assigneeId as Id<"users"> | undefined,
+					blockedBy: task.blockedBy.map((blockerRef) =>
+						blockerRef.kind === "existing_task"
+							? {
+									kind: blockerRef.kind,
+									taskId: blockerRef.taskId as Id<"tasks">,
+								}
+							: blockerRef
+					),
 				})),
 			});
 			return { planId, taskCount: args.tasks.length };
@@ -239,7 +301,7 @@ export function createWriteTools(
 	const createTask = createTool({
 		description:
 			"Create a new task in the project. Only use this after the user has approved a plan. Use this for additional tasks that come up during post-approval discussion.",
-		args: proposedTaskSchema,
+		args: writeTaskSchema,
 		handler: async (ctx, args) => {
 			const taskId = await ctx.runMutation(internal.tasks.createFromAgent, {
 				projectId,
@@ -270,6 +332,7 @@ export function createWriteTools(
 				.optional()
 				.describe("Updated complexity level"),
 			effort: taskLevelSchema.optional().describe("Updated effort level"),
+			urgency: taskUrgencySchema.optional().describe("Updated urgency level"),
 		}),
 		handler: async (ctx, args) => {
 			const { taskId: rawTaskId, ...updates } = args;

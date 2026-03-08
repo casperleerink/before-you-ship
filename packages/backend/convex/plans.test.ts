@@ -3,6 +3,7 @@ import {
 	createActor,
 	createConversationGraph,
 	createPlan,
+	createTask,
 	createTriageItem,
 	scheduledJobNames,
 } from "../test/fixtures";
@@ -34,20 +35,25 @@ test("plans.approve creates tasks, updates state, removes triage, and schedules 
 	await actor.as.mutation(api.plans.approve, { planId });
 
 	const state = await t.run(async (ctx) => {
-		const [plan, conversation, tasks, triageItems] = await Promise.all([
-			ctx.db.get(planId),
-			ctx.db.get(conversationId),
-			ctx.db
-				.query("tasks")
-				.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
-				.collect(),
-			ctx.db
-				.query("triageItems")
-				.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
-				.collect(),
-		]);
+		const [dependencies, plan, conversation, tasks, triageItems] =
+			await Promise.all([
+				ctx.db
+					.query("taskDependencies")
+					.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+					.collect(),
+				ctx.db.get(planId),
+				ctx.db.get(conversationId),
+				ctx.db
+					.query("tasks")
+					.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+					.collect(),
+				ctx.db
+					.query("triageItems")
+					.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+					.collect(),
+			]);
 
-		return { conversation, plan, tasks, triageItems };
+		return { conversation, dependencies, plan, tasks, triageItems };
 	});
 
 	expect(state.plan).toMatchObject({
@@ -56,6 +62,7 @@ test("plans.approve creates tasks, updates state, removes triage, and schedules 
 	});
 	expect(state.conversation).toMatchObject({ status: "completed" });
 	expect(state.tasks).toHaveLength(2);
+	expect(state.dependencies).toHaveLength(1);
 	expect(state.triageItems).toEqual([]);
 
 	const jobs = await scheduledJobNames(t);
@@ -136,6 +143,90 @@ test("plans.updateTaskAssignee persists a draft assignee and approval carries it
 		tasks.find((task) => task.title === "Build test harness")
 	).toMatchObject({
 		assigneeId: assignee.appUser._id,
+	});
+
+	vi.useRealTimers();
+});
+
+test("plans draft edits update urgency and blockers before approval", async () => {
+	vi.useFakeTimers();
+	const t = initConvexTest();
+	const owner = await createActor(t, {
+		email: "owner@example.com",
+		name: "Owner",
+	});
+	const { conversationId, projectId } = await createConversationGraph(t, owner);
+	const planId = await createPlan(t, { conversationId, projectId });
+	const existingTaskId = await createTask(t, owner, {
+		conversationId,
+		projectId,
+		title: "Existing blocker",
+	});
+
+	await t.run(async (ctx) => {
+		const plan = await ctx.db.get(planId);
+		if (!plan) {
+			throw new Error("Plan not found");
+		}
+
+		await ctx.db.patch(planId, {
+			tasks: plan.tasks.map((task, index) =>
+				index === 0
+					? {
+							...task,
+							blockedBy: [
+								{
+									kind: "existing_task" as const,
+									taskId: existingTaskId,
+								},
+							],
+						}
+					: task
+			),
+		});
+	});
+
+	await owner.as.mutation(api.plans.updateTaskUrgency, {
+		planId,
+		taskIndex: 0,
+		urgency: "high",
+	});
+	await owner.as.mutation(api.plans.removeTaskBlocker, {
+		blockerRef: {
+			clientId: "task-1",
+			kind: "plan_task",
+		},
+		planId,
+		taskIndex: 1,
+	});
+	await owner.as.mutation(api.plans.approve, { planId });
+
+	const state = await t.run(async (ctx) => {
+		const [dependencies, plan, tasks] = await Promise.all([
+			ctx.db
+				.query("taskDependencies")
+				.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+				.collect(),
+			ctx.db.get(planId),
+			ctx.db
+				.query("tasks")
+				.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+				.collect(),
+		]);
+
+		return { dependencies, plan, tasks };
+	});
+
+	expect(state.plan?.tasks[0]).toMatchObject({ urgency: "high" });
+	expect(
+		state.tasks.find((task) => task.title === "Build test harness")
+	).toMatchObject({
+		urgency: "high",
+	});
+	expect(state.dependencies).toHaveLength(1);
+	expect(state.dependencies[0]).toMatchObject({
+		blockerTaskId: existingTaskId,
+		state: "active",
 	});
 
 	vi.useRealTimers();

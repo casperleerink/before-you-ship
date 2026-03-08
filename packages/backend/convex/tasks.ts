@@ -10,9 +10,110 @@ import {
 	isProjectAssignmentCandidate,
 	requireProjectMember,
 } from "./helpers";
-import { taskLevelValidator, taskStatusValidator } from "./schema";
+import {
+	taskLevelValidator,
+	taskStatusValidator,
+	taskUrgencyValidator,
+} from "./schema";
 
 type TaskLevel = "low" | "medium" | "high";
+type TaskUrgency = "low" | "medium" | "high";
+
+function levelWeight(level: TaskLevel | TaskUrgency) {
+	switch (level) {
+		case "high":
+			return 3;
+		case "medium":
+			return 2;
+		default:
+			return 1;
+	}
+}
+
+function urgencyReason(urgency: TaskUrgency) {
+	switch (urgency) {
+		case "high":
+			return "High urgency";
+		case "medium":
+			return "Medium urgency";
+		default:
+			return "Low urgency";
+	}
+}
+
+function compareQueueTasks(
+	a: {
+		blocksMyTasksCount: number;
+		createdAt: number;
+		isBlocked: boolean;
+		risk: TaskLevel;
+		status: "ready" | "in_progress" | "done";
+		urgency: TaskUrgency;
+	},
+	b: {
+		blocksMyTasksCount: number;
+		createdAt: number;
+		isBlocked: boolean;
+		risk: TaskLevel;
+		status: "ready" | "in_progress" | "done";
+		urgency: TaskUrgency;
+	}
+) {
+	let blockedComparison = 0;
+	if (a.isBlocked !== b.isBlocked) {
+		blockedComparison = a.isBlocked ? 1 : -1;
+	}
+	const aUnblocks = a.blocksMyTasksCount > 0;
+	const bUnblocks = b.blocksMyTasksCount > 0;
+	let unblockComparison = 0;
+	if (aUnblocks !== bUnblocks) {
+		unblockComparison = aUnblocks ? -1 : 1;
+	}
+	const comparisons = [
+		blockedComparison,
+		unblockComparison,
+		levelWeight(b.urgency) - levelWeight(a.urgency),
+		levelWeight(b.risk) - levelWeight(a.risk),
+		(b.status === "in_progress" ? 1 : 0) - (a.status === "in_progress" ? 1 : 0),
+		b.blocksMyTasksCount - a.blocksMyTasksCount,
+		a.createdAt - b.createdAt,
+	];
+
+	return comparisons.find((comparison) => comparison !== 0) ?? 0;
+}
+
+function getQueueReasons(args: {
+	blockedBy: { title: string }[];
+	blocksMyTasksCount: number;
+	risk: TaskLevel;
+	status: "ready" | "in_progress" | "done";
+	urgency: TaskUrgency;
+}) {
+	const reasons: string[] = [];
+
+	if (args.blockedBy.length > 0) {
+		reasons.push(`Blocked by ${args.blockedBy[0]?.title ?? "another task"}`);
+	}
+	if (args.blocksMyTasksCount > 0) {
+		reasons.push(
+			`Unblocks ${args.blocksMyTasksCount} of your task${args.blocksMyTasksCount === 1 ? "" : "s"}`
+		);
+	}
+	if (args.urgency !== "low") {
+		reasons.push(urgencyReason(args.urgency));
+	}
+	if (args.risk === "high") {
+		reasons.push("High risk");
+	}
+	if (args.status === "in_progress") {
+		reasons.push("Already in progress");
+	}
+	if (reasons.length === 0) {
+		reasons.push("Ready to pick up");
+	}
+
+	return reasons.slice(0, 3);
+}
 
 export async function insertTask(
 	ctx: MutationCtx,
@@ -25,6 +126,7 @@ export async function insertTask(
 		risk: TaskLevel;
 		complexity: TaskLevel;
 		effort: TaskLevel;
+		urgency: TaskUrgency;
 		assigneeId?: Id<"users">;
 	}
 ): Promise<Id<"tasks">> {
@@ -111,6 +213,157 @@ export const listByAssignee = query({
 	},
 });
 
+export const listMyRankedQueue = query({
+	args: {
+		orgId: v.id("organizations"),
+	},
+	handler: async (ctx, args) => {
+		const appUser = await getAppUser(ctx);
+		if (!appUser) {
+			return [];
+		}
+
+		const membership = await getOrgMembership(ctx, args.orgId, appUser._id);
+		if (!membership) {
+			return [];
+		}
+
+		const assignedTasks = await ctx.db
+			.query("tasks")
+			.withIndex("by_assigneeId", (q) => q.eq("assigneeId", appUser._id))
+			.order("desc")
+			.collect();
+
+		const projectIds = [
+			...new Set(assignedTasks.map((task) => task.projectId)),
+		];
+		const projects = await Promise.all(
+			projectIds.map((projectId) => ctx.db.get(projectId))
+		);
+		const projectNameMap = new Map<Id<"projects">, string>();
+		for (const project of projects) {
+			if (project && project.organizationId === args.orgId) {
+				projectNameMap.set(project._id, project.name);
+			}
+		}
+
+		const openTasks = assignedTasks.filter(
+			(task) => task.status !== "done" && projectNameMap.has(task.projectId)
+		);
+		const dependencyLists = await Promise.all(
+			openTasks.map((task) =>
+				ctx.db
+					.query("taskDependencies")
+					.withIndex("by_projectId_blockedTaskId", (q) =>
+						q.eq("projectId", task.projectId).eq("blockedTaskId", task._id)
+					)
+					.collect()
+			)
+		);
+		const dependencies = dependencyLists
+			.flat()
+			.filter((dependency) => dependency.state === "active");
+		const blockerTaskIds = [
+			...new Set(dependencies.map((dependency) => dependency.blockerTaskId)),
+		];
+		const blockerTasks = await Promise.all(
+			blockerTaskIds.map((taskId) => ctx.db.get(taskId))
+		);
+		const blockerMap = new Map(
+			blockerTasks
+				.filter((task): task is NonNullable<typeof task> => task !== null)
+				.map((task) => [task._id, task])
+		);
+		const blockerAssigneeIds = [
+			...new Set(
+				blockerTasks.flatMap((task) =>
+					task?.assigneeId ? [task.assigneeId] : []
+				)
+			),
+		];
+		const blockerAssignees = await Promise.all(
+			blockerAssigneeIds.map((assigneeId) => ctx.db.get(assigneeId))
+		);
+		const blockerAssigneeMap = new Map(
+			blockerAssignees
+				.filter((user): user is NonNullable<typeof user> => user !== null)
+				.map((user) => [user._id, user.name])
+		);
+		const blockersByTask = new Map<
+			Id<"tasks">,
+			Array<{
+				assigneeId?: Id<"users">;
+				assigneeName?: string;
+				status: (typeof openTasks)[number]["status"];
+				taskId: Id<"tasks">;
+				title: string;
+			}>
+		>();
+
+		for (const [index, task] of openTasks.entries()) {
+			const unresolvedBlockers = dependencyLists[index]
+				.filter((dependency) => dependency.state === "active")
+				.flatMap((dependency) => {
+					const blockerTask = blockerMap.get(dependency.blockerTaskId);
+					if (!blockerTask || blockerTask.status === "done") {
+						return [];
+					}
+					return [
+						{
+							assigneeId: blockerTask.assigneeId,
+							assigneeName: blockerTask.assigneeId
+								? blockerAssigneeMap.get(blockerTask.assigneeId)
+								: undefined,
+							status: blockerTask.status,
+							taskId: blockerTask._id,
+							title: blockerTask.title,
+						},
+					];
+				});
+			blockersByTask.set(task._id, unresolvedBlockers);
+		}
+
+		const myTaskIds = new Set(openTasks.map((task) => task._id));
+		const blocksMyTasksCount = new Map(openTasks.map((task) => [task._id, 0]));
+		for (const blockers of blockersByTask.values()) {
+			for (const blocker of blockers) {
+				if (myTaskIds.has(blocker.taskId)) {
+					blocksMyTasksCount.set(
+						blocker.taskId,
+						(blocksMyTasksCount.get(blocker.taskId) ?? 0) + 1
+					);
+				}
+			}
+		}
+
+		const rankedTasks = openTasks
+			.map((task) => {
+				const blockedBy = blockersByTask.get(task._id) ?? [];
+				const blocksCount = blocksMyTasksCount.get(task._id) ?? 0;
+				return {
+					...task,
+					blockedBy,
+					blocksMyTasksCount: blocksCount,
+					isBlocked: blockedBy.length > 0,
+					projectName: projectNameMap.get(task.projectId) ?? "Unknown",
+					rankReasons: getQueueReasons({
+						blockedBy,
+						blocksMyTasksCount: blocksCount,
+						risk: task.risk,
+						status: task.status,
+						urgency: task.urgency,
+					}),
+				};
+			})
+			.sort(compareQueueTasks);
+
+		return rankedTasks.map((task, index) => ({
+			...task,
+			rank: index + 1,
+		}));
+	},
+});
+
 export const getById = query({
 	args: {
 		taskId: v.id("tasks"),
@@ -147,6 +400,7 @@ export const update = mutation({
 		taskId: v.id("tasks"),
 		status: v.optional(taskStatusValidator),
 		assigneeId: v.optional(v.union(v.id("users"), v.null())),
+		urgency: v.optional(taskUrgencyValidator),
 	},
 	handler: async (ctx, args) => {
 		const task = await ctx.db.get(args.taskId);
@@ -155,7 +409,9 @@ export const update = mutation({
 		}
 		const { appUser } = await requireProjectMember(ctx, task.projectId);
 
-		const updates: Partial<Pick<typeof task, "status" | "assigneeId">> = {};
+		const updates: Partial<
+			Pick<typeof task, "status" | "assigneeId" | "urgency">
+		> = {};
 		if (args.status !== undefined) {
 			updates.status = args.status;
 		}
@@ -173,6 +429,9 @@ export const update = mutation({
 			updates.assigneeId =
 				args.assigneeId === null ? undefined : args.assigneeId;
 		}
+		if (args.urgency !== undefined) {
+			updates.urgency = args.urgency;
+		}
 
 		await ctx.db.patch(args.taskId, updates);
 
@@ -182,6 +441,9 @@ export const update = mutation({
 		}
 		if (args.assigneeId !== undefined) {
 			parts.push(args.assigneeId === null ? "unassigned" : "reassigned");
+		}
+		if (args.urgency !== undefined) {
+			parts.push(`changed urgency to ${args.urgency}`);
 		}
 
 		await ctx.scheduler.runAfter(0, internal.activity.record, {
@@ -205,6 +467,7 @@ export const createFromAgent = internalMutation({
 		risk: taskLevelValidator,
 		complexity: taskLevelValidator,
 		effort: taskLevelValidator,
+		urgency: taskUrgencyValidator,
 		assigneeId: v.optional(v.id("users")),
 	},
 	handler: async (ctx, args) => {
@@ -232,6 +495,7 @@ export const updateFromAgent = internalMutation({
 		risk: v.optional(taskLevelValidator),
 		complexity: v.optional(taskLevelValidator),
 		effort: v.optional(taskLevelValidator),
+		urgency: v.optional(taskUrgencyValidator),
 	},
 	handler: async (ctx, args) => {
 		const task = await ctx.db.get(args.taskId);
@@ -245,7 +509,13 @@ export const updateFromAgent = internalMutation({
 		const updates: Partial<
 			Pick<
 				typeof task,
-				"status" | "brief" | "affectedAreas" | "risk" | "complexity" | "effort"
+				| "status"
+				| "brief"
+				| "affectedAreas"
+				| "risk"
+				| "complexity"
+				| "effort"
+				| "urgency"
 			>
 		> = {};
 		if (args.status !== undefined) {
@@ -265,6 +535,9 @@ export const updateFromAgent = internalMutation({
 		}
 		if (args.effort !== undefined) {
 			updates.effort = args.effort;
+		}
+		if (args.urgency !== undefined) {
+			updates.urgency = args.urgency;
 		}
 
 		await ctx.db.patch(args.taskId, updates);
