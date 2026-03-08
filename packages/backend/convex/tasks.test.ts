@@ -29,6 +29,7 @@ test("tasks.update patches requested fields and supports clearing assignee", asy
 		assigneeId: null,
 		status: "done",
 		taskId,
+		urgency: "high",
 	});
 
 	const [task, jobs] = await Promise.all([
@@ -36,7 +37,7 @@ test("tasks.update patches requested fields and supports clearing assignee", asy
 		scheduledJobNames(t),
 	]);
 
-	expect(task).toMatchObject({ status: "done" });
+	expect(task).toMatchObject({ status: "done", urgency: "high" });
 	expect(task).not.toHaveProperty("assigneeId");
 	expect(jobs).toEqual(["activity:record"]);
 });

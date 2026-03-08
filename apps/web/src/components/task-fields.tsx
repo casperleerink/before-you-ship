@@ -1,4 +1,4 @@
-import { Brain, Gauge, ShieldAlert } from "lucide-react";
+import { AlarmClock, Brain, Gauge, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,10 @@ import {
 	statusVariant,
 	type TaskLevel,
 	type TaskStatus,
+	type TaskUrgency,
+	URGENCY_OPTIONS,
+	urgencyLabel,
+	urgencyVariant,
 } from "@/lib/task-utils";
 import { cn } from "@/lib/utils";
 
@@ -176,6 +180,60 @@ export function StatusDropdown({
 							value={status}
 						>
 							{STATUS_OPTIONS.map((option) => (
+								<DropdownMenuRadioItem key={option.value} value={option.value}>
+									{option.label}
+								</DropdownMenuRadioItem>
+							))}
+						</DropdownMenuRadioGroup>
+					</DropdownMenuGroup>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+}
+
+export function UrgencyBadge({ urgency }: { urgency: TaskUrgency }) {
+	return (
+		<Badge variant={urgencyVariant(urgency)}>
+			<AlarmClock className="h-3 w-3" />
+			{urgencyLabel(urgency)}
+		</Badge>
+	);
+}
+
+export function UrgencyDropdown({
+	urgency,
+	onUrgencyChange,
+}: {
+	urgency: TaskUrgency;
+	onUrgencyChange: (urgency: TaskUrgency) => void;
+}) {
+	return (
+		<div className="flex flex-col gap-1">
+			<FieldLabel>Urgency</FieldLabel>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<button className="w-fit cursor-pointer" type="button">
+							<UrgencyBadge urgency={urgency} />
+						</button>
+					}
+				/>
+				<DropdownMenuContent>
+					<DropdownMenuGroup>
+						<DropdownMenuLabel>Urgency</DropdownMenuLabel>
+						<DropdownMenuRadioGroup
+							onValueChange={(value) => {
+								const option = URGENCY_OPTIONS.find(
+									(entry) => entry.value === value
+								);
+								if (option) {
+									onUrgencyChange(option.value);
+								}
+							}}
+							value={urgency}
+						>
+							{URGENCY_OPTIONS.map((option) => (
 								<DropdownMenuRadioItem key={option.value} value={option.value}>
 									{option.label}
 								</DropdownMenuRadioItem>

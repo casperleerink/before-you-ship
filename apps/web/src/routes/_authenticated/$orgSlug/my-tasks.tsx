@@ -1,21 +1,26 @@
 import { convexQuery } from "@convex-dev/react-query";
 import { api } from "@project-manager/backend/convex/_generated/api";
-import type { Doc } from "@project-manager/backend/convex/_generated/dataModel";
+import type {
+	Doc,
+	Id,
+} from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Filter, ListTodo, X } from "lucide-react";
+import { ArrowRight, ListTodo, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { z } from "zod";
 
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
+import { TaskDependencySection } from "@/components/task-dependency-section";
 import {
 	FieldLabel,
 	FilterDropdown,
-	LevelBadge,
 	LevelBadgeField,
 	StatusDropdown,
+	UrgencyBadge,
+	UrgencyDropdown,
 } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,36 +31,33 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { useOrg } from "@/lib/org-context";
 import { toggleSearchListValue } from "@/lib/router-search";
 import {
-	LEVEL_OPTIONS,
-	STATUS_OPTIONS,
 	statusLabel,
 	statusVariant,
-	TASK_LEVEL_VALUES,
-	TASK_STATUS_VALUES,
-	type TaskLevel,
 	type TaskStatus,
+	type TaskUrgency,
 } from "@/lib/task-utils";
 
-type MyTask = Doc<"tasks"> & { projectName: string };
+type RankedTask = Doc<"tasks"> & {
+	blockedBy: Array<{
+		assigneeId?: Id<"users">;
+		assigneeName?: string;
+		status: TaskStatus;
+		taskId: Id<"tasks">;
+		title: string;
+	}>;
+	blocksMyTasksCount: number;
+	isBlocked: boolean;
+	projectName: string;
+	rank: number;
+	rankReasons: string[];
+};
 
 const searchSchema = z.object({
-	complexity: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
-	effort: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
 	project: z.array(z.string()).catch([]).optional(),
-	risk: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
-	status: z.array(z.enum(TASK_STATUS_VALUES)).catch([]).optional(),
 	taskId: z.string().optional(),
 });
 
@@ -68,7 +70,7 @@ function TaskDetailSheet({
 	task,
 	onClose,
 }: {
-	task: MyTask;
+	task: RankedTask;
 	onClose: () => void;
 }) {
 	const { orgSlug } = Route.useParams();
@@ -76,7 +78,11 @@ function TaskDetailSheet({
 	const { mutate: updateTask } = useAppMutation(api.tasks.update);
 
 	const handleStatusChange = (status: TaskStatus) => {
-		updateTask({ taskId: task._id, status });
+		updateTask({ status, taskId: task._id });
+	};
+
+	const handleUrgencyChange = (urgency: TaskUrgency) => {
+		updateTask({ taskId: task._id, urgency });
 	};
 
 	return (
@@ -96,12 +102,29 @@ function TaskDetailSheet({
 							onStatusChange={handleStatusChange}
 							status={task.status}
 						/>
+						<UrgencyDropdown
+							onUrgencyChange={handleUrgencyChange}
+							urgency={task.urgency}
+						/>
 						<LevelBadgeField level={task.risk} type="risk" />
-						<LevelBadgeField level={task.complexity} type="complexity" />
 					</div>
 
-					<div className="grid grid-cols-3 gap-4">
+					<div className="grid grid-cols-2 gap-4">
+						<LevelBadgeField level={task.complexity} type="complexity" />
 						<LevelBadgeField level={task.effort} type="effort" />
+					</div>
+
+					<TaskDependencySection taskId={task._id} />
+
+					<div className="flex flex-col gap-2">
+						<FieldLabel>Queue Reasoning</FieldLabel>
+						<div className="flex flex-wrap gap-1.5">
+							{task.rankReasons.map((reason) => (
+								<Badge key={reason} variant="secondary">
+									{reason}
+								</Badge>
+							))}
+						</div>
 					</div>
 
 					{task.affectedAreas.length > 0 && (
@@ -158,22 +181,10 @@ function MyTasksPage() {
 	const navigate = useNavigate({ from: Route.fullPath });
 	const org = useOrg();
 	const { data: tasks } = useQuery(
-		convexQuery(api.tasks.listByAssignee, { orgId: org._id })
+		convexQuery(api.tasks.listMyRankedQueue, { orgId: org._id })
 	);
 
 	const projectFilter = new Set(search.project ?? []);
-	const statusFilter = new Set<TaskStatus>(search.status ?? []);
-	const riskFilter = new Set<TaskLevel>(search.risk ?? []);
-	const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
-	const effortFilter = new Set<TaskLevel>(search.effort ?? []);
-
-	const activeFilterCount =
-		projectFilter.size +
-		statusFilter.size +
-		riskFilter.size +
-		complexityFilter.size +
-		effortFilter.size;
-
 	const projectOptions = useMemo(() => {
 		if (!tasks) {
 			return [];
@@ -195,41 +206,17 @@ function MyTasksPage() {
 			return [];
 		}
 
-		const projectFilter = new Set(search.project ?? []);
-		const statusFilter = new Set<TaskStatus>(search.status ?? []);
-		const riskFilter = new Set<TaskLevel>(search.risk ?? []);
-		const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
-		const effortFilter = new Set<TaskLevel>(search.effort ?? []);
+		if (projectFilter.size === 0) {
+			return tasks;
+		}
 
-		return tasks.filter((task) => {
-			if (projectFilter.size > 0 && !projectFilter.has(task.projectId)) {
-				return false;
-			}
-			if (statusFilter.size > 0 && !statusFilter.has(task.status)) {
-				return false;
-			}
-			if (riskFilter.size > 0 && !riskFilter.has(task.risk)) {
-				return false;
-			}
-			if (complexityFilter.size > 0 && !complexityFilter.has(task.complexity)) {
-				return false;
-			}
-			if (effortFilter.size > 0 && !effortFilter.has(task.effort)) {
-				return false;
-			}
-			return true;
-		});
-	}, [
-		search.complexity,
-		search.effort,
-		search.project,
-		search.risk,
-		search.status,
-		tasks,
-	]);
+		return tasks.filter((task) => projectFilter.has(task.projectId));
+	}, [projectFilter, tasks]);
 
 	const selectedTask = search.taskId
-		? (tasks?.find((task) => task._id === search.taskId) ?? null)
+		? ((tasks?.find((task) => task._id === search.taskId) as
+				| RankedTask
+				| undefined) ?? null)
 		: null;
 
 	useEffect(() => {
@@ -246,30 +233,30 @@ function MyTasksPage() {
 
 	if (tasks === undefined) {
 		return (
-			<div className="container mx-auto max-w-4xl px-4 py-8">
+			<div className="container mx-auto max-w-5xl px-4 py-8">
 				<Loader />
 			</div>
 		);
 	}
 
-	const toggleFilter = (
-		key: "complexity" | "effort" | "project" | "risk" | "status",
-		value: string
-	) => {
-		const nextValues = toggleSearchListValue(search[key], value);
+	const toggleProjectFilter = (value: string) => {
+		const nextValues = toggleSearchListValue(search.project, value);
 
 		navigate({
 			search: (prev) => ({
 				...prev,
-				[key]: nextValues.length > 0 ? nextValues : undefined,
+				project: nextValues.length > 0 ? nextValues : undefined,
 			}),
 		});
 	};
 
 	return (
-		<div className="container mx-auto max-w-4xl px-4 py-8">
-			<div className="mb-4 flex items-center justify-between">
+		<div className="container mx-auto max-w-5xl px-4 py-8">
+			<div className="mb-6 space-y-1">
 				<h1 className="font-bold text-2xl">My Tasks</h1>
+				<p className="text-muted-foreground text-sm">
+					Ranked by actionability, urgency, and risk across your assigned work.
+				</p>
 			</div>
 
 			{tasks.length === 0 ? (
@@ -280,121 +267,82 @@ function MyTasksPage() {
 				/>
 			) : (
 				<>
-					<div className="mb-4 flex flex-wrap items-center gap-2">
-						<Filter className="size-4 text-muted-foreground" />
-						{projectOptions.length > 1 && (
+					{projectOptions.length > 1 && (
+						<div className="mb-4 flex flex-wrap items-center gap-2">
 							<FilterDropdown
 								label="Project"
-								onToggle={(value) => toggleFilter("project", value)}
+								onToggle={toggleProjectFilter}
 								options={projectOptions}
 								selected={projectFilter}
 							/>
-						)}
-						<FilterDropdown
-							label="Status"
-							onToggle={(value) => toggleFilter("status", value)}
-							options={STATUS_OPTIONS}
-							selected={statusFilter}
-						/>
-						<FilterDropdown
-							label="Risk"
-							onToggle={(value) => toggleFilter("risk", value)}
-							options={LEVEL_OPTIONS}
-							selected={riskFilter}
-						/>
-						<FilterDropdown
-							label="Complexity"
-							onToggle={(value) => toggleFilter("complexity", value)}
-							options={LEVEL_OPTIONS}
-							selected={complexityFilter}
-						/>
-						<FilterDropdown
-							label="Effort"
-							onToggle={(value) => toggleFilter("effort", value)}
-							options={LEVEL_OPTIONS}
-							selected={effortFilter}
-						/>
-						{activeFilterCount > 0 && (
-							<Button
-								className="ml-1"
-								onClick={() =>
-									navigate({
-										search: (prev) => ({
-											...prev,
-											complexity: undefined,
-											effort: undefined,
-											project: undefined,
-											risk: undefined,
-											status: undefined,
-										}),
-									})
-								}
-								size="sm"
-								variant="ghost"
-							>
-								<X className="mr-1 size-3" />
-								Clear
-							</Button>
-						)}
-					</div>
+							{projectFilter.size > 0 && (
+								<Button
+									onClick={() =>
+										navigate({
+											search: (prev) => ({
+												...prev,
+												project: undefined,
+											}),
+										})
+									}
+									size="sm"
+									variant="ghost"
+								>
+									<X className="mr-1 size-3" />
+									Clear
+								</Button>
+							)}
+						</div>
+					)}
 
 					{filteredTasks.length === 0 ? (
 						<div className="py-8 text-center text-muted-foreground text-sm">
 							No tasks match the current filters.
 						</div>
 					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Title</TableHead>
-										<TableHead className="w-[120px]">Project</TableHead>
-										<TableHead className="w-[100px]">Status</TableHead>
-										<TableHead className="w-[80px]">Risk</TableHead>
-										<TableHead className="w-[100px]">Complexity</TableHead>
-										<TableHead className="w-[80px]">Effort</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{filteredTasks.map((task) => (
-										<TableRow
-											className="cursor-pointer"
-											key={task._id}
-											onClick={() =>
-												navigate({
-													search: (prev) => ({
-														...prev,
-														taskId: task._id,
-													}),
-												})
-											}
-										>
-											<TableCell className="font-medium">
-												{task.title}
-											</TableCell>
-											<TableCell>
-												<span className="text-muted-foreground text-sm">
-													{task.projectName}
-												</span>
-											</TableCell>
-											<TableCell>
-												<Badge variant={statusVariant(task.status)}>
-													{statusLabel(task.status)}
+						<div className="space-y-3">
+							{filteredTasks.map((task) => (
+								<button
+									className="flex w-full items-start gap-4 rounded-xl border p-4 text-left transition-colors hover:bg-accent/30"
+									key={task._id}
+									onClick={() =>
+										navigate({
+											search: (prev) => ({
+												...prev,
+												taskId: task._id,
+											}),
+										})
+									}
+									type="button"
+								>
+									<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-muted font-semibold text-sm">
+										{task.rank}
+									</div>
+									<div className="min-w-0 flex-1 space-y-3">
+										<div className="flex flex-wrap items-center gap-2">
+											<div className="font-medium text-base">{task.title}</div>
+											<Badge variant="outline">{task.projectName}</Badge>
+											<Badge variant={statusVariant(task.status)}>
+												{statusLabel(task.status)}
+											</Badge>
+											<UrgencyBadge urgency={task.urgency} />
+											{task.isBlocked && (
+												<Badge variant="destructive">Blocked</Badge>
+											)}
+										</div>
+										<p className="line-clamp-2 text-muted-foreground text-sm">
+											{task.brief}
+										</p>
+										<div className="flex flex-wrap gap-1.5">
+											{task.rankReasons.map((reason) => (
+												<Badge key={reason} variant="secondary">
+													{reason}
 												</Badge>
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={task.risk} type="risk" />
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={task.complexity} type="complexity" />
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={task.effort} type="effort" />
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
+											))}
+										</div>
+									</div>
+								</button>
+							))}
 						</div>
 					)}
 				</>

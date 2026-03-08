@@ -202,25 +202,37 @@ export function createTask(
 	t: AppTestConvex,
 	_actor: TestActor,
 	{
+		assigneeId,
 		conversationId,
 		projectId,
+		risk = "low",
+		status = "ready",
+		title = "Investigate tests",
+		urgency = "medium",
 	}: {
+		assigneeId?: Id<"users">;
 		conversationId: Id<"conversations">;
 		projectId: Id<"projects">;
+		risk?: Doc<"tasks">["risk"];
+		status?: Doc<"tasks">["status"];
+		title?: string;
+		urgency?: "low" | "medium" | "high";
 	}
 ) {
 	return t.run(async (ctx) => {
 		return await ctx.db.insert("tasks", {
 			affectedAreas: ["backend"],
+			assigneeId,
 			brief: "Initial task brief",
 			complexity: "medium",
 			conversationId,
 			createdAt: Date.now(),
 			effort: "medium",
 			projectId,
-			risk: "low",
-			status: "ready",
-			title: "Investigate tests",
+			risk,
+			status,
+			title,
+			urgency,
 		});
 	});
 }
@@ -244,21 +256,60 @@ export function createPlan(
 			tasks: [
 				{
 					affectedAreas: ["backend", "convex"],
+					blockedBy: [],
 					brief: "Add backend tests",
+					clientId: "task-1",
 					complexity: "medium",
 					effort: "medium",
 					risk: "low",
 					title: "Build test harness",
+					urgency: "medium",
 				},
 				{
 					affectedAreas: ["web"],
+					blockedBy: [
+						{
+							clientId: "task-1",
+							kind: "plan_task" as const,
+						},
+					],
 					brief: "Add smoke test",
+					clientId: "task-2",
 					complexity: "low",
 					effort: "low",
 					risk: "low",
 					title: "Wire root runner",
+					urgency: "low",
 				},
 			],
+		});
+	});
+}
+
+export function createTaskDependency(
+	t: AppTestConvex,
+	{
+		blockedTaskId,
+		blockerTaskId,
+		projectId,
+		state = "active",
+	}: {
+		blockedTaskId: Id<"tasks">;
+		blockerTaskId: Id<"tasks">;
+		projectId: Id<"projects">;
+		state?: "active" | "dismissed";
+	}
+) {
+	return t.run(async (ctx) => {
+		const now = Date.now();
+		return await ctx.db.insert("taskDependencies", {
+			blockedTaskId,
+			blockerTaskId,
+			createdAt: now,
+			projectId,
+			source: "ai",
+			state,
+			updatedAt: now,
 		});
 	});
 }
