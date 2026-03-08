@@ -111,15 +111,24 @@ export function ChatMessageList({
 	orgSlug: string;
 	projectId: string;
 }) {
-	const messagesEndRef = useRef<HTMLDivElement>(null);
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll when messages update
 	useEffect(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+		const container = scrollContainerRef.current;
+		if (container) {
+			container.scrollTo({
+				top: container.scrollHeight,
+				behavior: "smooth",
+			});
+		}
 	}, [messages]);
 
 	return (
-		<div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
+		<div
+			className="flex-1 space-y-5 overflow-y-auto px-6 py-4"
+			ref={scrollContainerRef}
+		>
 			{!messages || messages.length === 0 ? (
 				<div className="mt-8 text-center text-muted-foreground">
 					Start the conversation by sending a message.
@@ -155,7 +164,6 @@ export function ChatMessageList({
 					);
 				})
 			)}
-			<div ref={messagesEndRef} />
 		</div>
 	);
 }
