@@ -6,11 +6,12 @@ import type {
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, ListTodo, User, X } from "lucide-react";
+import { ArrowRight, ListTodo, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { z } from "zod";
 
+import { AssigneeDropdown } from "@/components/assignee-dropdown";
 import EmptyState from "@/components/empty-state";
 import Loader from "@/components/loader";
 import {
@@ -22,15 +23,6 @@ import {
 } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
 	Sheet,
@@ -48,7 +40,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useAppMutation } from "@/lib/convex-mutation";
-import { useOrg } from "@/lib/org-context";
 import { toggleSearchListValue } from "@/lib/router-search";
 import {
 	LEVEL_OPTIONS,
@@ -110,71 +101,6 @@ function matchesTaskFilters(
 		.join(" ")
 		.toLowerCase();
 	return searchableText.includes(filters.searchQuery);
-}
-
-function AssigneeDropdown({
-	assigneeId,
-	members,
-	onAssigneeChange,
-	onClearAssignee,
-}: {
-	assigneeId?: Id<"users">;
-	members: { _id: Id<"users">; name: string }[];
-	onAssigneeChange: (userId: Id<"users">) => void;
-	onClearAssignee: () => void;
-}) {
-	const assignee = assigneeId
-		? members.find((member) => member._id === assigneeId)
-		: null;
-
-	return (
-		<div className="flex flex-col gap-1">
-			<FieldLabel>Assignee</FieldLabel>
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					render={
-						<button className="w-fit cursor-pointer" type="button">
-							{assignee ? (
-								<Badge variant="outline">{assignee.name}</Badge>
-							) : (
-								<Badge variant="secondary">
-									<User className="mr-1 size-3" />
-									Unassigned
-								</Badge>
-							)}
-						</button>
-					}
-				/>
-				<DropdownMenuContent>
-					<DropdownMenuGroup>
-						<DropdownMenuLabel>Assignee</DropdownMenuLabel>
-						{members.map((member) => (
-							<DropdownMenuItem
-								key={member._id}
-								onClick={() => onAssigneeChange(member._id)}
-							>
-								<span className="truncate">{member.name}</span>
-								{member._id === assigneeId && (
-									<span className="ml-auto text-muted-foreground text-xs">
-										Current
-									</span>
-								)}
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuGroup>
-					{assigneeId && (
-						<>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem onClick={onClearAssignee}>
-								<X className="mr-1 size-3" />
-								Unassign
-							</DropdownMenuItem>
-						</>
-					)}
-				</DropdownMenuContent>
-			</DropdownMenu>
-		</div>
-	);
 }
 
 function TaskDetailSheet({
@@ -281,13 +207,10 @@ function TasksPage() {
 	const { projectId: projectIdParam } = Route.useParams();
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
-	const org = useOrg();
 	const projectId = projectIdParam as Id<"projects">;
 	const { data: tasks } = useQuery(convexQuery(api.tasks.list, { projectId }));
 	const { data: members } = useQuery(
-		convexQuery(api.organizations.listMembers, {
-			orgId: org._id,
-		})
+		convexQuery(api.projects.listAssignmentCandidates, { projectId })
 	);
 
 	const statusFilter = new Set<TaskStatus>(search.status ?? []);

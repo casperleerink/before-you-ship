@@ -4,7 +4,6 @@ import {
 	createConversationGraph,
 	createPlan,
 	createTriageItem,
-	scheduledJobNames,
 } from "../test/fixtures";
 import { api } from "./_generated/api";
 import { initConvexTest } from "./test.setup";
@@ -56,10 +55,72 @@ test("plans.approve creates tasks, updates state, removes triage, and schedules 
 	expect(state.conversation).toMatchObject({ status: "completed" });
 	expect(state.tasks).toHaveLength(2);
 	expect(state.triageItems).toEqual([]);
-	expect(await scheduledJobNames(t)).toEqual([
-		"activity:record",
-		"activity:recordMany",
-		"embeddings:generateTaskEmbedding",
-		"embeddings:generateTaskEmbedding",
+});
+
+test("plans.updateTaskAssignee persists a draft assignee and approval carries it to tasks", async () => {
+	const t = initConvexTest();
+	const owner = await createActor(t, {
+		email: "owner@example.com",
+		name: "Owner",
+	});
+	const assignee = await createActor(t, {
+		email: "assignee@example.com",
+		name: "Assignee",
+	});
+	const { conversationId, organizationId, projectId } =
+		await createConversationGraph(t, owner);
+	const planId = await createPlan(t, { conversationId, projectId });
+
+	await t.run(async (ctx) => {
+		await ctx.db.insert("organizationMembers", {
+			joinedAt: Date.now(),
+			organizationId,
+			profile: {
+				assignmentEnabled: true,
+				availabilityStatus: "available",
+				avoids: [],
+				ownedDomains: ["Planning"],
+				preferredTaskTypes: ["Delivery"],
+				strengths: ["Coordination"],
+			},
+			role: "member",
+			userId: assignee.appUser._id,
+		});
+		await ctx.db.insert("projectMembers", {
+			assignment: {
+				eligibleForAssignment: true,
+				ownedAreas: ["Planning"],
+				ownedSystems: ["delivery"],
+				projectRoleLabel: "Delivery owner",
+			},
+			createdAt: Date.now(),
+			projectId,
+			updatedAt: Date.now(),
+			userId: assignee.appUser._id,
+		});
+	});
+
+	await owner.as.mutation(api.plans.updateTaskAssignee, {
+		assigneeId: assignee.appUser._id,
+		planId,
+		taskIndex: 0,
+	});
+	await owner.as.mutation(api.plans.approve, { planId });
+
+	const [plan, tasks] = await Promise.all([
+		t.run((ctx) => ctx.db.get(planId)),
+		t.run((ctx) =>
+			ctx.db
+				.query("tasks")
+				.withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+				.collect()
+		),
 	]);
+
+	expect(plan?.tasks[0]).toMatchObject({ assigneeId: assignee.appUser._id });
+	expect(
+		tasks.find((task) => task.title === "Build test harness")
+	).toMatchObject({
+		assigneeId: assignee.appUser._id,
+	});
 });

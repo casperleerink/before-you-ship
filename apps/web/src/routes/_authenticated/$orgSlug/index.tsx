@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import Loader from "@/components/loader";
+import { MemberProfileDialog } from "@/components/member-profile-dialog";
 import { ProjectDot } from "@/components/project-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -462,7 +463,9 @@ function MembersTab({
 						<TableRow>
 							<TableHead>Name</TableHead>
 							<TableHead>Email</TableHead>
-							<TableHead>Role</TableHead>
+							<TableHead>Access Role</TableHead>
+							<TableHead>Work Profile</TableHead>
+							<TableHead>Availability</TableHead>
 							{canManage && <TableHead className="w-10" />}
 						</TableRow>
 					</TableHeader>
@@ -476,13 +479,29 @@ function MembersTab({
 								<TableCell>
 									<RoleBadge role={member.role} />
 								</TableCell>
+								<TableCell className="text-sm">
+									<div className="space-y-1">
+										<div className="font-medium">
+											{member.profile?.jobTitle ?? "No job title"}
+										</div>
+										<div className="text-muted-foreground text-xs">
+											{formatWorkProfile(member.profile)}
+										</div>
+									</div>
+								</TableCell>
+								<TableCell>
+									<AvailabilityBadge profile={member.profile} />
+								</TableCell>
 								{canManage && (
 									<TableCell>
-										<MemberActions
-											currentUserRole={currentUserRole}
-											member={member}
-											orgId={orgId}
-										/>
+										<div className="flex items-center justify-end gap-2">
+											<MemberProfileDialog member={member} orgId={orgId} />
+											<MemberActions
+												currentUserRole={currentUserRole}
+												member={member}
+												orgId={orgId}
+											/>
+										</div>
 									</TableCell>
 								)}
 							</TableRow>
@@ -544,6 +563,53 @@ function RoleBadge({ role }: { role: string }) {
 			{role}
 		</Badge>
 	);
+}
+
+function AvailabilityBadge({
+	profile,
+}: {
+	profile?: {
+		assignmentEnabled: boolean;
+		availabilityStatus: "available" | "limited" | "unavailable";
+	};
+}) {
+	if (!profile) {
+		return <Badge variant="outline">No profile</Badge>;
+	}
+
+	let variant: "destructive" | "outline" | "secondary" = "outline";
+	if (profile.availabilityStatus === "unavailable") {
+		variant = "destructive";
+	} else if (profile.availabilityStatus === "limited") {
+		variant = "secondary";
+	}
+
+	return (
+		<div className="flex flex-wrap gap-1">
+			<Badge variant={variant}>{profile.availabilityStatus}</Badge>
+			{!profile.assignmentEnabled && <Badge variant="secondary">AI off</Badge>}
+		</div>
+	);
+}
+
+function formatWorkProfile(profile?: {
+	department?: string;
+	ownedDomains?: string[];
+	strengths?: string[];
+	workDescription?: string;
+}) {
+	if (!profile) {
+		return "No work profile configured";
+	}
+
+	const parts = [
+		profile.department,
+		profile.workDescription,
+		profile.ownedDomains?.[0] ? `Owns ${profile.ownedDomains[0]}` : undefined,
+		profile.strengths?.[0] ? `Strong in ${profile.strengths[0]}` : undefined,
+	].filter((part): part is string => Boolean(part));
+
+	return parts[0] ?? "Profile needs more detail";
 }
 
 function MemberActions({

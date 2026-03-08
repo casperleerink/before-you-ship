@@ -27,7 +27,7 @@ export async function removeTriageForConversation(
 
 	if (triageItem) {
 		await ctx.db.delete(triageItem._id);
-		await ctx.scheduler.runAfter(0, internal.activity.record, {
+		await ctx.scheduler.runAfter(1, internal.activity.record, {
 			projectId: triageItem.projectId,
 			userId,
 			action: "deleted",

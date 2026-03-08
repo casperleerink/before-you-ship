@@ -118,3 +118,70 @@ export function getDocCreateDefaults() {
 		title: "",
 	};
 }
+
+export const memberProfileFormSchema = z.object({
+	assignmentEnabled: z.enum(["true", "false"]),
+	availabilityNotes: z.string(),
+	availabilityStatus: z.enum(["available", "limited", "unavailable"]),
+	avoids: z.string(),
+	department: z.string(),
+	jobTitle: z.string(),
+	ownedDomains: z.string(),
+	preferredTaskTypes: z.string(),
+	strengths: z.string(),
+	timezone: z.string(),
+	workDescription: z.string(),
+});
+
+export function getMemberProfileFormDefaults(values?: {
+	assignmentEnabled?: boolean;
+	availabilityNotes?: string;
+	availabilityStatus?: "available" | "limited" | "unavailable";
+	avoids?: string;
+	department?: string;
+	jobTitle?: string;
+	ownedDomains?: string;
+	preferredTaskTypes?: string;
+	strengths?: string;
+	timezone?: string;
+	workDescription?: string;
+}) {
+	return {
+		assignmentEnabled: values?.assignmentEnabled === false ? "false" : "true",
+		availabilityNotes: values?.availabilityNotes ?? "",
+		availabilityStatus: values?.availabilityStatus ?? "available",
+		avoids: values?.avoids ?? "",
+		department: values?.department ?? "",
+		jobTitle: values?.jobTitle ?? "",
+		ownedDomains: values?.ownedDomains ?? "",
+		preferredTaskTypes: values?.preferredTaskTypes ?? "",
+		strengths: values?.strengths ?? "",
+		timezone: values?.timezone ?? "",
+		workDescription: values?.workDescription ?? "",
+	};
+}
+
+export const projectMemberAssignmentFormSchema = z.object({
+	eligibleForAssignment: z.enum(["true", "false"]),
+	notesForAI: z.string(),
+	ownedAreas: z.string(),
+	ownedSystems: z.string(),
+	projectRoleLabel: z.string(),
+});
+
+export function getProjectMemberAssignmentFormDefaults(values?: {
+	eligibleForAssignment?: boolean;
+	notesForAI?: string;
+	ownedAreas?: string;
+	ownedSystems?: string;
+	projectRoleLabel?: string;
+}) {
+	return {
+		eligibleForAssignment:
+			values?.eligibleForAssignment === false ? "false" : "true",
+		notesForAI: values?.notesForAI ?? "",
+		ownedAreas: values?.ownedAreas ?? "",
+		ownedSystems: values?.ownedSystems ?? "",
+		projectRoleLabel: values?.projectRoleLabel ?? "",
+	};
+}

@@ -8,7 +8,7 @@ import {
 	requireOrgMember,
 	requireUser,
 } from "./helpers";
-import { orgRoleValidator } from "./schema";
+import { organizationMemberProfileValidator, orgRoleValidator } from "./schema";
 import { generateUniqueSlug } from "./slugUtils";
 
 export const list = query({
@@ -117,12 +117,44 @@ export const listMembers = query({
 					name: user.name,
 					email: user.email,
 					avatarUrl: user.avatarUrl,
+					profile: m.profile,
 					role: m.role,
 				};
 			})
 		);
 
 		return members.filter((m): m is NonNullable<typeof m> => m !== null);
+	},
+});
+
+export const updateMemberProfile = mutation({
+	args: {
+		orgId: v.id("organizations"),
+		userId: v.id("users"),
+		profile: v.union(organizationMemberProfileValidator, v.null()),
+	},
+	handler: async (ctx, args) => {
+		const { membership: callerMembership } = await requireOrgMember(
+			ctx,
+			args.orgId
+		);
+		if (callerMembership.role === "member") {
+			throw new Error("Only owners and admins can update member profiles");
+		}
+
+		const targetMembership = await ctx.db
+			.query("organizationMembers")
+			.withIndex("by_org_and_user", (q) =>
+				q.eq("organizationId", args.orgId).eq("userId", args.userId)
+			)
+			.unique();
+		if (!targetMembership) {
+			throw new Error("User is not a member of this organization");
+		}
+
+		await ctx.db.patch(targetMembership._id, {
+			profile: args.profile === null ? undefined : args.profile,
+		});
 	},
 });
 
