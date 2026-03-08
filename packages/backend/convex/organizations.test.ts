@@ -73,4 +73,63 @@ describe("organizations", () => {
 			})
 		).rejects.toThrow("Only owners can rename organizations");
 	});
+
+	test("updateMemberProfile stores staffing context on the membership row", async () => {
+		const t = initConvexTest();
+		const owner = await createActor(t, {
+			email: "owner@example.com",
+			name: "Owner",
+		});
+		const teammate = await createActor(t, {
+			email: "teammate@example.com",
+			name: "Teammate",
+		});
+		const { organizationId } = await createOrganizationGraph(t, owner);
+
+		await t.run(async (ctx) => {
+			await ctx.db.insert("organizationMembers", {
+				joinedAt: Date.now(),
+				organizationId,
+				role: "member",
+				userId: teammate.appUser._id,
+			});
+		});
+
+		await owner.as.mutation(api.organizations.updateMemberProfile, {
+			orgId: organizationId,
+			profile: {
+				assignmentEnabled: true,
+				availabilityNotes: "Part-time",
+				availabilityStatus: "limited",
+				avoids: ["Support"],
+				department: "Engineering",
+				jobTitle: "Frontend Engineer",
+				ownedDomains: ["Dashboard"],
+				preferredTaskTypes: ["UI polish"],
+				strengths: ["React"],
+				timezone: "Europe/Amsterdam",
+				workDescription: "Owns frontend interactions",
+			},
+			userId: teammate.appUser._id,
+		});
+
+		const membership = await t.run((ctx) =>
+			ctx.db
+				.query("organizationMembers")
+				.withIndex("by_org_and_user", (q) =>
+					q
+						.eq("organizationId", organizationId)
+						.eq("userId", teammate.appUser._id)
+				)
+				.unique()
+		);
+
+		expect(membership).toMatchObject({
+			profile: {
+				availabilityStatus: "limited",
+				jobTitle: "Frontend Engineer",
+				strengths: ["React"],
+			},
+		});
+	});
 });

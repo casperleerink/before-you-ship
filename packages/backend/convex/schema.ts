@@ -31,6 +31,12 @@ export const taskLevelValidator = v.union(
 	v.literal("high")
 );
 
+export const assignmentAvailabilityStatusValidator = v.union(
+	v.literal("available"),
+	v.literal("limited"),
+	v.literal("unavailable")
+);
+
 export const planStatusValidator = v.union(
 	v.literal("proposed"),
 	v.literal("approved"),
@@ -50,6 +56,28 @@ export const projectRepoProviderValidator = v.union(
 	v.literal("bitbucket"),
 	v.literal("self_hosted")
 );
+
+export const organizationMemberProfileValidator = v.object({
+	jobTitle: v.optional(v.string()),
+	department: v.optional(v.string()),
+	workDescription: v.optional(v.string()),
+	strengths: v.array(v.string()),
+	preferredTaskTypes: v.array(v.string()),
+	ownedDomains: v.array(v.string()),
+	avoids: v.array(v.string()),
+	availabilityStatus: assignmentAvailabilityStatusValidator,
+	availabilityNotes: v.optional(v.string()),
+	timezone: v.optional(v.string()),
+	assignmentEnabled: v.boolean(),
+});
+
+export const projectMemberAssignmentValidator = v.object({
+	eligibleForAssignment: v.boolean(),
+	projectRoleLabel: v.optional(v.string()),
+	ownedAreas: v.array(v.string()),
+	ownedSystems: v.array(v.string()),
+	notesForAI: v.optional(v.string()),
+});
 
 export default defineSchema({
 	users: defineTable({
@@ -73,6 +101,7 @@ export default defineSchema({
 		organizationId: v.id("organizations"),
 		userId: v.id("users"),
 		role: orgRoleValidator,
+		profile: v.optional(organizationMemberProfileValidator),
 		joinedAt: v.number(),
 	})
 		.index("by_organizationId", ["organizationId"])
@@ -102,6 +131,17 @@ export default defineSchema({
 	})
 		.index("by_organizationId", ["organizationId"])
 		.index("by_repoUrl", ["repoUrl"]),
+
+	projectMembers: defineTable({
+		projectId: v.id("projects"),
+		userId: v.id("users"),
+		assignment: v.optional(projectMemberAssignmentValidator),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_projectId", ["projectId"])
+		.index("by_userId", ["userId"])
+		.index("by_projectId_userId", ["projectId", "userId"]),
 
 	conversations: defineTable({
 		projectId: v.id("projects"),
@@ -162,6 +202,7 @@ export default defineSchema({
 				risk: taskLevelValidator,
 				complexity: taskLevelValidator,
 				effort: taskLevelValidator,
+				assigneeId: v.optional(v.id("users")),
 			})
 		),
 		createdTaskIds: v.optional(v.array(v.id("tasks"))),

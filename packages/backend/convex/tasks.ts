@@ -4,7 +4,12 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
+import {
+	getAppUser,
+	getOrgMembership,
+	isProjectAssignmentCandidate,
+	requireProjectMember,
+} from "./helpers";
 import { taskLevelValidator, taskStatusValidator } from "./schema";
 
 type TaskLevel = "low" | "medium" | "high";
@@ -20,6 +25,7 @@ export async function insertTask(
 		risk: TaskLevel;
 		complexity: TaskLevel;
 		effort: TaskLevel;
+		assigneeId?: Id<"users">;
 	}
 ): Promise<Id<"tasks">> {
 	const taskId = await ctx.db.insert("tasks", {
@@ -27,7 +33,7 @@ export async function insertTask(
 		status: "ready",
 		createdAt: Date.now(),
 	});
-	await ctx.scheduler.runAfter(0, internal.embeddings.generateTaskEmbedding, {
+	await ctx.scheduler.runAfter(1, internal.embeddings.generateTaskEmbedding, {
 		taskId,
 	});
 	return taskId;
@@ -154,6 +160,16 @@ export const update = mutation({
 			updates.status = args.status;
 		}
 		if (args.assigneeId !== undefined) {
+			if (
+				args.assigneeId !== null &&
+				!(await isProjectAssignmentCandidate(
+					ctx,
+					task.projectId,
+					args.assigneeId
+				))
+			) {
+				throw new Error("Selected assignee is not eligible for this project");
+			}
 			updates.assigneeId =
 				args.assigneeId === null ? undefined : args.assigneeId;
 		}
@@ -189,8 +205,19 @@ export const createFromAgent = internalMutation({
 		risk: taskLevelValidator,
 		complexity: taskLevelValidator,
 		effort: taskLevelValidator,
+		assigneeId: v.optional(v.id("users")),
 	},
-	handler: (ctx, args) => {
+	handler: async (ctx, args) => {
+		if (
+			args.assigneeId &&
+			!(await isProjectAssignmentCandidate(
+				ctx,
+				args.projectId,
+				args.assigneeId
+			))
+		) {
+			throw new Error("Selected assignee is not eligible for this project");
+		}
 		return insertTask(ctx, args);
 	},
 });

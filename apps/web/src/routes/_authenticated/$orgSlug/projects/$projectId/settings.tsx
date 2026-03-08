@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import Loader from "@/components/loader";
+import { ProjectAssignmentTeamSection } from "@/components/project-assignment-team-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -223,6 +224,10 @@ function SettingsPage() {
 						});
 						toast.success("Project settings updated");
 					}}
+				/>
+				<ProjectAssignmentTeamSection
+					canManage={org.role !== "member"}
+					projectId={projectId}
 				/>
 				<RepositorySection
 					projectId={projectId}
