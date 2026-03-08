@@ -20,6 +20,9 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch --parallel",
+    "test:coverage": "turbo run test:coverage",
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
@@ -35,11 +38,15 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.0",
+    "@edge-runtime/vm": "^5.0.0",
     "@project-manager/config": "workspace:*",
     "@types/node": "^25.3.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "convex-test": "^0.0.41",
     "turbo": "^2.8.12",
     "typescript": "catalog:",
-    "ultracite": "7.2.4"
+    "ultracite": "7.2.4",
+    "vitest": "^4.0.18"
   },
   "packageManager": "bun@1.3.10"
 }

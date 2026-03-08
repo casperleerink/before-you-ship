@@ -8,34 +8,9 @@ import {
 	internalMutation,
 	internalQuery,
 } from "./_generated/server";
+import { parseGitHubRepoUrl, stripGitSuffix } from "./gitUtils";
 import { projectRepoProviderValidator } from "./schema";
 import { GITHUB_API_URL, generateRandomHex, getConvexSiteUrl } from "./shared";
-
-const GIT_SUFFIX_RE = /\.git$/;
-
-/**
- * Extract owner/repo from a GitHub URL like https://github.com/owner/repo
- */
-function parseGitHubRepoUrl(
-	repoUrl: string
-): { owner: string; repo: string } | null {
-	try {
-		const url = new URL(repoUrl);
-		if (!url.hostname.includes("github.com")) {
-			return null;
-		}
-		const parts = url.pathname.split("/").filter(Boolean);
-		if (parts.length < 2) {
-			return null;
-		}
-		return {
-			owner: parts[0],
-			repo: parts[1].replace(GIT_SUFFIX_RE, ""),
-		};
-	} catch {
-		return null;
-	}
-}
 
 // --- Internal queries & mutations ---
 
@@ -357,7 +332,7 @@ export const githubWebhookHandler = httpAction(
 export const getProjectWebhookByRepoUrl = internalQuery({
 	args: { repoUrl: v.string() },
 	handler: async (ctx, args) => {
-		const normalizedUrl = args.repoUrl.replace(GIT_SUFFIX_RE, "");
+		const normalizedUrl = stripGitSuffix(args.repoUrl);
 		const project =
 			(await ctx.db
 				.query("projects")

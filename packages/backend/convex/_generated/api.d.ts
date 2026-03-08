@@ -20,6 +20,7 @@ import type * as daytonaActions from "../daytonaActions.js";
 import type * as docs from "../docs.js";
 import type * as embeddings from "../embeddings.js";
 import type * as gitConnections from "../gitConnections.js";
+import type * as gitUtils from "../gitUtils.js";
 import type * as github from "../github.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as helpers from "../helpers.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   docs: typeof docs;
   embeddings: typeof embeddings;
   gitConnections: typeof gitConnections;
+  gitUtils: typeof gitUtils;
   github: typeof github;
   healthCheck: typeof healthCheck;
   helpers: typeof helpers;

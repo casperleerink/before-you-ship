@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { detectRepoProviderFromUrl } from "./gitUtils";
 import {
 	getAppUser,
 	getOrgMembership,
@@ -226,11 +227,7 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		const { appUser } = await requireOrgMember(ctx, args.orgId);
 
-		// Detect provider from URL
-		let repoProvider: "github" | undefined;
-		if (args.repoUrl?.includes("github.com")) {
-			repoProvider = "github";
-		}
+		const repoProvider = detectRepoProviderFromUrl(args.repoUrl);
 
 		const projectId = await ctx.db.insert("projects", {
 			name: args.name,
