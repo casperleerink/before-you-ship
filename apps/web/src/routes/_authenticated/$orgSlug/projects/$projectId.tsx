@@ -186,8 +186,10 @@ function ProjectLayout() {
 				</div>
 			</aside>
 
-			<main className="relative flex-1 overflow-auto">
-				<Outlet />
+			<main className="relative flex-1 overflow-hidden">
+				<div className="h-full overflow-auto">
+					<Outlet />
+				</div>
 
 				{!isConversationDetail && (
 					<Button
