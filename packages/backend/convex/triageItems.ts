@@ -1,8 +1,8 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { logActivity } from "./activity";
 import {
 	getAppUser,
 	getOrgMembership,
@@ -27,7 +27,7 @@ export async function removeTriageForConversation(
 
 	if (triageItem) {
 		await ctx.db.delete(triageItem._id);
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: triageItem.projectId,
 			userId,
 			action: "deleted",
@@ -96,7 +96,7 @@ export const create = mutation({
 			createdAt: Date.now(),
 		});
 
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: args.projectId,
 			userId: appUser._id,
 			action: "created",

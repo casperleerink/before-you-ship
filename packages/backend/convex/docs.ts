@@ -2,7 +2,6 @@ import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
-import { hasRecentActivity, logActivity } from "./activity";
 import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 
 export const list = query({
@@ -86,7 +85,7 @@ export const create = mutation({
 			updatedAt: now,
 		});
 
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: args.projectId,
 			userId: appUser._id,
 			action: "created",
@@ -134,9 +133,8 @@ export const update = mutation({
 				{ docId: args.docId }
 			);
 
-			const recent = await hasRecentActivity(ctx, args.docId);
-			if (!recent) {
-				await logActivity(ctx, {
+			await ctx.scheduler.runAfter(0, internal.activity.recordIfNoRecent, {
+				entry: {
 					projectId: doc.projectId,
 					userId: appUser._id,
 					action: "updated",
@@ -146,8 +144,8 @@ export const update = mutation({
 						args.title !== undefined && args.title !== doc.title
 							? `renamed to "${args.title}"`
 							: `updated "${doc.title}"`,
-				});
-			}
+				},
+			});
 		}
 	},
 });
@@ -165,7 +163,7 @@ export const remove = mutation({
 
 		await ctx.db.delete(args.docId);
 
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: doc.projectId,
 			userId: appUser._id,
 			action: "deleted",

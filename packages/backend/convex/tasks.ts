@@ -4,7 +4,6 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 import { taskLevelValidator, taskStatusValidator } from "./schema";
 
@@ -169,7 +168,7 @@ export const update = mutation({
 			parts.push(args.assigneeId === null ? "unassigned" : "reassigned");
 		}
 
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: task.projectId,
 			userId: appUser._id,
 			action: "updated",

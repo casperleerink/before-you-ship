@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import {
@@ -7,7 +8,6 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
-import { logActivity } from "./activity";
 import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 import { taskLevelValidator } from "./schema";
 import { insertTask } from "./tasks";
@@ -101,6 +101,14 @@ export const approve = mutation({
 		const { plan, appUser } = await getProposedPlanWithAuth(ctx, args.planId);
 
 		const taskIds: Id<"tasks">[] = [];
+		const activityEntries: Array<{
+			projectId: Id<"projects">;
+			userId: Id<"users">;
+			action: "created" | "updated" | "deleted";
+			entityType: "task" | "plan";
+			entityId: string;
+			description: string;
+		}> = [];
 		for (const task of plan.tasks) {
 			const taskId = await insertTask(ctx, {
 				projectId: plan.projectId,
@@ -108,8 +116,7 @@ export const approve = mutation({
 				...task,
 			});
 			taskIds.push(taskId);
-
-			await logActivity(ctx, {
+			activityEntries.push({
 				projectId: plan.projectId,
 				userId: appUser._id,
 				action: "created",
@@ -130,13 +137,16 @@ export const approve = mutation({
 
 		await removeTriageForConversation(ctx, plan.conversationId, appUser._id);
 
-		await logActivity(ctx, {
+		activityEntries.push({
 			projectId: plan.projectId,
 			userId: appUser._id,
 			action: "updated",
 			entityType: "plan",
 			entityId: args.planId,
 			description: `approved plan with ${taskIds.length} tasks`,
+		});
+		await ctx.scheduler.runAfter(0, internal.activity.recordMany, {
+			entries: activityEntries,
 		});
 
 		return plan._id;
@@ -151,7 +161,7 @@ export const reject = mutation({
 		const { plan, appUser } = await getProposedPlanWithAuth(ctx, args.planId);
 		await ctx.db.patch(args.planId, { status: "rejected" });
 
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: plan.projectId,
 			userId: appUser._id,
 			action: "updated",

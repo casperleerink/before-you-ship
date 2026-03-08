@@ -1,11 +1,10 @@
 import { createThread } from "@convex-dev/agent";
 import { v } from "convex/values";
 
-import { components } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { logActivity } from "./activity";
 import { sendMessageToThread } from "./chat";
 import {
 	getAppUser,
@@ -32,7 +31,7 @@ async function insertConversation(
 		createdAt: Date.now(),
 	});
 
-	await logActivity(ctx, {
+	await ctx.scheduler.runAfter(0, internal.activity.record, {
 		projectId,
 		userId,
 		action: "created",
@@ -200,7 +199,7 @@ export const updateStatus = mutation({
 			await removeTriageForConversation(ctx, conversation._id, appUser._id);
 		}
 
-		await logActivity(ctx, {
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: conversation.projectId,
 			userId: appUser._id,
 			action: "updated",

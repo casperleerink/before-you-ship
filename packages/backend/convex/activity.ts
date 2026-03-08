@@ -3,39 +3,98 @@ import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership } from "./helpers";
 
-export async function logActivity(
-	ctx: MutationCtx,
-	args: {
-		projectId: Id<"projects">;
-		userId: Id<"users">;
-		action: "created" | "updated" | "deleted";
-		entityType: "triage" | "conversation" | "task" | "doc" | "plan";
-		entityId: string;
-		description?: string;
-	}
-) {
+const activityEntryValidator = v.object({
+	projectId: v.id("projects"),
+	userId: v.id("users"),
+	action: v.union(
+		v.literal("created"),
+		v.literal("updated"),
+		v.literal("deleted")
+	),
+	entityType: v.union(
+		v.literal("triage"),
+		v.literal("conversation"),
+		v.literal("task"),
+		v.literal("doc"),
+		v.literal("plan")
+	),
+	entityId: v.string(),
+	description: v.optional(v.string()),
+});
+
+interface ActivityEntry {
+	action: "created" | "updated" | "deleted";
+	description?: string;
+	entityId: string;
+	entityType: "triage" | "conversation" | "task" | "doc" | "plan";
+	projectId: Id<"projects">;
+	userId: Id<"users">;
+}
+
+async function insertActivity(ctx: MutationCtx, entry: ActivityEntry) {
 	await ctx.db.insert("activity", {
-		...args,
+		...entry,
 		createdAt: Date.now(),
 	});
 }
 
 const DEBOUNCE_MS = 60_000;
 
-export async function hasRecentActivity(
+async function hasRecentActivity(
 	ctx: MutationCtx,
-	entityId: string
+	entry: Pick<ActivityEntry, "entityType" | "entityId">,
+	debounceMs: number
 ): Promise<boolean> {
 	const recent = await ctx.db
 		.query("activity")
+		.withIndex("by_entityType_entityId_createdAt", (q) =>
+			q.eq("entityType", entry.entityType).eq("entityId", entry.entityId)
+		)
 		.order("desc")
-		.filter((q) => q.eq(q.field("entityId"), entityId))
 		.first();
-	return !!recent && Date.now() - recent.createdAt < DEBOUNCE_MS;
+	return !!recent && Date.now() - recent.createdAt < debounceMs;
 }
+
+export const record = internalMutation({
+	args: activityEntryValidator,
+	handler: async (ctx, args) => {
+		await insertActivity(ctx, args);
+	},
+});
+
+export const recordMany = internalMutation({
+	args: {
+		entries: v.array(activityEntryValidator),
+	},
+	handler: async (ctx, { entries }) => {
+		for (const entry of entries) {
+			await insertActivity(ctx, entry);
+		}
+	},
+});
+
+export const recordIfNoRecent = internalMutation({
+	args: {
+		entry: activityEntryValidator,
+		debounceMs: v.optional(v.number()),
+	},
+	handler: async (ctx, { entry, debounceMs }) => {
+		const recent = await hasRecentActivity(
+			ctx,
+			entry,
+			debounceMs ?? DEBOUNCE_MS
+		);
+		if (recent) {
+			return false;
+		}
+
+		await insertActivity(ctx, entry);
+		return true;
+	},
+});
 
 export const list = query({
 	args: {

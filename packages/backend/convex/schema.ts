@@ -228,7 +228,13 @@ export default defineSchema({
 		entityId: v.string(),
 		description: v.optional(v.string()),
 		createdAt: v.number(),
-	}).index("by_projectId_createdAt", ["projectId", "createdAt"]),
+	})
+		.index("by_projectId_createdAt", ["projectId", "createdAt"])
+		.index("by_entityType_entityId_createdAt", [
+			"entityType",
+			"entityId",
+			"createdAt",
+		]),
 
 	docs: defineTable({
 		projectId: v.id("projects"),
