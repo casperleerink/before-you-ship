@@ -197,6 +197,13 @@ export const updateStatus = mutation({
 
 		if (args.status === "completed" || args.status === "abandoned") {
 			await removeTriageForConversation(ctx, conversation._id, appUser._id);
+
+			// Clean up ephemeral sandbox if one was created
+			if (conversation.sandboxId) {
+				await ctx.scheduler.runAfter(0, internal.daytonaActions.deleteSandbox, {
+					sandboxId: conversation.sandboxId,
+				});
+			}
 		}
 
 		await ctx.scheduler.runAfter(0, internal.activity.record, {

@@ -4,18 +4,6 @@ import { internalMutation, internalQuery } from "./_generated/server";
 
 export const REPO_ROOT = "/home/daytona/repo";
 
-export const setSandboxId = internalMutation({
-	args: {
-		projectId: v.id("projects"),
-		sandboxId: v.string(),
-	},
-	handler: async (ctx, args) => {
-		await ctx.db.patch(args.projectId, {
-			sandboxId: args.sandboxId,
-		});
-	},
-});
-
 export const setProjectDescription = internalMutation({
 	args: {
 		projectId: v.id("projects"),
@@ -35,68 +23,37 @@ export const setProjectDescription = internalMutation({
 	},
 });
 
-// File tree cache
+// Conversation-scoped sandbox helpers
 
-export const getFileTreeCache = internalQuery({
+export const getConversationSandboxId = internalQuery({
 	args: {
-		projectId: v.id("projects"),
-		path: v.string(),
+		conversationId: v.id("conversations"),
 	},
-	handler: (ctx, args) => {
-		return ctx.db
-			.query("fileTreeCache")
-			.withIndex("by_projectId_path", (q) =>
-				q.eq("projectId", args.projectId).eq("path", args.path)
-			)
-			.first();
+	handler: async (ctx, args) => {
+		const conversation = await ctx.db.get(args.conversationId);
+		return conversation?.sandboxId ?? null;
 	},
 });
 
-export const setFileTreeCache = internalMutation({
+export const setConversationSandboxId = internalMutation({
 	args: {
-		projectId: v.id("projects"),
-		path: v.string(),
-		entries: v.array(
-			v.object({
-				name: v.string(),
-				isDir: v.boolean(),
-				size: v.number(),
-			})
-		),
+		conversationId: v.id("conversations"),
+		sandboxId: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const existing = await ctx.db
-			.query("fileTreeCache")
-			.withIndex("by_projectId_path", (q) =>
-				q.eq("projectId", args.projectId).eq("path", args.path)
-			)
-			.first();
-
-		if (existing) {
-			await ctx.db.patch(existing._id, {
-				entries: args.entries,
-				cachedAt: Date.now(),
-			});
-		} else {
-			await ctx.db.insert("fileTreeCache", {
-				projectId: args.projectId,
-				path: args.path,
-				entries: args.entries,
-				cachedAt: Date.now(),
-			});
-		}
+		await ctx.db.patch(args.conversationId, {
+			sandboxId: args.sandboxId,
+		});
 	},
 });
 
-export const clearFileTreeCache = internalMutation({
+export const clearConversationSandboxId = internalMutation({
 	args: {
-		projectId: v.id("projects"),
+		conversationId: v.id("conversations"),
 	},
 	handler: async (ctx, args) => {
-		const entries = await ctx.db
-			.query("fileTreeCache")
-			.withIndex("by_projectId_path", (q) => q.eq("projectId", args.projectId))
-			.collect();
-		await Promise.all(entries.map((entry) => ctx.db.delete(entry._id)));
+		await ctx.db.patch(args.conversationId, {
+			sandboxId: undefined,
+		});
 	},
 });

@@ -189,7 +189,6 @@ function SettingsPage() {
 					projectId={projectId}
 					repoProvider={project.repoProvider}
 					repoUrl={project.repoUrl}
-					sandboxId={project.sandboxId}
 				/>
 				<DeleteProjectSection
 					canDelete={org.role !== "member"}
@@ -311,12 +310,10 @@ function RepositorySection({
 	projectId,
 	repoUrl,
 	repoProvider,
-	sandboxId,
 }: {
 	projectId: Id<"projects">;
 	repoUrl?: string;
 	repoProvider?: string;
-	sandboxId?: string;
 }) {
 	const { data: githubConnection } = useQuery(
 		convexQuery(
@@ -345,7 +342,6 @@ function RepositorySection({
 					}}
 					repoProvider={repoProvider}
 					repoUrl={repoUrl}
-					sandboxId={sandboxId}
 				/>
 			) : (
 				<div className="space-y-6">
@@ -373,12 +369,10 @@ function RepositorySection({
 function ConnectedRepo({
 	repoUrl,
 	repoProvider,
-	sandboxId,
 	onDisconnect,
 }: {
 	repoUrl: string;
 	repoProvider?: string;
-	sandboxId?: string;
 	onDisconnect: () => Promise<void>;
 }) {
 	const [disconnecting, setDisconnecting] = useState(false);
@@ -394,11 +388,7 @@ function ConnectedRepo({
 							{repoProvider && (
 								<Badge variant="secondary">{repoProvider}</Badge>
 							)}
-							{sandboxId ? (
-								<Badge variant="secondary">Sandbox ready</Badge>
-							) : (
-								<Badge variant="outline">Setting up sandbox...</Badge>
-							)}
+							<Badge variant="secondary">Repository connected</Badge>
 						</div>
 					</div>
 				</div>

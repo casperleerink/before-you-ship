@@ -2,7 +2,6 @@ import { httpRouter } from "convex/server";
 
 import { authComponent, createAuth } from "./auth";
 import { githubCallback, githubInitiate } from "./gitConnections";
-import { githubWebhookHandler } from "./webhooks";
 
 const http = httpRouter();
 
@@ -18,12 +17,6 @@ http.route({
 	path: "/api/github/callback",
 	method: "GET",
 	handler: githubCallback,
-});
-
-http.route({
-	path: "/api/webhooks/github",
-	method: "POST",
-	handler: githubWebhookHandler,
 });
 
 export default http;

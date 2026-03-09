@@ -80,12 +80,11 @@ function buildSystemPrompt(
 		name: string;
 		description?: string;
 		repoUrl?: string;
-		sandboxId?: string;
 	},
 	hasApprovedPlan: boolean,
 	proposedPlanSummary?: string | null
 ): string {
-	const hasCodebase = Boolean(project.sandboxId);
+	const hasCodebase = Boolean(project.repoUrl);
 	const parts = [
 		"You are a technical advisor AI helping non-technical team members (PMs, designers, clients) refine ideas into developer-ready tasks.",
 		"",
@@ -208,8 +207,8 @@ export const generateResponseAsync = internalAction({
 			? {
 					...createSearchTools(conversation.projectId),
 					...createAssignmentTools(conversation.projectId),
-					...(project?.sandboxId
-						? createCodebaseTools(project.sandboxId, conversation.projectId)
+					...(project?.repoUrl
+						? createCodebaseTools(conversation._id, conversation.projectId)
 						: {}),
 					...createPlanTools(conversation.projectId, conversation._id),
 					...(hasApprovedPlan
@@ -321,9 +320,10 @@ export const generateTitleAsync = internalAction({
 	},
 	handler: async (ctx, { threadId, conversationId }) => {
 		try {
-			const messages = await ctx.runQuery(internal.chat.getThreadMessages, {
-				threadId,
-			});
+			const messages: Array<{ role: string; text: string }> =
+				await ctx.runQuery(internal.chat.getThreadMessages, {
+					threadId,
+				});
 
 			if (messages.length === 0) {
 				return;

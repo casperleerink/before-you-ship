@@ -6,6 +6,8 @@ import { generateText } from "ai";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { ActionCtx } from "./_generated/server";
 import { internalAction } from "./_generated/server";
 import { languageModel } from "./agent";
 import { REPO_ROOT } from "./daytona";
@@ -29,69 +31,109 @@ function getSandbox(sandboxId: string): Promise<Sandbox> {
 	return daytona.get(sandboxId);
 }
 
-export const createSandbox = internalAction({
+async function resolveGitCredentials(
+	ctx: ActionCtx,
+	projectId: Id<"projects">
+): Promise<{ username: string; password: string } | undefined> {
+	const project = await ctx.runQuery(internal.projects.getProjectInternal, {
+		projectId,
+	});
+	if (!(project?.repoProvider && project.createdBy)) {
+		return undefined;
+	}
+
+	const connection = await ctx.runQuery(
+		internal.gitConnections.getConnectionByUserAndProvider,
+		{ userId: project.createdBy, provider: project.repoProvider }
+	);
+	if (!connection?.accessToken) {
+		return undefined;
+	}
+
+	return { username: "x-access-token", password: connection.accessToken };
+}
+
+export const ensureConversationSandbox = internalAction({
 	args: {
+		conversationId: v.id("conversations"),
 		projectId: v.id("projects"),
-		repoUrl: v.string(),
-		gitConnectionId: v.optional(v.id("gitConnections")),
 	},
-	handler: async (ctx, args) => {
-		let gitCredentials: { username: string; password: string } | undefined;
-		if (args.gitConnectionId) {
-			const connection = await ctx.runQuery(
-				internal.gitConnections.getConnectionById,
-				{ connectionId: args.gitConnectionId }
-			);
-			if (connection?.accessToken) {
-				gitCredentials = {
-					username: "x-access-token",
-					password: connection.accessToken,
-				};
+	handler: async (ctx, args): Promise<string> => {
+		// 1. Check for existing sandboxId on conversation
+		const existingSandboxId: string | null = await ctx.runQuery(
+			internal.daytona.getConversationSandboxId,
+			{ conversationId: args.conversationId }
+		);
+
+		if (existingSandboxId) {
+			try {
+				const sandbox = await getSandbox(existingSandboxId);
+				if (sandbox.state === "started") {
+					return existingSandboxId;
+				}
+				if (sandbox.state === "stopped" || sandbox.state === "archived") {
+					await sandbox.start();
+					return existingSandboxId;
+				}
+				if (sandbox.state === "error" && sandbox.recoverable) {
+					await sandbox.recover();
+					return existingSandboxId;
+				}
+				// Non-recoverable state — clear and create a new one
+				await ctx.runMutation(internal.daytona.clearConversationSandboxId, {
+					conversationId: args.conversationId,
+				});
+			} catch {
+				// Sandbox is gone or unreachable — clear and create a new one
+				await ctx.runMutation(internal.daytona.clearConversationSandboxId, {
+					conversationId: args.conversationId,
+				});
 			}
 		}
 
-		try {
-			const daytona = getDaytonaClient();
-			const sandbox = await daytona.create({ language: "typescript" });
+		// 2. Look up project repoUrl
+		const project = await ctx.runQuery(internal.projects.getProjectInternal, {
+			projectId: args.projectId,
+		});
+		if (!project?.repoUrl) {
+			throw new Error("Project has no repository URL");
+		}
 
+		// 3. Get git credentials from project creator's connection
+		const gitCredentials = await resolveGitCredentials(ctx, args.projectId);
+
+		// 4. Create ephemeral sandbox
+		const daytona = getDaytonaClient();
+		const sandbox = await daytona.create({
+			language: "typescript",
+			autoStopInterval: 30,
+		});
+
+		try {
 			await sandbox.git.clone(
-				args.repoUrl,
+				project.repoUrl,
 				REPO_ROOT,
 				undefined,
 				undefined,
 				gitCredentials?.username,
 				gitCredentials?.password
 			);
-
-			await ctx.runMutation(internal.daytona.setSandboxId, {
-				projectId: args.projectId,
-				sandboxId: sandbox.id,
-			});
-
-			await ctx.scheduler.runAfter(
-				0,
-				internal.daytonaActions.buildFileTreeCache,
-				{
-					projectId: args.projectId,
-					sandboxId: sandbox.id,
-				}
-			);
-
-			await ctx.scheduler.runAfter(
-				0,
-				internal.daytonaActions.generateProjectDescription,
-				{
-					projectId: args.projectId,
-					sandboxId: sandbox.id,
-				}
-			);
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Unknown error";
-			console.error(
-				`Failed to create sandbox for project ${args.projectId}: ${message}`
-			);
-			throw new Error(`Sandbox creation failed: ${message}`);
+			try {
+				await sandbox.delete();
+			} catch {
+				// Best-effort cleanup
+			}
+			throw error;
 		}
+
+		// 5. Store sandboxId on conversation
+		await ctx.runMutation(internal.daytona.setConversationSandboxId, {
+			conversationId: args.conversationId,
+			sandboxId: sandbox.id,
+		});
+
+		return sandbox.id;
 	},
 });
 
@@ -155,46 +197,43 @@ export const searchCode = internalAction({
 	},
 });
 
-export const gitPull = internalAction({
-	args: {
-		sandboxId: v.string(),
-	},
-	handler: async (_ctx, args) => {
-		const sandbox = await getSandbox(args.sandboxId);
-		await sandbox.git.pull(REPO_ROOT);
-	},
-});
-
-export const buildFileTreeCache = internalAction({
-	args: {
-		projectId: v.id("projects"),
-		sandboxId: v.string(),
-	},
-	handler: async (ctx, args) => {
-		const sandbox = await getSandbox(args.sandboxId);
-		const files = await sandbox.fs.listFiles(REPO_ROOT);
-		const entries = files.map((f) => ({
-			name: f.name,
-			isDir: f.isDir,
-			size: f.size,
-		}));
-
-		await ctx.runMutation(internal.daytona.setFileTreeCache, {
-			projectId: args.projectId,
-			path: REPO_ROOT,
-			entries,
-		});
-	},
-});
-
 export const generateProjectDescription = internalAction({
 	args: {
 		projectId: v.id("projects"),
-		sandboxId: v.string(),
+		repoUrl: v.string(),
+		gitConnectionId: v.optional(v.id("gitConnections")),
 	},
 	handler: async (ctx, args) => {
+		let sandbox: Sandbox | undefined;
 		try {
-			const sandbox = await getSandbox(args.sandboxId);
+			// Get git credentials if connection provided
+			let gitCredentials: { username: string; password: string } | undefined;
+			if (args.gitConnectionId) {
+				const connection = await ctx.runQuery(
+					internal.gitConnections.getConnectionById,
+					{ connectionId: args.gitConnectionId }
+				);
+				if (connection?.accessToken) {
+					gitCredentials = {
+						username: "x-access-token",
+						password: connection.accessToken,
+					};
+				}
+			}
+
+			// Create ephemeral sandbox
+			const daytona = getDaytonaClient();
+			sandbox = await daytona.create({ language: "typescript" });
+
+			await sandbox.git.clone(
+				args.repoUrl,
+				REPO_ROOT,
+				undefined,
+				undefined,
+				gitCredentials?.username,
+				gitCredentials?.password
+			);
+
 			const files = await sandbox.fs.listFiles(REPO_ROOT);
 
 			const fileTree = files
@@ -250,6 +289,14 @@ export const generateProjectDescription = internalAction({
 			console.error(
 				`Failed to generate description for project ${args.projectId}: ${message}`
 			);
+		} finally {
+			if (sandbox) {
+				try {
+					await sandbox.delete();
+				} catch {
+					// Best-effort cleanup
+				}
+			}
 		}
 	},
 });

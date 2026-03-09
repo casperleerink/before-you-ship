@@ -88,10 +88,9 @@ const writeTaskSchema = z.object({
 
 const MAX_FILE_SIZE = 50_000; // characters
 const MAX_SEARCH_RESULTS = 50;
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function createCodebaseTools(
-	sandboxId: string,
+	conversationId: Id<"conversations">,
 	projectId: Id<"projects">
 ) {
 	const listFiles = createTool({
@@ -106,37 +105,21 @@ export function createCodebaseTools(
 				),
 		}),
 		handler: async (ctx, args) => {
+			const sandboxId = await ctx.runAction(
+				internal.daytonaActions.ensureConversationSandbox,
+				{ conversationId, projectId }
+			);
 			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
-
-			const cached = await ctx.runQuery(internal.daytona.getFileTreeCache, {
-				projectId,
-				path: fullPath,
-			});
-			if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-				return cached.entries;
-			}
-
-			// Fall back to Daytona API
-			const files = await ctx.runAction(internal.daytonaActions.listFiles, {
-				sandboxId,
-				path: fullPath,
-			});
-
-			// Strip extra fields before caching
-			const entries = files.map((f) => ({
+			const files: Array<{ name: string; isDir: boolean; size: number }> =
+				await ctx.runAction(internal.daytonaActions.listFiles, {
+					sandboxId,
+					path: fullPath,
+				});
+			return files.map((f) => ({
 				name: f.name,
 				isDir: f.isDir,
 				size: f.size,
 			}));
-
-			// Store in cache for future calls
-			await ctx.runMutation(internal.daytona.setFileTreeCache, {
-				projectId,
-				path: fullPath,
-				entries,
-			});
-
-			return entries;
 		},
 	});
 
@@ -147,6 +130,10 @@ export function createCodebaseTools(
 			path: z.string().describe("Relative path to the file within the repo"),
 		}),
 		handler: async (ctx, args) => {
+			const sandboxId = await ctx.runAction(
+				internal.daytonaActions.ensureConversationSandbox,
+				{ conversationId, projectId }
+			);
 			const fullPath = `${REPO_ROOT}/${args.path}`;
 			const content = await ctx.runAction(internal.daytonaActions.readFile, {
 				sandboxId,
@@ -176,6 +163,10 @@ export function createCodebaseTools(
 				),
 		}),
 		handler: async (ctx, args) => {
+			const sandboxId = await ctx.runAction(
+				internal.daytonaActions.ensureConversationSandbox,
+				{ conversationId, projectId }
+			);
 			const fullPath = args.path ? `${REPO_ROOT}/${args.path}` : REPO_ROOT;
 			const matches = await ctx.runAction(internal.daytonaActions.searchCode, {
 				sandboxId,

@@ -223,7 +223,7 @@ export const deleteOrganization = mutation({
 		orgId: v.id("organizations"),
 	},
 	handler: async (ctx, args) => {
-		const { appUser, membership } = await requireOrgMember(ctx, args.orgId);
+		const { membership } = await requireOrgMember(ctx, args.orgId);
 		if (membership.role !== "owner") {
 			throw new Error("Only owners can delete organizations");
 		}
@@ -257,7 +257,6 @@ export const deleteOrganization = mutation({
 		for (const project of projects) {
 			await ctx.runMutation(internal.projects.deleteProjectCascadeInternal, {
 				projectId: project._id,
-				actorUserId: appUser._id,
 			});
 		}
 

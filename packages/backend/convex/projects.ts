@@ -28,66 +28,47 @@ async function deleteRecords<
 		| "activity"
 		| "conversations"
 		| "docs"
-		| "fileTreeCache"
 		| "plans"
 		| "projectMembers"
 		| "tasks"
-		| "triageItems"
-		| "webhooks",
+		| "triageItems",
 >(ctx: MutationCtx, ids: Id<T>[]) {
 	await Promise.all(ids.map((id) => ctx.db.delete(id)));
 }
 
 async function deleteProjectCascade(
 	ctx: MutationCtx,
-	project: Doc<"projects">,
-	actorUserId: Id<"users">
+	project: Doc<"projects">
 ) {
-	const [
-		conversations,
-		tasks,
-		triageItems,
-		docs,
-		activity,
-		fileTreeEntries,
-		projectMembers,
-		webhook,
-	] = await Promise.all([
-		ctx.db
-			.query("conversations")
-			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-			.collect(),
-		ctx.db
-			.query("tasks")
-			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-			.collect(),
-		ctx.db
-			.query("triageItems")
-			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-			.collect(),
-		ctx.db
-			.query("docs")
-			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-			.collect(),
-		ctx.db
-			.query("activity")
-			.withIndex("by_projectId_createdAt", (q) =>
-				q.eq("projectId", project._id)
-			)
-			.collect(),
-		ctx.db
-			.query("fileTreeCache")
-			.withIndex("by_projectId_path", (q) => q.eq("projectId", project._id))
-			.collect(),
-		ctx.db
-			.query("projectMembers")
-			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-			.collect(),
-		ctx.db
-			.query("webhooks")
-			.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
-			.first(),
-	]);
+	const [conversations, tasks, triageItems, docs, activity, projectMembers] =
+		await Promise.all([
+			ctx.db
+				.query("conversations")
+				.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+				.collect(),
+			ctx.db
+				.query("tasks")
+				.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+				.collect(),
+			ctx.db
+				.query("triageItems")
+				.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+				.collect(),
+			ctx.db
+				.query("docs")
+				.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+				.collect(),
+			ctx.db
+				.query("activity")
+				.withIndex("by_projectId_createdAt", (q) =>
+					q.eq("projectId", project._id)
+				)
+				.collect(),
+			ctx.db
+				.query("projectMembers")
+				.withIndex("by_projectId", (q) => q.eq("projectId", project._id))
+				.collect(),
+		]);
 
 	const plans = (
 		await Promise.all(
@@ -104,27 +85,13 @@ async function deleteProjectCascade(
 
 	const threadIds = conversations.map((conversation) => conversation.threadId);
 
-	if (project.repoProvider === "github" && project.repoUrl && webhook) {
-		const gitConnection = await ctx.db
-			.query("gitConnections")
-			.withIndex("by_userId_provider", (q) =>
-				q.eq("userId", actorUserId).eq("provider", "github")
-			)
-			.first();
-
-		if (gitConnection) {
-			await ctx.scheduler.runAfter(0, internal.webhooks.deleteGithubByDetails, {
-				repoUrl: project.repoUrl,
-				gitConnectionId: gitConnection._id,
-				providerWebhookId: webhook.providerWebhookId,
+	// Delete any ephemeral sandboxes attached to conversations
+	for (const conversation of conversations) {
+		if (conversation.sandboxId) {
+			await ctx.scheduler.runAfter(0, internal.daytonaActions.deleteSandbox, {
+				sandboxId: conversation.sandboxId,
 			});
 		}
-	}
-
-	if (project.sandboxId) {
-		await ctx.scheduler.runAfter(0, internal.daytonaActions.deleteSandbox, {
-			sandboxId: project.sandboxId,
-		});
 	}
 
 	if (threadIds.length > 0) {
@@ -155,15 +122,8 @@ async function deleteProjectCascade(
 	);
 	await deleteRecords(
 		ctx,
-		fileTreeEntries.map((entry) => entry._id)
-	);
-	await deleteRecords(
-		ctx,
 		projectMembers.map((member) => member._id)
 	);
-	if (webhook) {
-		await ctx.db.delete(webhook._id);
-	}
 	await deleteRecords(
 		ctx,
 		conversations.map((conversation) => conversation._id)
@@ -454,22 +414,17 @@ export const create = mutation({
 					)
 					.first();
 				gitConnectionId = gitConnection?._id;
-
-				// Register webhook for push events (GitHub only, requires OAuth connection)
-				if (repoProvider === "github" && gitConnection) {
-					await ctx.scheduler.runAfter(0, internal.webhooks.registerGithub, {
-						projectId,
-						repoUrl: args.repoUrl,
-						gitConnectionId: gitConnection._id,
-					});
-				}
 			}
 
-			await ctx.scheduler.runAfter(0, internal.daytonaActions.createSandbox, {
-				projectId,
-				repoUrl: args.repoUrl,
-				gitConnectionId,
-			});
+			await ctx.scheduler.runAfter(
+				0,
+				internal.daytonaActions.generateProjectDescription,
+				{
+					projectId,
+					repoUrl: args.repoUrl,
+					gitConnectionId,
+				}
+			);
 		}
 
 		return projectId;
@@ -498,20 +453,15 @@ export const connectRepo = mutation({
 			)
 			.first();
 
-		await ctx.scheduler.runAfter(0, internal.daytonaActions.createSandbox, {
-			projectId: args.projectId,
-			repoUrl: args.repoUrl,
-			gitConnectionId: gitConnection?._id,
-		});
-
-		// Register webhook for push events (GitHub only, requires OAuth connection)
-		if (args.repoProvider === "github" && gitConnection) {
-			await ctx.scheduler.runAfter(0, internal.webhooks.registerGithub, {
+		await ctx.scheduler.runAfter(
+			0,
+			internal.daytonaActions.generateProjectDescription,
+			{
 				projectId: args.projectId,
 				repoUrl: args.repoUrl,
-				gitConnectionId: gitConnection._id,
-			});
-		}
+				gitConnectionId: gitConnection?._id,
+			}
+		);
 	},
 });
 
@@ -560,11 +510,15 @@ export const connectSelfHostedRepo = mutation({
 			}
 		}
 
-		await ctx.scheduler.runAfter(0, internal.daytonaActions.createSandbox, {
-			projectId: args.projectId,
-			repoUrl: args.repoUrl,
-			gitConnectionId,
-		});
+		await ctx.scheduler.runAfter(
+			0,
+			internal.daytonaActions.generateProjectDescription,
+			{
+				projectId: args.projectId,
+				repoUrl: args.repoUrl,
+				gitConnectionId,
+			}
+		);
 	},
 });
 
@@ -573,44 +527,11 @@ export const disconnectRepo = mutation({
 		projectId: v.id("projects"),
 	},
 	handler: async (ctx, args) => {
-		const { appUser, project } = await requireProjectMember(
-			ctx,
-			args.projectId
-		);
-
-		// Unregister webhook before deleting sandbox (GitHub only)
-		if (project.repoProvider === "github" && project.repoUrl) {
-			const gitConnection = await ctx.db
-				.query("gitConnections")
-				.withIndex("by_userId_provider", (q) =>
-					q.eq("userId", appUser._id).eq("provider", "github")
-				)
-				.first();
-
-			if (gitConnection) {
-				await ctx.scheduler.runAfter(0, internal.webhooks.unregisterGithub, {
-					projectId: args.projectId,
-					repoUrl: project.repoUrl,
-					gitConnectionId: gitConnection._id,
-				});
-			}
-		}
-
-		if (project.sandboxId) {
-			await ctx.scheduler.runAfter(0, internal.daytonaActions.deleteSandbox, {
-				sandboxId: project.sandboxId,
-			});
-		}
-
-		// Clear cached file tree
-		await ctx.runMutation(internal.daytona.clearFileTreeCache, {
-			projectId: args.projectId,
-		});
+		await requireProjectMember(ctx, args.projectId);
 
 		await ctx.db.patch(args.projectId, {
 			repoUrl: undefined,
 			repoProvider: undefined,
-			sandboxId: undefined,
 		});
 	},
 });
@@ -620,7 +541,7 @@ export const deleteProject = mutation({
 		projectId: v.id("projects"),
 	},
 	handler: async (ctx, args) => {
-		const { appUser, membership, project } = await requireProjectMember(
+		const { membership, project } = await requireProjectMember(
 			ctx,
 			args.projectId
 		);
@@ -628,14 +549,13 @@ export const deleteProject = mutation({
 			throw new Error("Only owners and admins can delete projects");
 		}
 
-		await deleteProjectCascade(ctx, project, appUser._id);
+		await deleteProjectCascade(ctx, project);
 	},
 });
 
 export const deleteProjectCascadeInternal = internalMutation({
 	args: {
 		projectId: v.id("projects"),
-		actorUserId: v.id("users"),
 	},
 	handler: async (ctx, args) => {
 		const project = await ctx.db.get(args.projectId);
@@ -643,7 +563,16 @@ export const deleteProjectCascadeInternal = internalMutation({
 			return;
 		}
 
-		await deleteProjectCascade(ctx, project, args.actorUserId);
+		await deleteProjectCascade(ctx, project);
+	},
+});
+
+export const getProjectInternal = internalQuery({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: (ctx, args) => {
+		return ctx.db.get(args.projectId);
 	},
 });
 

@@ -162,7 +162,6 @@ export default defineSchema({
 		organizationId: v.id("organizations"),
 		repoUrl: v.optional(v.string()),
 		repoProvider: v.optional(projectRepoProviderValidator),
-		sandboxId: v.optional(v.string()),
 		createdBy: v.id("users"),
 		createdAt: v.number(),
 	})
@@ -184,6 +183,7 @@ export default defineSchema({
 		projectId: v.id("projects"),
 		threadId: v.string(),
 		title: v.optional(v.string()),
+		sandboxId: v.optional(v.string()),
 		status: conversationStatusValidator,
 		createdBy: v.id("users"),
 		createdAt: v.number(),
@@ -273,27 +273,6 @@ export default defineSchema({
 		createdAt: v.number(),
 		expiresAt: v.number(),
 	}).index("by_state", ["state"]),
-
-	webhooks: defineTable({
-		projectId: v.id("projects"),
-		provider: projectRepoProviderValidator,
-		providerWebhookId: v.string(),
-		secret: v.string(),
-		createdAt: v.number(),
-	}).index("by_projectId", ["projectId"]),
-
-	fileTreeCache: defineTable({
-		projectId: v.id("projects"),
-		path: v.string(),
-		entries: v.array(
-			v.object({
-				name: v.string(),
-				isDir: v.boolean(),
-				size: v.number(),
-			})
-		),
-		cachedAt: v.number(),
-	}).index("by_projectId_path", ["projectId", "path"]),
 
 	activity: defineTable({
 		projectId: v.id("projects"),

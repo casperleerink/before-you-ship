@@ -127,6 +127,21 @@ export const getConnectionById = internalQuery({
 	},
 });
 
+export const getConnectionByUserAndProvider = internalQuery({
+	args: {
+		userId: v.id("users"),
+		provider: projectRepoProviderValidator,
+	},
+	handler: (ctx, args) => {
+		return ctx.db
+			.query("gitConnections")
+			.withIndex("by_userId_provider", (q) =>
+				q.eq("userId", args.userId).eq("provider", args.provider)
+			)
+			.first();
+	},
+});
+
 // --- Internal functions for OAuth callback ---
 
 export const getRequestByState = internalQuery({

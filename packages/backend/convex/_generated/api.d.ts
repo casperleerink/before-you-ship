@@ -30,11 +30,10 @@ import type * as plans from "../plans.js";
 import type * as projects from "../projects.js";
 import type * as shared from "../shared.js";
 import type * as slugUtils from "../slugUtils.js";
-import type * as tasks from "../tasks.js";
 import type * as taskDependencies from "../taskDependencies.js";
+import type * as tasks from "../tasks.js";
 import type * as tools from "../tools.js";
 import type * as triageItems from "../triageItems.js";
-import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -65,11 +64,10 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   shared: typeof shared;
   slugUtils: typeof slugUtils;
-  tasks: typeof tasks;
   taskDependencies: typeof taskDependencies;
+  tasks: typeof tasks;
   tools: typeof tools;
   triageItems: typeof triageItems;
-  webhooks: typeof webhooks;
 }>;
 
 /**
