@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import Loader from "@/components/loader";
 import { MemberProfileDialog } from "@/components/member-profile-dialog";
+import { MyTasksTab } from "@/components/my-tasks-tab";
 import { ProjectDot } from "@/components/project-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,11 @@ import {
 import { useOrg } from "@/lib/org-context";
 
 const searchSchema = z.object({
-	tab: z.enum(["projects", "members", "settings"]).catch("projects"),
+	project: z.array(z.string()).catch([]).optional(),
+	tab: z
+		.enum(["projects", "my-tasks", "members", "settings"])
+		.catch("projects"),
+	taskId: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/$orgSlug/")({
@@ -74,8 +79,7 @@ export const Route = createFileRoute("/_authenticated/$orgSlug/")({
 });
 
 function OrgDashboardPage() {
-	const { orgSlug } = Route.useParams();
-	const { tab } = Route.useSearch();
+	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
 	const org = useOrg();
 	const { data: projects } = useQuery(
@@ -83,7 +87,7 @@ function OrgDashboardPage() {
 	);
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const activeTab =
-		tab === "settings" && org.role !== "owner" ? "projects" : tab;
+		search.tab === "settings" && org.role !== "owner" ? "projects" : search.tab;
 
 	if (projects === undefined) {
 		return <Loader />;
@@ -98,6 +102,23 @@ function OrgDashboardPage() {
 				orgSlug={org.slug}
 				projects={projects}
 				showCreateForm={showCreateForm}
+			/>
+		);
+	} else if (activeTab === "my-tasks") {
+		tabContent = (
+			<MyTasksTab
+				onSearchChange={(update) =>
+					navigate({
+						search: (prev) => ({
+							...prev,
+							...update,
+						}),
+					})
+				}
+				orgId={org._id}
+				orgSlug={org.slug}
+				projectFilter={search.project ?? []}
+				taskId={search.taskId}
 			/>
 		);
 	} else if (activeTab === "members") {
@@ -120,29 +141,18 @@ function OrgDashboardPage() {
 					</Link>
 					<h1 className="font-bold text-2xl">{org.name}</h1>
 				</div>
-				<div className="flex items-center gap-2">
-					<Link
-						params={{ orgSlug }}
-						search={{ project: [] }}
-						to="/$orgSlug/my-tasks"
-					>
-						<Button variant="outline">
-							<ListTodo className="mr-2 h-4 w-4" />
-							My Tasks
-						</Button>
-					</Link>
-					{activeTab === "projects" && (
-						<Button onClick={() => setShowCreateForm(true)}>
-							<Plus className="mr-2 h-4 w-4" />
-							New Project
-						</Button>
-					)}
-				</div>
+				{activeTab === "projects" && (
+					<Button onClick={() => setShowCreateForm(true)}>
+						<Plus className="mr-2 h-4 w-4" />
+						New Project
+					</Button>
+				)}
 			</div>
 
 			<div className="mb-6 flex gap-1 border-b">
 				{[
 					{ key: "projects" as const, label: "Projects", icon: FolderGit2 },
+					{ key: "my-tasks" as const, label: "My Tasks", icon: ListTodo },
 					{ key: "members" as const, label: "Members", icon: Users },
 					...(org.role === "owner"
 						? [{ key: "settings" as const, label: "Settings", icon: Settings }]
