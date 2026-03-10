@@ -18,6 +18,7 @@ import type * as conversations from "../conversations.js";
 import type * as daytona from "../daytona.js";
 import type * as daytonaActions from "../daytonaActions.js";
 import type * as docs from "../docs.js";
+import type * as e2e from "../e2e.js";
 import type * as embeddings from "../embeddings.js";
 import type * as gitConnections from "../gitConnections.js";
 import type * as gitUtils from "../gitUtils.js";
@@ -32,6 +33,7 @@ import type * as shared from "../shared.js";
 import type * as slugUtils from "../slugUtils.js";
 import type * as taskDependencies from "../taskDependencies.js";
 import type * as tasks from "../tasks.js";
+import type * as testGraphs from "../testGraphs.js";
 import type * as tools from "../tools.js";
 import type * as triageItems from "../triageItems.js";
 
@@ -52,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   daytona: typeof daytona;
   daytonaActions: typeof daytonaActions;
   docs: typeof docs;
+  e2e: typeof e2e;
   embeddings: typeof embeddings;
   gitConnections: typeof gitConnections;
   gitUtils: typeof gitUtils;
@@ -66,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   slugUtils: typeof slugUtils;
   taskDependencies: typeof taskDependencies;
   tasks: typeof tasks;
+  testGraphs: typeof testGraphs;
   tools: typeof tools;
   triageItems: typeof triageItems;
 }>;

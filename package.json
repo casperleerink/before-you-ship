@@ -21,6 +21,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo run test",
+    "test:e2e": "bun run -F web test:e2e",
     "test:watch": "turbo run test:watch --parallel",
     "test:coverage": "turbo run test:coverage",
     "check-types": "turbo check-types",

@@ -1,6 +1,15 @@
 import type { Doc, Id } from "../convex/_generated/dataModel";
 import { authComponent } from "../convex/auth";
 import type { AppTestConvex } from "../convex/test.setup";
+import {
+	insertConversationGraph,
+	insertOrganizationGraph,
+	insertPlan,
+	insertProjectGraph,
+	insertTask,
+	insertTaskDependency,
+	insertTriageItem,
+} from "../convex/testGraphs";
 
 interface ActorInput {
 	email: string;
@@ -100,23 +109,14 @@ export function createOrganizationGraph(
 	actor: TestActor,
 	{ name = "Acme", role = "owner", slug = "acme" }: OrganizationGraphInput = {}
 ) {
-	return t.run(async (ctx) => {
-		const now = Date.now();
-		const organizationId = await ctx.db.insert("organizations", {
-			createdAt: now,
+	return t.run((ctx) => {
+		return insertOrganizationGraph(ctx, {
 			createdBy: actor.appUser._id,
 			name,
-			slug,
-		});
-
-		const membershipId = await ctx.db.insert("organizationMembers", {
-			joinedAt: now,
-			organizationId,
 			role,
+			slug,
 			userId: actor.appUser._id,
 		});
-
-		return { membershipId, organizationId };
 	});
 }
 
@@ -138,8 +138,7 @@ export async function createProjectGraph(
 	);
 
 	return t.run(async (ctx) => {
-		const projectId = await ctx.db.insert("projects", {
-			createdAt: Date.now(),
+		const projectId = await insertProjectGraph(ctx, {
 			createdBy: actor.appUser._id,
 			description,
 			name,
@@ -168,12 +167,10 @@ export async function createConversationGraph(
 	);
 
 	return t.run(async (ctx) => {
-		const conversationId = await ctx.db.insert("conversations", {
-			createdAt: Date.now(),
+		const conversationId = await insertConversationGraph(ctx, {
 			createdBy: actor.appUser._id,
 			projectId,
 			status,
-			threadId: `thread_${crypto.randomUUID()}`,
 			title,
 		});
 
@@ -187,13 +184,11 @@ export function createTriageItem(
 	projectId: Id<"projects">,
 	content = "Investigate flaky behavior"
 ) {
-	return t.run(async (ctx) => {
-		return await ctx.db.insert("triageItems", {
+	return t.run((ctx) => {
+		return insertTriageItem(ctx, {
 			content,
-			createdAt: Date.now(),
 			createdBy: actor.appUser._id,
 			projectId,
-			status: "pending",
 		});
 	});
 }
@@ -219,15 +214,10 @@ export function createTask(
 		urgency?: "low" | "medium" | "high";
 	}
 ) {
-	return t.run(async (ctx) => {
-		return await ctx.db.insert("tasks", {
-			affectedAreas: ["backend"],
+	return t.run((ctx) => {
+		return insertTask(ctx, {
 			assigneeId,
-			brief: "Initial task brief",
-			complexity: "medium",
 			conversationId,
-			createdAt: Date.now(),
-			effort: "medium",
 			projectId,
 			risk,
 			status,
@@ -247,41 +237,10 @@ export function createPlan(
 		projectId: Id<"projects">;
 	}
 ) {
-	return t.run(async (ctx) => {
-		return await ctx.db.insert("plans", {
+	return t.run((ctx) => {
+		return insertPlan(ctx, {
 			conversationId,
-			createdAt: Date.now(),
 			projectId,
-			status: "proposed",
-			tasks: [
-				{
-					affectedAreas: ["backend", "convex"],
-					blockedBy: [],
-					brief: "Add backend tests",
-					clientId: "task-1",
-					complexity: "medium",
-					effort: "medium",
-					risk: "low",
-					title: "Build test harness",
-					urgency: "medium",
-				},
-				{
-					affectedAreas: ["web"],
-					blockedBy: [
-						{
-							clientId: "task-1",
-							kind: "plan_task" as const,
-						},
-					],
-					brief: "Add smoke test",
-					clientId: "task-2",
-					complexity: "low",
-					effort: "low",
-					risk: "low",
-					title: "Wire root runner",
-					urgency: "low",
-				},
-			],
 		});
 	});
 }
@@ -300,16 +259,12 @@ export function createTaskDependency(
 		state?: "active" | "dismissed";
 	}
 ) {
-	return t.run(async (ctx) => {
-		const now = Date.now();
-		return await ctx.db.insert("taskDependencies", {
+	return t.run((ctx) => {
+		return insertTaskDependency(ctx, {
 			blockedTaskId,
 			blockerTaskId,
-			createdAt: now,
 			projectId,
-			source: "ai",
 			state,
-			updatedAt: now,
 		});
 	});
 }

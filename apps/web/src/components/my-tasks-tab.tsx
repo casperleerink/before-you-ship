@@ -30,6 +30,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { findSelectedTask } from "@/features/tasks/task-filters";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { toggleSearchListValue } from "@/lib/router-search";
 import {
@@ -211,10 +212,10 @@ export function MyTasksTab({
 		return tasks.filter((task) => projectFilterSet.has(task.projectId));
 	}, [projectFilterSet, tasks]);
 
-	const selectedTask = taskId
-		? ((tasks?.find((task) => task._id === taskId) as RankedTask | undefined) ??
-			null)
-		: null;
+	const selectedTask = findSelectedTask(
+		tasks as RankedTask[] | undefined,
+		taskId
+	);
 
 	useEffect(() => {
 		if (tasks && taskId && !selectedTask) {

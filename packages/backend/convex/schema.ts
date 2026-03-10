@@ -162,6 +162,7 @@ export default defineSchema({
 		organizationId: v.id("organizations"),
 		repoUrl: v.optional(v.string()),
 		repoProvider: v.optional(projectRepoProviderValidator),
+		sandboxId: v.optional(v.string()),
 		createdBy: v.id("users"),
 		createdAt: v.number(),
 	})

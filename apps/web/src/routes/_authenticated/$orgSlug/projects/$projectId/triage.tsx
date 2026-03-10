@@ -93,7 +93,7 @@ function TriagePage() {
 			) : (
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 					{items.map((item) => (
-						<Card key={item._id} size="sm">
+						<Card data-testid="triage-item-card" key={item._id} size="sm">
 							<CardHeader className="gap-x-3">
 								<CardTitle className="line-clamp-3 text-sm">
 									{item.content}

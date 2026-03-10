@@ -20,6 +20,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	toProjectSettingsInput,
+	toSelfHostedRepoInput,
+} from "@/features/forms/form-values";
+import {
+	filterRepositories,
+	getGitHubConnectionToast,
+} from "@/features/repositories/repo-selection";
 import { getAppFormOnSubmit, useAppForm, withForm } from "@/lib/app-form";
 import { useAppActionMutation, useAppMutation } from "@/lib/convex-mutation";
 import { projectByIdQuery } from "@/lib/convex-query-options";
@@ -132,19 +140,15 @@ function SettingsPage() {
 	);
 
 	useEffect(() => {
-		if (!(github === "connected" || error)) {
+		const toastConfig = getGitHubConnectionToast({ error, github });
+		if (!toastConfig) {
 			return;
 		}
 
-		if (github === "connected") {
-			toast.success("GitHub account connected");
-		} else if (error) {
-			const messages: Record<string, string> = {
-				expired: "Connection request expired — please try again",
-				invalid_state: "Connection failed — please try again",
-				oauth_failed: "GitHub authentication failed",
-			};
-			toast.error(messages[error] ?? "Connection error");
+		if (toastConfig.type === "success") {
+			toast.success(toastConfig.message);
+		} else {
+			toast.error(toastConfig.message);
 		}
 
 		navigate({
@@ -173,9 +177,10 @@ function SettingsPage() {
 					description={project.description ?? ""}
 					name={project.name}
 					onSubmit={async (values) => {
+						const trimmedValues = toProjectSettingsInput(values);
 						await updateProject({
-							description: values.description || undefined,
-							name: values.name,
+							description: trimmedValues.description || undefined,
+							name: trimmedValues.name,
 							projectId,
 						});
 						toast.success("Project settings updated");
@@ -530,11 +535,7 @@ function RepoSelector({
 	}, [connectionId, listRepos]);
 
 	const filteredRepos = useMemo(() => {
-		if (!search) {
-			return repos;
-		}
-		const lower = search.toLowerCase();
-		return repos.filter((repo) => repo.fullName.toLowerCase().includes(lower));
+		return filterRepositories(repos, search);
 	}, [repos, search]);
 
 	if (!loaded) {
@@ -610,9 +611,8 @@ function SelfHostedRepoForm({ projectId }: { projectId: Id<"projects"> }) {
 		onSubmit: async ({ value }) => {
 			try {
 				await connectSelfHosted({
-					accessToken: value.accessToken.trim() || undefined,
 					projectId,
-					repoUrl: value.repoUrl.trim(),
+					...toSelfHostedRepoInput(value),
 				});
 				toast.success("Repository connected");
 				form.reset();
@@ -684,10 +684,7 @@ function ProjectSettingsForm({
 		defaultValues: getProjectSettingsDefaults({ description, name }),
 		onSubmit: async ({ value }) => {
 			try {
-				await onSubmit({
-					description: value.description.trim(),
-					name: value.name.trim(),
-				});
+				await onSubmit(toProjectSettingsInput(value));
 			} catch {
 				toast.error("Failed to update project settings");
 			}

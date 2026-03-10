@@ -21,23 +21,17 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-	CONVERSATION_STATUS_OPTIONS,
-	type ConversationStatus,
-} from "@/lib/conversation-utils";
+	countConversationsByStatus,
+	filterConversations,
+	getConversationEmptyState,
+	type StatusFilter,
+} from "@/features/conversations/conversation-list";
+import { CONVERSATION_STATUS_OPTIONS } from "@/lib/conversation-utils";
 import { formatRelativeTime } from "@/lib/utils";
-
-type StatusFilter = ConversationStatus | "all";
 
 const searchSchema = z.object({
 	status: z.enum(["all", "active", "completed", "abandoned"]).catch("active"),
 });
-
-const EMPTY_STATE_MESSAGES: Record<StatusFilter, string> = {
-	all: "Start a conversation to refine ideas into tasks.",
-	active: "No active conversations. Start one or check another tab.",
-	completed: "No completed conversations yet.",
-	abandoned: "No abandoned conversations.",
-};
 
 export const Route = createFileRoute(
 	"/_authenticated/$orgSlug/projects/$projectId/conversations/"
@@ -55,38 +49,14 @@ function ConversationsPage() {
 	);
 	const navigate = useNavigate({ from: Route.fullPath });
 
-	const filteredConversations = useMemo(() => {
-		if (!conversations) {
-			return [];
-		}
-		if (status === "all") {
-			return conversations;
-		}
-		return conversations.filter(
-			(conversation) => conversation.status === status
-		);
-	}, [conversations, status]);
-
-	const counts = useMemo(() => {
-		if (!conversations) {
-			return { abandoned: 0, active: 0, all: 0, completed: 0 };
-		}
-
-		const result = {
-			abandoned: 0,
-			active: 0,
-			all: conversations.length,
-			completed: 0,
-		};
-
-		for (const conversation of conversations) {
-			if (conversation.status in result) {
-				result[conversation.status as ConversationStatus] += 1;
-			}
-		}
-
-		return result;
-	}, [conversations]);
+	const filteredConversations = useMemo(
+		() => filterConversations(conversations, status),
+		[conversations, status]
+	);
+	const counts = useMemo(
+		() => countConversationsByStatus(conversations),
+		[conversations]
+	);
 
 	if (conversations === undefined) {
 		return <ConversationCardsSkeleton />;
@@ -133,13 +103,9 @@ function ConversationsPage() {
 
 			{filteredConversations.length === 0 ? (
 				<EmptyState
-					description={EMPTY_STATE_MESSAGES[status]}
+					description={getConversationEmptyState(status).description}
 					icon={MessageSquare}
-					title={
-						status === "all"
-							? "No conversations yet"
-							: `No ${status} conversations`
-					}
+					title={getConversationEmptyState(status).title}
 				/>
 			) : (
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
