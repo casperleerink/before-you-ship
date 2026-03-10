@@ -6,7 +6,7 @@ import type {
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, ListTodo, X } from "lucide-react";
+import { ArrowRight, ListTodo, User, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { z } from "zod";
@@ -34,14 +34,6 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
 import {
 	countActiveTaskFilters,
 	createTaskFilterState,
@@ -187,6 +179,52 @@ function TaskDetailSheet({
 	);
 }
 
+function TaskCard({
+	task,
+	members,
+	onClick,
+}: {
+	task: Doc<"tasks">;
+	members: { _id: Id<"users">; name: string }[];
+	onClick: () => void;
+}) {
+	const assignee = task.assigneeId
+		? members.find((m) => m._id === task.assigneeId)
+		: null;
+
+	return (
+		<button
+			className="flex w-full flex-col gap-3 rounded-xl border p-5 text-left transition-colors hover:bg-accent/30"
+			onClick={onClick}
+			type="button"
+		>
+			<div className="flex items-start justify-between gap-4">
+				<h3 className="font-medium text-base">{task.title}</h3>
+				<div className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-sm">
+					<User className="size-3.5" />
+					<span>{assignee ? assignee.name : "Unassigned"}</span>
+				</div>
+			</div>
+
+			{task.brief && (
+				<p className="line-clamp-2 text-muted-foreground text-sm">
+					{task.brief}
+				</p>
+			)}
+
+			<div className="flex flex-wrap items-center gap-2">
+				<Badge variant={statusVariant(task.status)}>
+					{statusLabel(task.status)}
+				</Badge>
+				<UrgencyBadge urgency={task.urgency} />
+				<LevelBadge level={task.risk} type="risk" />
+				<LevelBadge level={task.complexity} type="complexity" />
+				<LevelBadge level={task.effort} type="effort" />
+			</div>
+		</button>
+	);
+}
+
 function TasksPage() {
 	const { projectId: projectIdParam } = Route.useParams();
 	const search = Route.useSearch();
@@ -319,56 +357,22 @@ function TasksPage() {
 							No tasks match the current filters.
 						</div>
 					) : (
-						<div className="rounded-md border">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Title</TableHead>
-										<TableHead className="w-[100px]">Status</TableHead>
-										<TableHead className="w-[100px]">Urgency</TableHead>
-										<TableHead className="w-[80px]">Risk</TableHead>
-										<TableHead className="w-[100px]">Complexity</TableHead>
-										<TableHead className="w-[80px]">Effort</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{filteredTasks.map((task) => (
-										<TableRow
-											className="cursor-pointer"
-											key={task._id}
-											onClick={() =>
-												navigate({
-													search: (prev) => ({
-														...prev,
-														taskId: task._id,
-													}),
-												})
-											}
-										>
-											<TableCell className="font-medium">
-												{task.title}
-											</TableCell>
-											<TableCell>
-												<Badge variant={statusVariant(task.status)}>
-													{statusLabel(task.status)}
-												</Badge>
-											</TableCell>
-											<TableCell>
-												<UrgencyBadge urgency={task.urgency} />
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={task.risk} type="risk" />
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={task.complexity} type="complexity" />
-											</TableCell>
-											<TableCell>
-												<LevelBadge level={task.effort} type="effort" />
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
+						<div className="space-y-3">
+							{filteredTasks.map((task) => (
+								<TaskCard
+									key={task._id}
+									members={members ?? []}
+									onClick={() =>
+										navigate({
+											search: (prev) => ({
+												...prev,
+												taskId: task._id,
+											}),
+										})
+									}
+									task={task}
+								/>
+							))}
 						</div>
 					)}
 				</>
