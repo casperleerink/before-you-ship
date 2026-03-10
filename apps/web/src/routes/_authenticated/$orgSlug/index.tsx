@@ -53,6 +53,17 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import {
+	toInviteMemberInput,
+	toOrganizationInput,
+	toProjectCreateInput,
+} from "@/features/forms/form-values";
+import {
+	createSlugPreview,
+	formatWorkProfile,
+	getAvailabilityBadgeVariant,
+	getOrgDashboardActiveTab,
+} from "@/features/org-dashboard/org-dashboard-logic";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
 import { useAppMutation } from "@/lib/convex-mutation";
 import {
@@ -86,8 +97,7 @@ function OrgDashboardPage() {
 		convexQuery(api.projects.list, { orgId: org._id })
 	);
 	const [showCreateForm, setShowCreateForm] = useState(false);
-	const activeTab =
-		search.tab === "settings" && org.role !== "owner" ? "projects" : search.tab;
+	const activeTab = getOrgDashboardActiveTab(search.tab, org.role);
 
 	if (projects === undefined) {
 		return <Loader />;
@@ -208,11 +218,11 @@ function SettingsTab({
 	const form = useAppForm({
 		defaultValues: getOrganizationNameDefaults(orgName),
 		onSubmit: async ({ value }) => {
-			const nextName = value.name.trim();
 			try {
+				const nextInput = toOrganizationInput(value.name);
 				const updated = await updateOrganization({
-					name: nextName,
 					orgId,
+					...nextInput,
 				});
 				form.reset({
 					name: updated.name,
@@ -360,14 +370,6 @@ function SettingsTab({
 			</Dialog>
 		</div>
 	);
-}
-
-function createSlugPreview(value: string) {
-	return value
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
 }
 
 function ProjectsTab({
@@ -581,39 +583,14 @@ function AvailabilityBadge({
 		return <Badge variant="outline">No profile</Badge>;
 	}
 
-	let variant: "destructive" | "outline" | "secondary" = "outline";
-	if (profile.availabilityStatus === "unavailable") {
-		variant = "destructive";
-	} else if (profile.availabilityStatus === "limited") {
-		variant = "secondary";
-	}
-
 	return (
 		<div className="flex flex-wrap gap-1">
-			<Badge variant={variant}>{profile.availabilityStatus}</Badge>
+			<Badge variant={getAvailabilityBadgeVariant(profile)}>
+				{profile.availabilityStatus}
+			</Badge>
 			{!profile.assignmentEnabled && <Badge variant="secondary">AI off</Badge>}
 		</div>
 	);
-}
-
-function formatWorkProfile(profile?: {
-	department?: string;
-	ownedDomains?: string[];
-	strengths?: string[];
-	workDescription?: string;
-}) {
-	if (!profile) {
-		return "No work profile configured";
-	}
-
-	const parts = [
-		profile.department,
-		profile.workDescription,
-		profile.ownedDomains?.[0] ? `Owns ${profile.ownedDomains[0]}` : undefined,
-		profile.strengths?.[0] ? `Strong in ${profile.strengths[0]}` : undefined,
-	].filter((part): part is string => Boolean(part));
-
-	return parts[0] ?? "Profile needs more detail";
 }
 
 function MemberActions({
@@ -704,9 +681,8 @@ function InviteMemberForm({ orgId }: { orgId: Id<"organizations"> }) {
 		onSubmit: async ({ value }) => {
 			try {
 				await inviteMember({
-					email: value.email.trim(),
 					orgId,
-					role: value.role,
+					...toInviteMemberInput(value.email, value.role),
 				});
 				form.reset();
 				toast.success("Invite sent");
@@ -781,11 +757,10 @@ function CreateProjectForm({
 		defaultValues: getProjectFormDefaults(),
 		onSubmit: async ({ value }) => {
 			try {
+				const projectInput = toProjectCreateInput(value);
 				const projectId = await createProject({
-					description: value.description.trim() || undefined,
-					name: value.name.trim(),
 					orgId,
-					repoUrl: value.repoUrl.trim() || undefined,
+					...projectInput,
 				});
 				form.reset();
 				onCreated();

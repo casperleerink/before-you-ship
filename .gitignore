@@ -42,6 +42,9 @@ lerna-debug.log*
 # Testing
 coverage
 .nyc_output
+apps/web/e2e/.auth
+apps/web/playwright-report
+apps/web/test-results
 
 # Claude Code
 .claude/worktrees

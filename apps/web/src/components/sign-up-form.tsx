@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { trimEmail, trimName } from "@/features/forms/form-values";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
 import { authClient } from "@/lib/auth-client";
 import { getSignUpFormDefaults, signUpFormSchema } from "@/lib/form-schemas";
@@ -18,9 +19,9 @@ export default function SignUpForm({
 		onSubmit: async ({ value }) => {
 			await authClient.signUp.email(
 				{
-					email: value.email.trim(),
+					email: trimEmail(value.email),
 					password: value.password,
-					name: value.name.trim(),
+					name: trimName(value.name),
 				},
 				{
 					onSuccess: () => {

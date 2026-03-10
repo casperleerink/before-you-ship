@@ -42,6 +42,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import {
+	countActiveTaskFilters,
+	createTaskFilterState,
+	filterTasks,
+	findSelectedTask,
+} from "@/features/tasks/task-filters";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { toggleSearchListValue } from "@/lib/router-search";
 import {
@@ -71,41 +77,6 @@ export const Route = createFileRoute(
 	component: TasksPage,
 	validateSearch: searchSchema,
 });
-
-function matchesTaskFilters(
-	task: Doc<"tasks">,
-	filters: {
-		statusFilter: Set<TaskStatus>;
-		riskFilter: Set<TaskLevel>;
-		complexityFilter: Set<TaskLevel>;
-		effortFilter: Set<TaskLevel>;
-		searchQuery: string;
-	}
-) {
-	if (filters.statusFilter.size > 0 && !filters.statusFilter.has(task.status)) {
-		return false;
-	}
-	if (filters.riskFilter.size > 0 && !filters.riskFilter.has(task.risk)) {
-		return false;
-	}
-	if (
-		filters.complexityFilter.size > 0 &&
-		!filters.complexityFilter.has(task.complexity)
-	) {
-		return false;
-	}
-	if (filters.effortFilter.size > 0 && !filters.effortFilter.has(task.effort)) {
-		return false;
-	}
-	if (!filters.searchQuery) {
-		return true;
-	}
-
-	const searchableText = [task.title, task.brief, ...task.affectedAreas]
-		.join(" ")
-		.toLowerCase();
-	return searchableText.includes(filters.searchQuery);
-}
 
 function TaskDetailSheet({
 	task,
@@ -226,50 +197,15 @@ function TasksPage() {
 		convexQuery(api.projects.listAssignmentCandidates, { projectId })
 	);
 
-	const statusFilter = new Set<TaskStatus>(search.status ?? []);
-	const riskFilter = new Set<TaskLevel>(search.risk ?? []);
-	const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
-	const effortFilter = new Set<TaskLevel>(search.effort ?? []);
-	const searchQuery = search.q?.trim().toLowerCase() ?? "";
-
-	const activeFilterCount =
-		statusFilter.size +
-		riskFilter.size +
-		complexityFilter.size +
-		effortFilter.size +
-		(searchQuery ? 1 : 0);
+	const filters = createTaskFilterState(search);
+	const { complexityFilter, effortFilter, riskFilter, statusFilter } = filters;
+	const activeFilterCount = countActiveTaskFilters(filters);
 
 	const filteredTasks = useMemo(() => {
-		if (!tasks) {
-			return [];
-		}
+		return filterTasks(tasks, search);
+	}, [search, tasks]);
 
-		const statusFilter = new Set<TaskStatus>(search.status ?? []);
-		const riskFilter = new Set<TaskLevel>(search.risk ?? []);
-		const complexityFilter = new Set<TaskLevel>(search.complexity ?? []);
-		const effortFilter = new Set<TaskLevel>(search.effort ?? []);
-
-		return tasks.filter((task) =>
-			matchesTaskFilters(task, {
-				statusFilter,
-				riskFilter,
-				complexityFilter,
-				effortFilter,
-				searchQuery,
-			})
-		);
-	}, [
-		search.complexity,
-		search.effort,
-		search.risk,
-		search.status,
-		searchQuery,
-		tasks,
-	]);
-
-	const selectedTask = search.taskId
-		? (tasks?.find((task) => task._id === search.taskId) ?? null)
-		: null;
+	const selectedTask = findSelectedTask(tasks, search.taskId);
 
 	useEffect(() => {
 		if (tasks && search.taskId && !selectedTask) {
