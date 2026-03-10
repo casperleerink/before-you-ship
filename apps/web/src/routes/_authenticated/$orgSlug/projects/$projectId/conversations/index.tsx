@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { ConversationStatusDropdown } from "@/components/conversation-status-dropdown";
 import EmptyState from "@/components/empty-state";
-import Loader from "@/components/loader";
+import { ConversationCardsSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -89,11 +89,7 @@ function ConversationsPage() {
 	}, [conversations]);
 
 	if (conversations === undefined) {
-		return (
-			<div className="p-6">
-				<Loader />
-			</div>
-		);
+		return <ConversationCardsSkeleton />;
 	}
 
 	const handleCreate = () => {

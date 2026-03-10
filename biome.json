@@ -88,6 +88,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/web/src/components/skeletons.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
     }
   ],
   "javascript": {

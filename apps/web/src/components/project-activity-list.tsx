@@ -13,7 +13,7 @@ import {
 import { useEffect, useEffectEvent, useRef } from "react";
 
 import EmptyState from "@/components/empty-state";
-import Loader from "@/components/loader";
+import { ActivityListSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ export function ProjectActivityList({
 	}, [status]);
 
 	if (isLoading && activity.length === 0) {
-		return <Loader />;
+		return <ActivityListSkeleton />;
 	}
 
 	if (activity.length === 0) {

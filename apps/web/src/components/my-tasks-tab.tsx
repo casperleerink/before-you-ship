@@ -11,7 +11,7 @@ import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 
 import EmptyState from "@/components/empty-state";
-import Loader from "@/components/loader";
+import { TaskQueueSkeleton } from "@/components/skeletons";
 import { TaskDependencySection } from "@/components/task-dependency-section";
 import {
 	FieldLabel,
@@ -223,7 +223,7 @@ export function MyTasksTab({
 	}, [onSearchChange, taskId, selectedTask, tasks]);
 
 	if (tasks === undefined) {
-		return <Loader />;
+		return <TaskQueueSkeleton />;
 	}
 
 	const toggleProjectFilter = (value: string) => {

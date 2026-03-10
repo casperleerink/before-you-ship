@@ -7,6 +7,7 @@ import { Check, ExternalLink, ListChecks, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 import { AssigneeDropdown } from "@/components/assignee-dropdown";
+import { PlanCardSkeleton } from "@/components/skeletons";
 import {
 	LevelBadge,
 	UrgencyBadge,
@@ -57,16 +58,7 @@ export function PlanCard({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	if (plan === undefined) {
-		return (
-			<Card size="sm">
-				<CardContent>
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						<span>Loading plan...</span>
-					</div>
-				</CardContent>
-			</Card>
-		);
+		return <PlanCardSkeleton />;
 	}
 
 	if (!plan) {

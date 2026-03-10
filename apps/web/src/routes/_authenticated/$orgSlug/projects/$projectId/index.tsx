@@ -5,8 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FileText, Inbox, ListTodo, MessageSquare } from "lucide-react";
 
-import Loader from "@/components/loader";
 import { ProjectActivityList } from "@/components/project-activity-list";
+import { DashboardCardsSkeleton } from "@/components/skeletons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute(
@@ -35,11 +35,7 @@ function ProjectDashboard() {
 		docs === undefined;
 
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<Loader />
-			</div>
-		);
+		return <DashboardCardsSkeleton />;
 	}
 
 	const pendingTriage = triageItems.filter((t) => t.status === "pending");

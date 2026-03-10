@@ -8,7 +8,7 @@ import { useState } from "react";
 import { ChatComposer } from "@/components/chat-composer";
 import { ChatMessageList } from "@/components/chat-message-list";
 import { ConversationStatusDropdown } from "@/components/conversation-status-dropdown";
-import Loader from "@/components/loader";
+import { ConversationDetailSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { conversationByIdQuery } from "@/lib/convex-query-options";
@@ -53,11 +53,7 @@ function ConversationDetailPage() {
 	const isBusy = isLoading || !!hasStreamingMessage;
 
 	if (isPending) {
-		return (
-			<div className="p-6">
-				<Loader />
-			</div>
-		);
+		return <ConversationDetailSkeleton />;
 	}
 
 	if (!conversation) {

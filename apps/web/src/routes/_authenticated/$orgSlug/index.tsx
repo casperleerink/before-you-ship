@@ -19,10 +19,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import Loader from "@/components/loader";
 import { MemberProfileDialog } from "@/components/member-profile-dialog";
 import { MyTasksTab } from "@/components/my-tasks-tab";
 import { ProjectDot } from "@/components/project-dot";
+import {
+	MembersTableSkeleton,
+	ProjectCardsSkeleton,
+} from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -90,7 +94,16 @@ function OrgDashboardPage() {
 		search.tab === "settings" && org.role !== "owner" ? "projects" : search.tab;
 
 	if (projects === undefined) {
-		return <Loader />;
+		return (
+			<div className="container mx-auto max-w-4xl px-4 py-8">
+				<div className="mb-6">
+					<Skeleton className="mb-1 h-4 w-24" />
+					<Skeleton className="h-8 w-48" />
+				</div>
+				<Skeleton className="mb-6 h-10 w-80" />
+				<ProjectCardsSkeleton />
+			</div>
+		);
 	}
 
 	let tabContent: React.ReactNode;
@@ -451,7 +464,7 @@ function MembersTab({
 	const canManage = currentUserRole === "owner" || currentUserRole === "admin";
 
 	if (members === undefined || invites === undefined) {
-		return <Loader />;
+		return <MembersTableSkeleton />;
 	}
 
 	return (

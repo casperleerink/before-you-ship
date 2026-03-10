@@ -14,7 +14,7 @@ import {
 import { useState } from "react";
 
 import EmptyState from "@/components/empty-state";
-import Loader from "@/components/loader";
+import { TriageCardsSkeleton } from "@/components/skeletons";
 import TriageCaptureModal from "@/components/triage-capture-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,11 +59,7 @@ function TriagePage() {
 	} | null>(null);
 
 	if (items === undefined) {
-		return (
-			<div className="p-6">
-				<Loader />
-			</div>
-		);
+		return <TriageCardsSkeleton />;
 	}
 
 	const navigateToConversation = (conversationId: Id<"conversations">) => {

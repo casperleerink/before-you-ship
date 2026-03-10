@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { AssigneeDropdown } from "@/components/assignee-dropdown";
 import EmptyState from "@/components/empty-state";
-import Loader from "@/components/loader";
+import { TasksTableSkeleton } from "@/components/skeletons";
 import { TaskDependencySection } from "@/components/task-dependency-section";
 import {
 	FieldLabel,
@@ -284,11 +284,7 @@ function TasksPage() {
 	}, [navigate, search.taskId, selectedTask, tasks]);
 
 	if (tasks === undefined) {
-		return (
-			<div className="p-6">
-				<Loader />
-			</div>
-		);
+		return <TasksTableSkeleton />;
 	}
 
 	const toggleFilter = (
