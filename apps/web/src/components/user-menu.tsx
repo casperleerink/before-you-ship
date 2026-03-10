@@ -43,6 +43,7 @@ export default function UserMenu({ compact }: { compact?: boolean }) {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
+				aria-label="User menu"
 				className={cn(
 					"flex w-full items-center gap-2 rounded-md p-1.5 text-left text-sm transition-colors hover:bg-accent/50",
 					compact && "w-auto"

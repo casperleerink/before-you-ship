@@ -21,6 +21,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { toDocCreateInput } from "@/features/forms/form-values";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { docCreateSchema, getDocCreateDefaults } from "@/lib/form-schemas";
@@ -162,7 +163,10 @@ function DocsPage() {
 	const form = useAppForm({
 		defaultValues: getDocCreateDefaults(),
 		onSubmit: async ({ value }) => {
-			const docId = await createDoc({ projectId, title: value.title.trim() });
+			const docId = await createDoc({
+				projectId,
+				...toDocCreateInput(value.title),
+			});
 			form.reset();
 			setShowCreateForm(false);
 			navigate({

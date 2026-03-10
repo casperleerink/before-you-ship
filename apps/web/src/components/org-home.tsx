@@ -15,6 +15,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { toOrganizationInput } from "@/features/forms/form-values";
 import { getAppFormOnSubmit, useAppForm } from "@/lib/app-form";
 import { useAppMutation } from "@/lib/convex-mutation";
 import {
@@ -147,7 +148,7 @@ function CreateOrgForm({
 		defaultValues: getOrganizationNameDefaults(),
 		onSubmit: async ({ value }) => {
 			try {
-				const result = await createOrg({ name: value.name.trim() });
+				const result = await createOrg(toOrganizationInput(value.name));
 				form.reset();
 				onOpenOrg(result.slug);
 			} catch {

@@ -72,3 +72,62 @@ before-you-ship/
 - `bun run dev:setup`: Setup and configure your Convex project
 - `bun run check-types`: Check TypeScript types across all apps
 - `bun run check`: Run Biome formatting and linting
+- `bun run -F web test:logic`: Run frontend business-logic tests in Vitest
+- `bun run test:e2e`: Run Playwright end-to-end coverage for the web app
+
+## Frontend Testing
+
+Frontend testing is split into two layers:
+
+- `Vitest` for pure business logic under `apps/web/src/lib` and `apps/web/src/features`
+- `Playwright` for real-browser E2E flows against the running Convex-backed app
+
+### Required Environment
+
+The E2E suite expects a running dev stack plus the usual app environment variables:
+
+- `VITE_CONVEX_URL`
+- `VITE_CONVEX_SITE_URL`
+- `SITE_URL`
+
+`CONVEX_E2E_SECRET` is optional for local runs. If you set it, the E2E bootstrap routes require the matching `x-e2e-secret` header. If you do not set it, those routes are only available from localhost.
+
+### Local Workflow
+
+Start the app stack:
+
+```bash
+bun run dev
+```
+
+Run frontend logic tests:
+
+```bash
+bun run -F web test:logic
+```
+
+Run the full Playwright suite:
+
+```bash
+bun run test:e2e
+```
+
+Run a single Playwright spec:
+
+```bash
+bun run -F web test:e2e -- e2e/tasks.spec.ts
+```
+
+Refresh the seeded E2E scenario manually:
+
+```bash
+curl -X POST \
+  http://127.0.0.1:3001/api/e2e/reset
+
+curl -X POST \
+  -H "content-type: application/json" \
+  -d '{"runId":"manual-seed"}' \
+  http://127.0.0.1:3001/api/e2e/bootstrap
+```
+
+If `CONVEX_E2E_SECRET` is configured, add `-H "x-e2e-secret: $CONVEX_E2E_SECRET"` to both requests.
