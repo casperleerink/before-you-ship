@@ -184,6 +184,7 @@ function buildSystemPrompt(
 		"- Before calling `proposePlan`, assess the scope level. Match your task count to the scope classification.",
 		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
 		"- For large-scope requests, use `createDoc` instead to write a discovery document with phases and open questions.",
+		"- Task titles MUST follow the format 'Action: outcome'. Action is one of: Add, Fix, Update, Remove, Improve, Investigate. Keep the outcome to 3-5 words describing what changes for the user.",
 		"- Each proposed task should include a stable `clientId`, title, brief, urgency, complexity/risk/effort assessment, affected areas, optional hard blocker references in `blockedBy`, and an optional `assigneeId`.",
 		"- Use `blockedBy` only for hard blockers that must be done first.",
 		"- Prefer `plan_task` blocker references for dependencies within the same plan.",

@@ -77,25 +77,18 @@ export function MembersTableSkeleton({ rows = 4 }: { rows?: number }) {
 /** My Tasks tab – ranked task queue */
 export function TaskQueueSkeleton({ count = 4 }: { count?: number }) {
 	return (
-		<div className="space-y-3">
+		<div className="space-y-2">
 			{Array.from({ length: count }, (_, i) => (
 				<div
-					className="flex w-full items-start gap-4 rounded-xl border p-4"
+					className="flex w-full flex-col gap-2 rounded-xl border border-l-[3px] border-l-transparent p-4"
 					key={`skeleton-${i}`}
 				>
-					<Skeleton className="h-10 w-10 shrink-0 rounded-full" />
-					<div className="min-w-0 flex-1 space-y-3">
-						<div className="flex flex-wrap items-center gap-2">
-							<Skeleton className="h-5 w-48" />
-							<Skeleton className="h-5 w-20 rounded-full" />
-							<Skeleton className="h-5 w-16 rounded-full" />
-						</div>
-						<Skeleton className="h-4 w-full max-w-md" />
-						<div className="flex gap-1.5">
-							<Skeleton className="h-5 w-24 rounded-full" />
-							<Skeleton className="h-5 w-20 rounded-full" />
-						</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="size-2.5 shrink-0 rounded-full" />
+						<Skeleton className="h-5 w-56" />
 					</div>
+					<Skeleton className="h-4 w-full max-w-sm" />
+					<Skeleton className="h-3.5 w-40" />
 				</div>
 			))}
 		</div>

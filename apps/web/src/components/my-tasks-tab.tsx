@@ -6,11 +6,12 @@ import type {
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRight, ListTodo, X } from "lucide-react";
+import { ArrowRight, Check, ListTodo, X, Zap } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 
 import EmptyState from "@/components/empty-state";
+import { ProjectDot } from "@/components/project-dot";
 import { TaskQueueSkeleton } from "@/components/skeletons";
 import { TaskDependencySection } from "@/components/task-dependency-section";
 import {
@@ -18,7 +19,6 @@ import {
 	FilterDropdown,
 	LevelBadgeField,
 	StatusDropdown,
-	UrgencyBadge,
 	UrgencyDropdown,
 } from "@/components/task-fields";
 import { Badge } from "@/components/ui/badge";
@@ -33,12 +33,8 @@ import {
 import { findSelectedTask } from "@/features/tasks/task-filters";
 import { useAppMutation } from "@/lib/convex-mutation";
 import { toggleSearchListValue } from "@/lib/router-search";
-import {
-	statusLabel,
-	statusVariant,
-	type TaskStatus,
-	type TaskUrgency,
-} from "@/lib/task-utils";
+import type { TaskStatus, TaskUrgency } from "@/lib/task-utils";
+import { cn } from "@/lib/utils";
 
 type RankedTask = Doc<"tasks"> & {
 	blockedBy: Array<{
@@ -54,6 +50,116 @@ type RankedTask = Doc<"tasks"> & {
 	rank: number;
 	rankReasons: string[];
 };
+
+function StatusAccent({ task }: { task: RankedTask }) {
+	if (task.isBlocked) {
+		return (
+			<span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-red-500" />
+		);
+	}
+	if (task.status === "in_progress") {
+		return (
+			<span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-blue-500" />
+		);
+	}
+	return (
+		<span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-border" />
+	);
+}
+
+function TaskCardStatusLabel({ task }: { task: RankedTask }) {
+	if (task.isBlocked) {
+		return (
+			<span className="shrink-0 font-medium text-red-500 text-xs">Blocked</span>
+		);
+	}
+	if (task.status === "done") {
+		return (
+			<span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
+				<Check className="size-3" />
+				Done
+			</span>
+		);
+	}
+	return null;
+}
+
+function TaskCardUrgency({ urgency }: { urgency: RankedTask["urgency"] }) {
+	if (urgency === "low") {
+		return null;
+	}
+	return (
+		<span
+			className={cn(
+				"flex shrink-0 items-center gap-1 text-xs",
+				urgency === "high" ? "text-red-500" : "text-muted-foreground"
+			)}
+		>
+			<Zap className="size-3" />
+			{urgency === "high" ? "High" : "Medium"}
+		</span>
+	);
+}
+
+function TaskCardAreas({ areas }: { areas: string[] }) {
+	if (areas.length === 0) {
+		return null;
+	}
+	return (
+		<>
+			{areas.map((area) => (
+				<Badge
+					className="shrink-0 text-[0.65rem]"
+					key={area}
+					variant="secondary"
+				>
+					{area}
+				</Badge>
+			))}
+		</>
+	);
+}
+
+function TaskCard({
+	task,
+	onClick,
+}: {
+	task: RankedTask;
+	onClick: () => void;
+}) {
+	const isDone = task.status === "done";
+
+	return (
+		<button
+			className={cn(
+				"relative flex w-full flex-col gap-2 rounded-xl border p-4 pl-5 text-left transition-colors hover:bg-accent/30",
+				isDone && "opacity-60"
+			)}
+			onClick={onClick}
+			type="button"
+		>
+			<StatusAccent task={task} />
+
+			<div className="flex items-center gap-2">
+				<ProjectDot name={task.projectName} />
+				<span
+					className={cn(
+						"min-w-0 shrink truncate font-medium",
+						isDone && "line-through decoration-muted-foreground/50"
+					)}
+				>
+					{task.title}
+				</span>
+				<TaskCardAreas areas={task.affectedAreas} />
+				<span className="flex-1" />
+				<TaskCardStatusLabel task={task} />
+				<TaskCardUrgency urgency={task.urgency} />
+			</div>
+
+			<p className="line-clamp-1 text-muted-foreground text-sm">{task.brief}</p>
+		</button>
+	);
+}
 
 function TaskDetailSheet({
 	task,
@@ -84,7 +190,10 @@ function TaskDetailSheet({
 				<div className="flex flex-col gap-6">
 					<div className="flex flex-col gap-1">
 						<FieldLabel>Project</FieldLabel>
-						<Badge variant="outline">{task.projectName}</Badge>
+						<div className="flex items-center gap-2">
+							<ProjectDot name={task.projectName} />
+							<span className="text-sm">{task.projectName}</span>
+						</div>
 					</div>
 
 					<div className="grid grid-cols-3 gap-4">
@@ -270,41 +379,13 @@ export function MyTasksTab({
 							No tasks match the current filters.
 						</div>
 					) : (
-						<div className="space-y-3">
+						<div className="space-y-2">
 							{filteredTasks.map((task) => (
-								<button
-									className="flex w-full items-start gap-4 rounded-xl border p-4 text-left transition-colors hover:bg-accent/30"
+								<TaskCard
 									key={task._id}
 									onClick={() => onSearchChange({ taskId: task._id })}
-									type="button"
-								>
-									<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-muted font-semibold text-sm">
-										{task.rank}
-									</div>
-									<div className="min-w-0 flex-1 space-y-3">
-										<div className="flex flex-wrap items-center gap-2">
-											<div className="font-medium text-base">{task.title}</div>
-											<Badge variant="outline">{task.projectName}</Badge>
-											<Badge variant={statusVariant(task.status)}>
-												{statusLabel(task.status)}
-											</Badge>
-											<UrgencyBadge urgency={task.urgency} />
-											{task.isBlocked && (
-												<Badge variant="destructive">Blocked</Badge>
-											)}
-										</div>
-										<p className="line-clamp-2 text-muted-foreground text-sm">
-											{task.brief}
-										</p>
-										<div className="flex flex-wrap gap-1.5">
-											{task.rankReasons.map((reason) => (
-												<Badge key={reason} variant="secondary">
-													{reason}
-												</Badge>
-											))}
-										</div>
-									</div>
-								</button>
+									task={task}
+								/>
 							))}
 						</div>
 					)}

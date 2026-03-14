@@ -29,7 +29,11 @@ const proposedTaskSchema = z.object({
 		.describe(
 			"A stable unique identifier for this proposed task within the plan, used for cross-task blocker references."
 		),
-	title: z.string().describe("Short, descriptive title for the task"),
+	title: z
+		.string()
+		.describe(
+			"Task title in the format 'Action: outcome'. Action must be one of: Add, Fix, Update, Remove, Improve, Investigate. Outcome is 3-5 words describing the user-facing result. Examples: 'Fix: payment fails on retry', 'Add: social auth support', 'Update: filter by date range'."
+		),
 	brief: z
 		.string()
 		.describe(
@@ -61,7 +65,11 @@ const proposedTaskSchema = z.object({
 });
 
 const writeTaskSchema = z.object({
-	title: z.string().describe("Short, descriptive title for the task"),
+	title: z
+		.string()
+		.describe(
+			"Task title in the format 'Action: outcome'. Action must be one of: Add, Fix, Update, Remove, Improve, Investigate. Outcome is 3-5 words describing the user-facing result. Examples: 'Fix: payment fails on retry', 'Add: social auth support', 'Update: filter by date range'."
+		),
 	brief: z
 		.string()
 		.describe(
