@@ -29,6 +29,9 @@ import {
 	createWriteTools,
 } from "./tools";
 
+const STEPS_PER_ROUND = 20;
+const MAX_CONTINUATIONS = 3;
+
 export async function sendMessageToThread(
 	ctx: MutationCtx,
 	threadId: string,
@@ -242,17 +245,24 @@ export const generateResponseAsync = internalAction({
 				}
 			: undefined;
 
-		await chatAgent.streamText(
-			ctx,
-			{ threadId },
-			{
-				promptMessageId,
-				system: systemPrompt,
-				tools,
-				stopWhen: stepCountIs(10),
-			},
-			{ saveStreamDeltas: true }
-		);
+		for (let round = 0; round <= MAX_CONTINUATIONS; round++) {
+			const result = await chatAgent.streamText(
+				ctx,
+				{ threadId },
+				{
+					promptMessageId,
+					system: systemPrompt,
+					tools,
+					stopWhen: stepCountIs(STEPS_PER_ROUND),
+				},
+				{ saveStreamDeltas: true }
+			);
+
+			const finishReason = await result.finishReason;
+			if (finishReason !== "tool-calls" || round === MAX_CONTINUATIONS) {
+				break;
+			}
+		}
 
 		// Schedule title generation if the conversation doesn't have one yet
 		if (conversation && !conversation.title) {
