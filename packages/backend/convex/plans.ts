@@ -15,6 +15,7 @@ import {
 	requireProjectMember,
 } from "./helpers";
 import {
+	planScopeValidator,
 	planTaskDependencyRefValidator,
 	planTaskValidator,
 	taskUrgencyValidator,
@@ -156,6 +157,7 @@ export const create = internalMutation({
 	args: {
 		conversationId: v.id("conversations"),
 		projectId: v.id("projects"),
+		scope: v.optional(planScopeValidator),
 		tasks: v.array(planTaskValidator),
 	},
 	handler: async (ctx, args) => {
@@ -165,6 +167,7 @@ export const create = internalMutation({
 			conversationId: args.conversationId,
 			projectId: args.projectId,
 			status: "proposed",
+			scope: args.scope,
 			tasks: args.tasks,
 			createdAt: Date.now(),
 		});

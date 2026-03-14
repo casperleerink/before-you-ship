@@ -6,7 +6,7 @@ import type {
 } from "@project-manager/backend/convex/_generated/dataModel";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, ListTodo, User, X } from "lucide-react";
+import { ArrowRight, ArrowUpDown, ListTodo, User, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { z } from "zod";
@@ -54,11 +54,15 @@ import {
 	type TaskUrgency,
 } from "@/lib/task-utils";
 
+const SORT_VALUES = ["recent", "priority"] as const;
+type TaskSort = (typeof SORT_VALUES)[number];
+
 const searchSchema = z.object({
 	complexity: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
 	effort: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
 	q: z.string().catch("").optional(),
 	risk: z.array(z.enum(TASK_LEVEL_VALUES)).catch([]).optional(),
+	sort: z.enum(SORT_VALUES).catch("recent").optional(),
 	status: z.array(z.enum(TASK_STATUS_VALUES)).catch([]).optional(),
 	taskId: z.string().optional(),
 });
@@ -230,7 +234,19 @@ function TasksPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
 	const projectId = projectIdParam as Id<"projects">;
-	const { data: tasks } = useQuery(convexQuery(api.tasks.list, { projectId }));
+	const sort: TaskSort = search.sort ?? "recent";
+
+	const { data: recentTasks } = useQuery(
+		convexQuery(api.tasks.list, sort === "recent" ? { projectId } : "skip")
+	);
+	const { data: prioritizedTasks } = useQuery(
+		convexQuery(
+			api.tasks.listPrioritized,
+			sort === "priority" ? { projectId } : "skip"
+		)
+	);
+	const tasks = sort === "priority" ? prioritizedTasks : recentTasks;
+
 	const { data: members } = useQuery(
 		convexQuery(api.projects.listAssignmentCandidates, { projectId })
 	);
@@ -275,6 +291,15 @@ function TasksPage() {
 		});
 	};
 
+	const toggleSort = () => {
+		navigate({
+			search: (prev) => ({
+				...prev,
+				sort: sort === "recent" ? "priority" : "recent",
+			}),
+		});
+	};
+
 	return (
 		<div className="p-6">
 			<div className="mb-4 flex items-center justify-between">
@@ -304,6 +329,14 @@ function TasksPage() {
 							placeholder="Search tasks"
 							value={search.q ?? ""}
 						/>
+						<Button
+							onClick={toggleSort}
+							size="sm"
+							variant={sort === "priority" ? "secondary" : "outline"}
+						>
+							<ArrowUpDown className="mr-1 size-3.5" />
+							{sort === "priority" ? "Priority" : "Recent"}
+						</Button>
 						<FilterDropdown
 							label="Status"
 							onToggle={(value) => toggleFilter("status", value)}

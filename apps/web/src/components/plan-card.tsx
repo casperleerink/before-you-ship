@@ -65,6 +65,12 @@ export function PlanCard({
 		return null;
 	}
 
+	const scopeLabels: Record<string, string> = {
+		"quick-fix": "Quick Fix",
+		small: "Small",
+		medium: "Medium",
+	};
+
 	const isApproved = plan.status === "approved";
 	const isRejected = plan.status === "rejected";
 	const isLocked = isApproved || isRejected;
@@ -108,6 +114,9 @@ export function PlanCard({
 				<CardTitle className="flex items-center gap-2">
 					<ListChecks className="h-4 w-4" />
 					{isApproved ? "Approved Plan" : "Proposed Plan"}
+					{plan.scope && (
+						<Badge variant="secondary">{scopeLabels[plan.scope]}</Badge>
+					)}
 					{isApproved && <Badge variant="default">Approved</Badge>}
 					{isRejected && <Badge variant="destructive">Rejected</Badge>}
 				</CardTitle>

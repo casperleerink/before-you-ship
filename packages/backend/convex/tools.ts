@@ -256,6 +256,11 @@ export function createPlanTools(
 		description:
 			"Propose a structured plan with concrete tasks for the user to review. Use this when you have gathered enough context and are ready to suggest specific work items. The plan will be shown as a card in the chat for the user to approve or request changes.",
 		args: z.object({
+			scope: z
+				.enum(["quick-fix", "small", "medium"])
+				.describe(
+					"Scope classification: quick-fix = 1 task, small = 1-2 tasks, medium = 2-4 tasks. For large initiatives, use createDoc instead."
+				),
 			tasks: z
 				.array(proposedTaskSchema)
 				.min(1)
@@ -265,6 +270,7 @@ export function createPlanTools(
 			const planId = await ctx.runMutation(internal.plans.create, {
 				conversationId,
 				projectId,
+				scope: args.scope,
 				tasks: args.tasks.map((task) => ({
 					...task,
 					assigneeId: task.assigneeId as Id<"users"> | undefined,
@@ -337,4 +343,35 @@ export function createWriteTools(
 	});
 
 	return { createTask, updateTask };
+}
+
+export function createDocTools(
+	projectId: Id<"projects">,
+	conversationId: Id<"conversations">,
+	createdBy: Id<"users">
+) {
+	const createDoc = createTool({
+		description:
+			"Create a discovery document for large initiatives that are too broad to break into tasks immediately. Use this instead of proposePlan when the scope is large and needs further exploration, research, or phased planning.",
+		args: z.object({
+			title: z.string().describe("Title for the discovery document"),
+			content: z
+				.string()
+				.describe(
+					"Markdown content. Suggested structure: ## Overview, ## Key Questions, ## Proposed Phases, ## Risks, ## Suggested Next Steps"
+				),
+		}),
+		handler: async (ctx, args) => {
+			const docId = await ctx.runMutation(internal.docs.createFromAgent, {
+				projectId,
+				conversationId,
+				createdBy,
+				title: args.title,
+				content: args.content,
+			});
+			return { docId, title: args.title };
+		},
+	});
+
+	return { createDoc };
 }

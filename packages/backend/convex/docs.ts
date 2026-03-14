@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { getAppUser, getOrgMembership, requireProjectMember } from "./helpers";
 
 export const list = query({
@@ -88,6 +88,43 @@ export const create = mutation({
 		await ctx.scheduler.runAfter(0, internal.activity.record, {
 			projectId: args.projectId,
 			userId: appUser._id,
+			action: "created",
+			entityType: "doc",
+			entityId: docId,
+			description: args.title,
+		});
+
+		return docId;
+	},
+});
+
+export const createFromAgent = internalMutation({
+	args: {
+		projectId: v.id("projects"),
+		conversationId: v.id("conversations"),
+		createdBy: v.id("users"),
+		title: v.string(),
+		content: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const now = Date.now();
+		const docId = await ctx.db.insert("docs", {
+			projectId: args.projectId,
+			conversationId: args.conversationId,
+			title: args.title,
+			content: args.content,
+			createdBy: args.createdBy,
+			createdAt: now,
+			updatedAt: now,
+		});
+
+		await ctx.scheduler.runAfter(0, internal.embeddings.generateDocEmbedding, {
+			docId,
+		});
+
+		await ctx.scheduler.runAfter(0, internal.activity.record, {
+			projectId: args.projectId,
+			userId: args.createdBy,
 			action: "created",
 			entityType: "doc",
 			entityId: docId,

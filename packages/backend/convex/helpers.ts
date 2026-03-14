@@ -121,6 +121,30 @@ export async function requireProjectMember(
 	return { appUser, membership, project };
 }
 
+export async function getProjectMember(
+	ctx: AuthCtx,
+	projectId: Id<"projects">
+) {
+	const [appUser, project] = await Promise.all([
+		getAppUser(ctx),
+		ctx.db.get(projectId),
+	]);
+	if (!(appUser && project)) {
+		return null;
+	}
+
+	const membership = await getOrgMembership(
+		ctx,
+		project.organizationId,
+		appUser._id
+	);
+	if (!membership) {
+		return null;
+	}
+
+	return { appUser, membership, project };
+}
+
 export async function resolveUserNames(ctx: QueryCtx, userIds: Id<"users">[]) {
 	const uniqueIds = [...new Set(userIds)];
 	const users = await Promise.all(uniqueIds.map((id) => ctx.db.get(id)));

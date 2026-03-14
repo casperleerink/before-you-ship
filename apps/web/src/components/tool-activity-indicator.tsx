@@ -29,6 +29,10 @@ const TOOL_LABELS: Record<string, { active: string; done: string }> = {
 		active: "Updating task...",
 		done: "Updated task",
 	},
+	createDoc: {
+		active: "Writing document...",
+		done: "Created document",
+	},
 };
 
 const DEFAULT_LABEL = { active: "Processing...", done: "Done" } as const;

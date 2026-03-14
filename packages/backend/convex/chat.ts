@@ -23,6 +23,7 @@ import { resolveUserNames } from "./helpers";
 import {
 	createAssignmentTools,
 	createCodebaseTools,
+	createDocTools,
 	createPlanTools,
 	createSearchTools,
 	createWriteTools,
@@ -106,6 +107,22 @@ function buildSystemPrompt(
 
 	parts.push(
 		"",
+		"## Scope Assessment",
+		"Before proposing a plan, classify the request scope:",
+		"- **quick-fix**: A single, focused change (typo, config tweak, small bug). → 1 task.",
+		"- **small**: A minor feature or bug fix with limited blast radius. → 1-2 tasks.",
+		"- **medium**: A feature or change touching multiple areas. → 2-4 tasks.",
+		"- **large**: A broad initiative, migration, or exploration that cannot be concretely tasked yet. → Use `createDoc` to write a discovery document instead of `proposePlan`.",
+		"",
+		"**Anti-patterns to avoid:**",
+		'- Do NOT split "investigate" and "fix" into separate tasks — combine them.',
+		"- Do NOT create separate tasks for testing, code review, or deployment — those are part of every task.",
+		"- Do NOT pad plans with boilerplate tasks. Fewer, well-scoped tasks are better than many thin ones.",
+		"- Quality over quantity: 1 precise task beats 5 vague ones."
+	);
+
+	parts.push(
+		"",
 		"## Available Tools",
 		"",
 		"### Read Tools (always available)",
@@ -128,8 +145,9 @@ function buildSystemPrompt(
 
 	parts.push(
 		"",
-		"### Planning Tool",
-		"- **proposePlan**: Propose a structured plan with concrete tasks for the user to review. The plan renders as a card in the chat with an approve button."
+		"### Planning Tools",
+		"- **proposePlan**: Propose a structured plan with concrete tasks for the user to review. The plan renders as a card in the chat with an approve button. Requires a `scope` classification.",
+		"- **createDoc**: Create a discovery document for large initiatives that need further exploration before concrete tasks can be defined. Use this instead of `proposePlan` when the scope is `large`."
 	);
 
 	if (hasApprovedPlan) {
@@ -160,7 +178,9 @@ function buildSystemPrompt(
 	parts.push(
 		"- Surface technical insights in plain, non-technical language. Avoid jargon unless you explain it.",
 		"- Access role in the app is not the same thing as someone's company role or specialty.",
+		"- Before calling `proposePlan`, assess the scope level. Match your task count to the scope classification.",
 		"- When you have enough context, use the `proposePlan` tool to present a structured plan card with concrete tasks.",
+		"- For large-scope requests, use `createDoc` instead to write a discovery document with phases and open questions.",
 		"- Each proposed task should include a stable `clientId`, title, brief, urgency, complexity/risk/effort assessment, affected areas, optional hard blocker references in `blockedBy`, and an optional `assigneeId`.",
 		"- Use `blockedBy` only for hard blockers that must be done first.",
 		"- Prefer `plan_task` blocker references for dependencies within the same plan.",
@@ -211,6 +231,11 @@ export const generateResponseAsync = internalAction({
 						? createCodebaseTools(conversation._id, conversation.projectId)
 						: {}),
 					...createPlanTools(conversation.projectId, conversation._id),
+					...createDocTools(
+						conversation.projectId,
+						conversation._id,
+						conversation.createdBy
+					),
 					...(hasApprovedPlan
 						? createWriteTools(conversation.projectId, conversation._id)
 						: {}),

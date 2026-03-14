@@ -49,6 +49,12 @@ export const planStatusValidator = v.union(
 	v.literal("rejected")
 );
 
+export const planScopeValidator = v.union(
+	v.literal("quick-fix"),
+	v.literal("small"),
+	v.literal("medium")
+);
+
 export const taskDependencyStateValidator = v.union(
 	v.literal("active"),
 	v.literal("dismissed")
@@ -248,6 +254,7 @@ export default defineSchema({
 		conversationId: v.id("conversations"),
 		projectId: v.id("projects"),
 		status: planStatusValidator,
+		scope: v.optional(planScopeValidator),
 		tasks: v.array(planTaskValidator),
 		createdTaskIds: v.optional(v.array(v.id("tasks"))),
 		createdAt: v.number(),
@@ -303,6 +310,7 @@ export default defineSchema({
 
 	docs: defineTable({
 		projectId: v.id("projects"),
+		conversationId: v.optional(v.id("conversations")),
 		title: v.string(),
 		content: v.string(),
 		embedding: v.optional(v.array(v.float64())),

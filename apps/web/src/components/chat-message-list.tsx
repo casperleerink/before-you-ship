@@ -2,6 +2,7 @@ import type { UIMessage } from "@convex-dev/agent/react";
 import type { Id } from "@project-manager/backend/convex/_generated/dataModel";
 import { useEffect, useRef } from "react";
 
+import { DocCard } from "@/components/doc-card";
 import MessageContent from "@/components/message-content";
 import { PlanCard } from "@/components/plan-card";
 import { ToolActivityIndicator } from "@/components/tool-activity-indicator";
@@ -48,6 +49,7 @@ function MessagePartRenderer({
 	if (
 		type.startsWith("tool-") &&
 		type !== "tool-proposePlan" &&
+		type !== "tool-createDoc" &&
 		"state" in part
 	) {
 		const toolPart = part as {
@@ -89,6 +91,27 @@ function MessagePartRenderer({
 					}}
 					orgSlug={orgSlug}
 					planId={toolPart.output.planId as Id<"plans">}
+					projectId={projectId}
+				/>
+			</div>
+		);
+	}
+
+	if (
+		type === "tool-createDoc" &&
+		"state" in part &&
+		part.state === "output-available"
+	) {
+		const toolPart = part as {
+			toolCallId: string;
+			output: { docId: string };
+		};
+
+		return (
+			<div className="mt-1" key={toolPart.toolCallId}>
+				<DocCard
+					docId={toolPart.output.docId as Id<"docs">}
+					orgSlug={orgSlug}
 					projectId={projectId}
 				/>
 			</div>

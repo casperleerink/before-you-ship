@@ -1,14 +1,16 @@
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import {
 	getAppUser,
 	getOrgMembership,
+	getProjectMember,
 	isProjectAssignmentCandidate,
 	requireProjectMember,
+	resolveUserNames,
 } from "./helpers";
 import {
 	taskLevelValidator,
@@ -146,20 +148,8 @@ export const list = query({
 		projectId: v.id("projects"),
 	},
 	handler: async (ctx, args) => {
-		const [appUser, project] = await Promise.all([
-			getAppUser(ctx),
-			ctx.db.get(args.projectId),
-		]);
-		if (!(appUser && project)) {
-			return [];
-		}
-
-		const membership = await getOrgMembership(
-			ctx,
-			project.organizationId,
-			appUser._id
-		);
-		if (!membership) {
+		const auth = await getProjectMember(ctx, args.projectId);
+		if (!auth) {
 			return [];
 		}
 
@@ -213,6 +203,100 @@ export const listByAssignee = query({
 	},
 });
 
+interface BlockerInfo {
+	assigneeId?: Id<"users">;
+	assigneeName?: string;
+	status: "ready" | "in_progress" | "done";
+	taskId: Id<"tasks">;
+	title: string;
+}
+
+async function resolveTaskDependencies(
+	ctx: QueryCtx | MutationCtx,
+	tasks: Doc<"tasks">[]
+) {
+	const dependencyLists = await Promise.all(
+		tasks.map((task) =>
+			ctx.db
+				.query("taskDependencies")
+				.withIndex("by_projectId_blockedTaskId", (q) =>
+					q.eq("projectId", task.projectId).eq("blockedTaskId", task._id)
+				)
+				.collect()
+		)
+	);
+	const dependencies = dependencyLists
+		.flat()
+		.filter((dependency) => dependency.state === "active");
+	const blockerTaskIds = [
+		...new Set(dependencies.map((dependency) => dependency.blockerTaskId)),
+	];
+	const blockerTasks = await Promise.all(
+		blockerTaskIds.map((taskId) => ctx.db.get(taskId))
+	);
+	const blockerMap = new Map(
+		blockerTasks
+			.filter((task): task is NonNullable<typeof task> => task !== null)
+			.map((task) => [task._id, task])
+	);
+	const blockerAssigneeIds = blockerTasks.flatMap((task) =>
+		task?.assigneeId ? [task.assigneeId] : []
+	);
+	const blockerAssigneeMap = await resolveUserNames(
+		ctx as QueryCtx,
+		blockerAssigneeIds
+	);
+	const blockersByTask = new Map<Id<"tasks">, BlockerInfo[]>();
+
+	for (const [index, task] of tasks.entries()) {
+		const unresolvedBlockers = dependencyLists[index]
+			.filter((dependency) => dependency.state === "active")
+			.flatMap((dependency) => {
+				const blockerTask = blockerMap.get(dependency.blockerTaskId);
+				if (!blockerTask || blockerTask.status === "done") {
+					return [];
+				}
+				return [
+					{
+						assigneeId: blockerTask.assigneeId,
+						assigneeName: blockerTask.assigneeId
+							? blockerAssigneeMap.get(blockerTask.assigneeId)?.name
+							: undefined,
+						status: blockerTask.status,
+						taskId: blockerTask._id,
+						title: blockerTask.title,
+					},
+				];
+			});
+		blockersByTask.set(task._id, unresolvedBlockers);
+	}
+
+	return blockersByTask;
+}
+
+function computeBlocksCount(
+	taskIds: Set<Id<"tasks">>,
+	blockersByTask: Map<Id<"tasks">, BlockerInfo[]>
+) {
+	const blocksCount = new Map<Id<"tasks">, number>(
+		[...taskIds].map((id) => [id, 0])
+	);
+	for (const [taskId, blockers] of blockersByTask) {
+		if (!taskIds.has(taskId)) {
+			continue;
+		}
+		for (const blocker of blockers) {
+			if (taskIds.has(blocker.taskId)) {
+				blocksCount.set(
+					blocker.taskId,
+					(blocksCount.get(blocker.taskId) ?? 0) + 1
+				);
+			}
+		}
+	}
+	return blocksCount;
+}
+
 export const listMyRankedQueue = query({
 	args: {
 		orgId: v.id("organizations"),
@@ -250,91 +334,10 @@ export const listMyRankedQueue = query({
 		const openTasks = assignedTasks.filter(
 			(task) => task.status !== "done" && projectNameMap.has(task.projectId)
 		);
-		const dependencyLists = await Promise.all(
-			openTasks.map((task) =>
-				ctx.db
-					.query("taskDependencies")
-					.withIndex("by_projectId_blockedTaskId", (q) =>
-						q.eq("projectId", task.projectId).eq("blockedTaskId", task._id)
-					)
-					.collect()
-			)
-		);
-		const dependencies = dependencyLists
-			.flat()
-			.filter((dependency) => dependency.state === "active");
-		const blockerTaskIds = [
-			...new Set(dependencies.map((dependency) => dependency.blockerTaskId)),
-		];
-		const blockerTasks = await Promise.all(
-			blockerTaskIds.map((taskId) => ctx.db.get(taskId))
-		);
-		const blockerMap = new Map(
-			blockerTasks
-				.filter((task): task is NonNullable<typeof task> => task !== null)
-				.map((task) => [task._id, task])
-		);
-		const blockerAssigneeIds = [
-			...new Set(
-				blockerTasks.flatMap((task) =>
-					task?.assigneeId ? [task.assigneeId] : []
-				)
-			),
-		];
-		const blockerAssignees = await Promise.all(
-			blockerAssigneeIds.map((assigneeId) => ctx.db.get(assigneeId))
-		);
-		const blockerAssigneeMap = new Map(
-			blockerAssignees
-				.filter((user): user is NonNullable<typeof user> => user !== null)
-				.map((user) => [user._id, user.name])
-		);
-		const blockersByTask = new Map<
-			Id<"tasks">,
-			Array<{
-				assigneeId?: Id<"users">;
-				assigneeName?: string;
-				status: (typeof openTasks)[number]["status"];
-				taskId: Id<"tasks">;
-				title: string;
-			}>
-		>();
 
-		for (const [index, task] of openTasks.entries()) {
-			const unresolvedBlockers = dependencyLists[index]
-				.filter((dependency) => dependency.state === "active")
-				.flatMap((dependency) => {
-					const blockerTask = blockerMap.get(dependency.blockerTaskId);
-					if (!blockerTask || blockerTask.status === "done") {
-						return [];
-					}
-					return [
-						{
-							assigneeId: blockerTask.assigneeId,
-							assigneeName: blockerTask.assigneeId
-								? blockerAssigneeMap.get(blockerTask.assigneeId)
-								: undefined,
-							status: blockerTask.status,
-							taskId: blockerTask._id,
-							title: blockerTask.title,
-						},
-					];
-				});
-			blockersByTask.set(task._id, unresolvedBlockers);
-		}
-
+		const blockersByTask = await resolveTaskDependencies(ctx, openTasks);
 		const myTaskIds = new Set(openTasks.map((task) => task._id));
-		const blocksMyTasksCount = new Map(openTasks.map((task) => [task._id, 0]));
-		for (const blockers of blockersByTask.values()) {
-			for (const blocker of blockers) {
-				if (myTaskIds.has(blocker.taskId)) {
-					blocksMyTasksCount.set(
-						blocker.taskId,
-						(blocksMyTasksCount.get(blocker.taskId) ?? 0) + 1
-					);
-				}
-			}
-		}
+		const blocksMyTasksCount = computeBlocksCount(myTaskIds, blockersByTask);
 
 		const rankedTasks = openTasks
 			.map((task) => {
@@ -361,6 +364,80 @@ export const listMyRankedQueue = query({
 			...task,
 			rank: index + 1,
 		}));
+	},
+});
+
+export const listPrioritized = query({
+	args: {
+		projectId: v.id("projects"),
+	},
+	handler: async (ctx, args) => {
+		const auth = await getProjectMember(ctx, args.projectId);
+		if (!auth) {
+			return [];
+		}
+
+		const allTasks = await ctx.db
+			.query("tasks")
+			.withIndex("by_projectId_createdAt", (q) =>
+				q.eq("projectId", args.projectId)
+			)
+			.order("desc")
+			.collect();
+
+		const openTasks = allTasks.filter((task) => task.status !== "done");
+		const doneTasks = allTasks.filter((task) => task.status === "done");
+
+		const blockersByTask = await resolveTaskDependencies(ctx, openTasks);
+		const allOpenTaskIds = new Set(openTasks.map((t) => t._id));
+		const globalBlocksCount = computeBlocksCount(
+			allOpenTaskIds,
+			blockersByTask
+		);
+
+		// Group open tasks by assignee (null = unassigned)
+		const assigneeGroups = new Map<Id<"users"> | null, typeof openTasks>();
+		for (const task of openTasks) {
+			const key: Id<"users"> | null = task.assigneeId ?? null;
+			const group = assigneeGroups.get(key);
+			if (group) {
+				group.push(task);
+			} else {
+				assigneeGroups.set(key, [task]);
+			}
+		}
+
+		// Rank each assignee's tasks independently
+		const rankedGroups: (typeof openTasks)[] = [];
+		for (const group of assigneeGroups.values()) {
+			const ranked = group
+				.map((task) => ({
+					...task,
+					blocksMyTasksCount: globalBlocksCount.get(task._id) ?? 0,
+					isBlocked: (blockersByTask.get(task._id) ?? []).length > 0,
+				}))
+				.sort(compareQueueTasks);
+
+			rankedGroups.push(ranked);
+		}
+
+		// Interleave: round-robin across assignee groups
+		const interleaved: typeof openTasks = [];
+		let round = 0;
+		let added = true;
+		while (added) {
+			added = false;
+			for (const group of rankedGroups) {
+				if (round < group.length) {
+					interleaved.push(group[round]);
+					added = true;
+				}
+			}
+			round++;
+		}
+
+		// Append done tasks at the end (by creation time desc, already sorted)
+		return [...interleaved, ...doneTasks];
 	},
 });
 
