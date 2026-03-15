@@ -106,7 +106,7 @@ export function ProjectActivityList({
 							</div>
 
 							<div className="flex min-w-0 flex-1 flex-col gap-0.5 pb-4">
-								<div className="flex items-center gap-2">
+								<div className="flex min-w-0 items-center gap-2">
 									{item.description ? (
 										<Link
 											className="truncate font-medium text-sm transition-colors hover:text-muted-foreground"
@@ -115,7 +115,7 @@ export function ProjectActivityList({
 											{item.description}
 										</Link>
 									) : (
-										<span className="truncate font-medium text-sm">
+										<span className="line-clamp-1 font-medium text-sm">
 											{item.entityType}
 										</span>
 									)}

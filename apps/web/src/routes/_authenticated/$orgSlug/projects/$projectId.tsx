@@ -135,7 +135,7 @@ function ProjectLayout() {
 	}
 
 	return (
-		<div className="flex h-svh" style={projectThemeStyle}>
+		<div className="flex h-svh min-w-0 max-w-full" style={projectThemeStyle}>
 			<aside className="flex w-60 flex-col border-r">
 				<div className="flex items-center gap-2 p-3">
 					<Link
